@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db
 from services.common.exceptions import register_exception_handlers, AppException
+from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
 from services.nl2sql.config import settings
 from services.nl2sql.models import (
@@ -46,6 +47,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="nl2sql")
 register_exception_handlers(app)
+setup_metrics(app)
 
 
 async def _call_llm(prompt: str, system: str = SYSTEM_PROMPT) -> str:

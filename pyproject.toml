@@ -1,0 +1,34 @@
+[project]
+name = "one-data-studio-lite"
+version = "0.1.0"
+description = "智能大数据平台 - 集成开源组件覆盖数据全生命周期管理"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["services"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "p0: 最高优先级测试",
+    "p1: 高优先级测试",
+    "p2: 中优先级测试",
+    "p3: 低优先级测试",
+    "integration: 集成测试",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true

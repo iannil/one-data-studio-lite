@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from services.common.auth import create_token
 from services.common.exceptions import register_exception_handlers
 from services.common.http_client import ServiceClient
+from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
 from services.portal.config import settings
 from services.portal.models import (
@@ -32,6 +33,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="portal")
 register_exception_handlers(app)
+setup_metrics(app)
 
 # 子系统配置
 SUBSYSTEMS = [
