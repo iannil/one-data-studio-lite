@@ -1,0 +1,95 @@
+# ONE-DATA-STUDIO-LITE - ShardingSphere 数据脱敏规则
+# 用途: 透明化数据脱敏 (手机号、身份证、邮箱、银行卡)
+# 注意: 使用前请设置环境变量 MYSQL_PASSWORD
+
+databaseName: one_data_mask
+
+dataSources:
+  ds_0:
+    url: jdbc:mysql://${MYSQL_HOST:-host.docker.internal}:${MYSQL_PORT:-3306}/${MYSQL_DATABASE:-one_data_warehouse}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${MYSQL_USERNAME:-root}
+    password: "${MYSQL_PASSWORD}"  # 必须通过环境变量设置
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+
+rules:
+  - !MASK
+    tables:
+      # ========== 用户表脱敏规则 ==========
+      t_user:
+        columns:
+          # 手机号脱敏: 138****1234
+          phone:
+            maskAlgorithm: phone_mask
+          # 身份证脱敏: 110***********1234
+          id_card:
+            maskAlgorithm: id_card_mask
+          # 邮箱脱敏: a***@example.com
+          email:
+            maskAlgorithm: email_mask
+          # 银行卡脱敏: 6222 **** **** 1234
+          bank_card:
+            maskAlgorithm: bank_card_mask
+          # 姓名脱敏: 张*
+          real_name:
+            maskAlgorithm: name_mask
+
+      # ========== 订单表脱敏规则 ==========
+      t_order:
+        columns:
+          buyer_phone:
+            maskAlgorithm: phone_mask
+          shipping_address:
+            maskAlgorithm: address_mask
+
+    maskAlgorithms:
+      # 手机号: 保留前3后4位
+      phone_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 3
+          to-x: 7
+
+      # 身份证: 保留前3后4位
+      id_card_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 3
+          to-x: 14
+
+      # 邮箱: @前保留首字母
+      email_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 1
+          to-x: -1
+
+      # 银行卡: 保留前4后4位
+      bank_card_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 4
+          to-x: -4
+
+      # 姓名: 保留姓氏
+      name_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 1
+          to-x: -1
+
+      # 地址: 保留省市
+      address_mask:
+        type: MASK
+        props:
+          replace-char: "*"
+          from-x: 6
+          to-x: -1

@@ -1,0 +1,114 @@
+# ONE-DATA-STUDIO-LITE - Apache DolphinScheduler 部署
+# 端口: 12345 (API & UI), 25333 (Master), 1234 (Worker)
+# 参考: https://dolphinscheduler.apache.org/
+
+services:
+  dolphinscheduler-zookeeper:
+    image: bitnami/zookeeper:3.9
+    container_name: ods-ds-zookeeper
+    restart: unless-stopped
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+      ZOO_4LW_COMMANDS_WHITELIST: "srvr,ruok,wchs,cons"
+    volumes:
+      - ds-zk-data:/bitnami/zookeeper
+    networks:
+      - ods-network
+
+  dolphinscheduler-mysql:
+    image: mysql:8.0
+    container_name: ods-ds-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ds2024
+      MYSQL_DATABASE: dolphinscheduler
+    volumes:
+      - ds-mysql-data:/var/lib/mysql
+    networks:
+      - ods-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dolphinscheduler-api:
+    image: apache/dolphinscheduler-api:3.2.1
+    container_name: ods-ds-api
+    restart: unless-stopped
+    ports:
+      - "12345:12345"
+    environment: &ds-env
+      DATABASE: mysql
+      SPRING_DATASOURCE_URL: "jdbc:mysql://dolphinscheduler-mysql:3306/dolphinscheduler?useUnicode=true&characterEncoding=UTF-8&useSSL=false"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ds2024
+      REGISTRY_ZOOKEEPER_CONNECT_STRING: dolphinscheduler-zookeeper:2181
+      JAVA_OPTS: "-Xms512m -Xmx1g"
+    volumes:
+      - ds-logs:/opt/dolphinscheduler/logs
+      - ds-resource:/opt/dolphinscheduler/resource
+    networks:
+      - ods-network
+    depends_on:
+      dolphinscheduler-mysql:
+        condition: service_healthy
+      dolphinscheduler-zookeeper:
+        condition: service_started
+
+  dolphinscheduler-master:
+    image: apache/dolphinscheduler-master:3.2.1
+    container_name: ods-ds-master
+    restart: unless-stopped
+    ports:
+      - "25333:25333"
+    environment: *ds-env
+    volumes:
+      - ds-logs:/opt/dolphinscheduler/logs
+    networks:
+      - ods-network
+    depends_on:
+      dolphinscheduler-mysql:
+        condition: service_healthy
+
+  dolphinscheduler-worker:
+    image: apache/dolphinscheduler-worker:3.2.1
+    container_name: ods-ds-worker
+    restart: unless-stopped
+    ports:
+      - "1234:1234"
+    environment:
+      <<: *ds-env
+      WORKER_GROUPS: "default,seatunnel,hop"
+    volumes:
+      - ds-logs:/opt/dolphinscheduler/logs
+      - ds-resource:/opt/dolphinscheduler/resource
+    networks:
+      - ods-network
+    depends_on:
+      dolphinscheduler-mysql:
+        condition: service_healthy
+
+  dolphinscheduler-alert:
+    image: apache/dolphinscheduler-alert-server:3.2.1
+    container_name: ods-ds-alert
+    restart: unless-stopped
+    environment: *ds-env
+    volumes:
+      - ds-logs:/opt/dolphinscheduler/logs
+    networks:
+      - ods-network
+    depends_on:
+      dolphinscheduler-mysql:
+        condition: service_healthy
+
+volumes:
+  ds-zk-data:
+  ds-mysql-data:
+  ds-logs:
+  ds-resource:
+
+networks:
+  ods-network:
+    name: ods-network
+    external: true

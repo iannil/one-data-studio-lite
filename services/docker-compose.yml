@@ -1,0 +1,78 @@
+# ONE-DATA-STUDIO-LITE - 二开服务统一部署
+# 7 个自研微服务
+# 注意: 使用前请创建 .env 文件或设置环境变量
+
+x-service-common: &service-common
+  build:
+    context: ..
+    dockerfile: services/Dockerfile
+  restart: unless-stopped
+  networks:
+    - ods-network
+  environment: &service-env
+    DATABASE_URL: "${DATABASE_URL:-mysql+aiomysql://root:changeme@host.docker.internal:3306/one_data_studio}"
+    JWT_SECRET: "${JWT_SECRET:-dev-only-change-in-production}"
+    LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:31434}"
+    LLM_MODEL: "${LLM_MODEL:-qwen2.5:7b}"
+    DATAHUB_GMS_URL: "${DATAHUB_GMS_URL:-http://host.docker.internal:8081}"
+    DATAHUB_TOKEN: "${DATAHUB_TOKEN:-}"
+    SUPERSET_URL: "${SUPERSET_URL:-http://host.docker.internal:8088}"
+    CUBE_STUDIO_URL: "${CUBE_STUDIO_URL:-http://host.docker.internal:30080}"
+    DOLPHINSCHEDULER_API_URL: "${DOLPHINSCHEDULER_API_URL:-http://host.docker.internal:12345/dolphinscheduler}"
+    DOLPHINSCHEDULER_TOKEN: "${DOLPHINSCHEDULER_TOKEN:-}"
+    SEATUNNEL_API_URL: "${SEATUNNEL_API_URL:-http://host.docker.internal:5801}"
+
+services:
+  portal:
+    <<: *service-common
+    container_name: ods-portal
+    ports:
+      - "8010:8010"
+    command: uvicorn services.portal.main:app --host 0.0.0.0 --port 8010
+
+  nl2sql:
+    <<: *service-common
+    container_name: ods-nl2sql
+    ports:
+      - "8011:8011"
+    command: uvicorn services.nl2sql.main:app --host 0.0.0.0 --port 8011
+
+  ai-cleaning:
+    <<: *service-common
+    container_name: ods-ai-cleaning
+    ports:
+      - "8012:8012"
+    command: uvicorn services.ai_cleaning.main:app --host 0.0.0.0 --port 8012
+
+  metadata-sync:
+    <<: *service-common
+    container_name: ods-metadata-sync
+    ports:
+      - "8013:8013"
+    command: uvicorn services.metadata_sync.main:app --host 0.0.0.0 --port 8013
+
+  data-api:
+    <<: *service-common
+    container_name: ods-data-api
+    ports:
+      - "8014:8014"
+    command: uvicorn services.data_api.main:app --host 0.0.0.0 --port 8014
+
+  sensitive-detect:
+    <<: *service-common
+    container_name: ods-sensitive-detect
+    ports:
+      - "8015:8015"
+    command: uvicorn services.sensitive_detect.main:app --host 0.0.0.0 --port 8015
+
+  audit-log:
+    <<: *service-common
+    container_name: ods-audit-log
+    ports:
+      - "8016:8016"
+    command: uvicorn services.audit_log.main:app --host 0.0.0.0 --port 8016
+
+networks:
+  ods-network:
+    name: ods-network
+    external: true

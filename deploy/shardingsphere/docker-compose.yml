@@ -1,0 +1,27 @@
+# ONE-DATA-STUDIO-LITE - Apache ShardingSphere Proxy 部署
+# 端口: 3307 (代理端口，替代直连 MySQL)
+# 用途: 透明化数据脱敏
+
+services:
+  shardingsphere-proxy:
+    image: apache/shardingsphere-proxy:5.4.1
+    container_name: ods-shardingsphere
+    restart: unless-stopped
+    ports:
+      - "3307:3307"
+    environment:
+      JVM_OPTS: "-Xmx512m -Xms256m"
+    volumes:
+      - ./config/server.yaml:/opt/shardingsphere-proxy/conf/server.yaml:ro
+      - ./config/config-mask.yaml:/opt/shardingsphere-proxy/conf/config-mask.yaml:ro
+      - shardingsphere-data:/opt/shardingsphere-proxy/data
+    networks:
+      - ods-network
+
+volumes:
+  shardingsphere-data:
+
+networks:
+  ods-network:
+    name: ods-network
+    external: true

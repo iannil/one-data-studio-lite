@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# k3s / Kubernetes
+kubeconfig
+
+# Vendor (cloned repos)
+.vendor/
+
+# Secrets (never commit)
+.env
+*.pem
+*.key
+credentials.json
+
+# Logs
+*.log
+logs/
+
+# Data
+*.sql
+*.dump
+data/

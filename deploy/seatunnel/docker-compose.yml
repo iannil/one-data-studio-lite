@@ -1,0 +1,29 @@
+# ONE-DATA-STUDIO-LITE - Apache SeaTunnel 部署
+# 端口: 5801 (REST API)
+# 参考: https://seatunnel.apache.org/
+
+services:
+  seatunnel:
+    image: apache/seatunnel:2.3.5
+    container_name: ods-seatunnel
+    restart: unless-stopped
+    ports:
+      - "5801:5801"
+    environment:
+      SEATUNNEL_HOME: /opt/seatunnel
+      JAVA_OPTS: "-Xms512m -Xmx2g"
+    volumes:
+      - ./config:/opt/seatunnel/config
+      - ./jobs:/opt/seatunnel/jobs
+      - seatunnel-data:/opt/seatunnel/data
+    networks:
+      - ods-network
+    command: ["./bin/seatunnel-cluster.sh", "-d"]
+
+volumes:
+  seatunnel-data:
+
+networks:
+  ods-network:
+    name: ods-network
+    external: true

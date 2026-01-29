@@ -1,0 +1,167 @@
+# ONE-DATA-STUDIO-LITE - Cube-Studio Helm Values
+# 参考: https://github.com/tencentmusic/cube-studio
+# 用途: 单机开发环境 Helm values 覆盖配置
+# 注意: 生产环境必须修改所有密码配置
+
+global:
+  namespace: one-data
+  storageClass: local-path  # k3s 默认存储类
+
+# ========== MySQL 配置 ==========
+# 警告: 生产环境必须修改密码
+mysql:
+  enabled: true
+  image: mysql:8.0
+  rootPassword: "changeme"  # 生产环境必须修改
+  database: cube_studio
+  port: 3306
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: local-path
+
+# ========== Redis 配置 ==========
+redis:
+  enabled: true
+  image: redis:7-alpine
+  port: 6379
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# ========== MinIO 对象存储 ==========
+# 警告: 生产环境必须修改密钥
+minio:
+  enabled: true
+  image: minio/minio:latest
+  accessKey: "minioadmin"  # 生产环境必须修改
+  secretKey: "changeme"    # 生产环境必须修改
+  port: 9000
+  consolePort: 9001
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  persistence:
+    enabled: true
+    size: 30Gi
+    storageClass: local-path
+
+# ========== Cube-Studio 主服务 ==========
+# 警告: 生产环境必须修改密码
+cubestudio:
+  image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard:latest
+  replicas: 1
+  port: 80
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  env:
+    STAGE: "dev"
+    ADMIN_USER: "admin"
+    ADMIN_PASSWORD: "changeme"  # 生产环境必须修改
+
+# ========== 监控 (Prometheus + Grafana) ==========
+# 警告: 生产环境必须修改密码
+monitoring:
+  enabled: true
+  prometheus:
+    image: prom/prometheus:latest
+    port: 9090
+    retention: 7d
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  grafana:
+    image: grafana/grafana:latest
+    port: 3000
+    adminPassword: "changeme"  # 生产环境必须修改
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# ========== LLM 推理服务 ==========
+inference:
+  # Ollama - 轻量级本地LLM推理
+  ollama:
+    enabled: true
+    image: ollama/ollama:latest
+    port: 11434
+    models:
+      - "qwen2.5:7b"       # 中文对话模型
+      - "codellama:7b"     # 代码生成
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+    persistence:
+      size: 30Gi
+  # vLLM - 高性能推理 (GPU环境启用)
+  vllm:
+    enabled: false
+    image: vllm/vllm-openai:latest
+    port: 8000
+    model: "Qwen/Qwen2.5-7B-Instruct"
+    gpuCount: 1
+
+# ========== 在线IDE ==========
+ide:
+  jupyter:
+    enabled: true
+    image: jupyter/datascience-notebook:latest
+  vscode:
+    enabled: true
+    image: codercom/code-server:latest
+
+# ========== Label Studio (数据标注) ==========
+labelStudio:
+  enabled: true
+  image: heartexlabs/label-studio:latest
+  port: 8080
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# ========== NodePort 配置 (开发环境外部访问) ==========
+service:
+  type: NodePort
+  ports:
+    dashboard: 30080     # Cube-Studio 主界面
+    minio: 30900         # MinIO 控制台
+    grafana: 30300       # Grafana
+    prometheus: 30090    # Prometheus
+    ollama: 31434        # Ollama API
+    labelStudio: 30880   # Label Studio
