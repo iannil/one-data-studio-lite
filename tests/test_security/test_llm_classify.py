@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestLLMClassify:
-    """TC-SEC-02: LLM 分类测试"""
+    """TC-SEC-02: LLM 分类测试（需要 LLM 服务）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0
@@ -21,8 +22,8 @@ class TestLLMClassify:
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
                 "data_samples": [
-                    "张三，男，1990年1月1日出生，住址：北京市朝阳区xxx路xxx号",
-                    "李四的联系电话是13800138000，紧急联系人王五 13900139000"
+                    {"content": "张三，男，1990年1月1日出生，住址：北京市朝阳区xxx路xxx号"},
+                    {"content": "李四的联系电话是13800138000，紧急联系人王五 13900139000"}
                 ],
                 "context": "客户信息表"
             }
@@ -45,7 +46,7 @@ class TestLLMClassify:
             "/api/sensitive/classify",
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
-                "data_samples": ["user@example.com", "13800138000"]
+                "data_samples": [{"email": "user@example.com"}, {"phone": "13800138000"}]
             }
         )
         assert response.status_code in (200, 500, 503)
@@ -61,10 +62,10 @@ class TestLLMClassify:
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
                 "data_samples": [
-                    "产品名称：智能手机",
-                    "客户姓名：张三",
-                    "订单金额：9999.00",
-                    "收货地址：北京市海淀区中关村大街1号"
+                    {"product": "智能手机"},
+                    {"customer": "张三"},
+                    {"amount": "9999.00"},
+                    {"address": "北京市海淀区中关村大街1号"}
                 ],
                 "context": "订单数据"
             }
@@ -81,7 +82,7 @@ class TestLLMClassify:
         response = await sensitive_detect_client.post(
             "/api/sensitive/classify",
             headers={"Authorization": f"Bearer {admin_token}"},
-            json={"data_samples": ["test data"]}
+            json={"data_samples": [{"data": "test data"}]}
         )
         # 服务不应该崩溃
         assert response.status_code in (200, 500, 503)

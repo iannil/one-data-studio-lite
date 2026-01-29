@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hop-server-config>
+  <hop-server>
+    <name>ods-hop-server</name>
+    <hostname>0.0.0.0</hostname>
+    <port>8182</port>
+    <webAppName>hop</webAppName>
+    <username>admin</username>
+    <password>admin123</password>
+  </hop-server>
+</hop-server-config>

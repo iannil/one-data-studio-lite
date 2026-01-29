@@ -22,6 +22,10 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from services.common.auth import create_token, JWT_SECRET, JWT_ALGORITHM
+from services.common.database import reset_engine
+
+# 重置数据库引擎，确保使用测试配置
+reset_engine()
 
 
 # ============ 标记定义 ============

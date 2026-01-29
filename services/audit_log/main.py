@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 
 from services.common.auth import get_current_user, TokenPayload
 from services.common.exceptions import register_exception_handlers, NotFoundError
+from services.common.metrics import setup_metrics
 from services.audit_log.config import settings
 from services.audit_log.models import (
     AuditEvent,
@@ -36,6 +37,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 register_exception_handlers(app)
+setup_metrics(app)
 
 # 内存存储（生产环境应使用数据库 + Elasticsearch）
 _audit_logs: list[AuditEvent] = []

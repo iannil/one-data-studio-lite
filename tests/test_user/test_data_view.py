@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestDataView:
-    """TC-USR-03: 数据查看测试"""
+    """TC-USR-03: 数据查看测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

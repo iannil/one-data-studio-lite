@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestValidation:
-    """TC-COM-06: 请求参数验证测试"""
+    """TC-COM-06: 请求参数验证测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p3

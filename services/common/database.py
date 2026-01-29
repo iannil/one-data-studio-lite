@@ -26,6 +26,11 @@ def get_database_url() -> str:
 def create_engine(database_url: str | None = None):
     """创建异步数据库引擎"""
     url = database_url or get_database_url()
+
+    # SQLite 不支持连接池参数
+    if "sqlite" in url:
+        return create_async_engine(url, echo=False)
+
     return create_async_engine(
         url,
         pool_size=10,
@@ -37,6 +42,13 @@ def create_engine(database_url: str | None = None):
 
 _engine = None
 _session_factory = None
+
+
+def reset_engine():
+    """重置引擎实例（用于测试）"""
+    global _engine, _session_factory
+    _engine = None
+    _session_factory = None
 
 
 def get_engine():

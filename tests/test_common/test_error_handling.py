@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestErrorHandling:
-    """TC-COM-03: 错误处理测试"""
+    """TC-COM-03: 错误处理测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p1

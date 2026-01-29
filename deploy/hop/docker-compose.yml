@@ -1,5 +1,5 @@
 # ONE-DATA-STUDIO-LITE - Apache Hop 部署
-# 端口: 8182 (Hop Server), 8083 (Hop Web)
+# 端口: 8083 (Hop Web UI)
 
 services:
   hop-server:
@@ -10,16 +10,12 @@ services:
     container_name: ods-hop-server
     restart: unless-stopped
     ports:
-      - "8182:8182"
       - "8083:8080"
     environment:
       HOP_LOG_LEVEL: Basic
-      HOP_SERVER_USER: admin
-      HOP_SERVER_PASS: admin123
     volumes:
-      - ./projects:/opt/hop/projects
-      - ./config:/opt/hop/config
-      - hop-data:/opt/hop/data
+      - ./projects:/home/hop/projects
+      - hop-data:/home/hop/data
     networks:
       - ods-network
 

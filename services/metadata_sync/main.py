@@ -11,6 +11,7 @@ from services.common.auth import get_current_user, TokenPayload
 from services.common.exceptions import register_exception_handlers, NotFoundError
 from services.common.http_client import ServiceClient
 from services.common.middleware import RequestLoggingMiddleware
+from services.common.metrics import setup_metrics
 from services.metadata_sync.config import settings
 from services.metadata_sync.models import (
     MetadataChangeEvent,
@@ -36,6 +37,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="metadata-sync")
 register_exception_handlers(app)
+setup_metrics(app)
 
 # 内存存储映射规则（生产环境应使用数据库）
 _mappings: dict[str, ETLMapping] = {}

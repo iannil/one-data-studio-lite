@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
-class TestDataExplore:
-    """TC-ANA-01: 数据探索测试"""
+@pytest.mark.integration
+class TestDataExploreDB:
+    """TC-ANA-01: 数据探索测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

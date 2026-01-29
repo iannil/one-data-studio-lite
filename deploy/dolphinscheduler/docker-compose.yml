@@ -4,14 +4,13 @@
 
 services:
   dolphinscheduler-zookeeper:
-    image: bitnami/zookeeper:3.9
+    image: zookeeper:3.8
     container_name: ods-ds-zookeeper
     restart: unless-stopped
     environment:
-      ALLOW_ANONYMOUS_LOGIN: "yes"
       ZOO_4LW_COMMANDS_WHITELIST: "srvr,ruok,wchs,cons"
     volumes:
-      - ds-zk-data:/bitnami/zookeeper
+      - ds-zk-data:/data
     networks:
       - ods-network
 

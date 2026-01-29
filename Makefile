@@ -1,5 +1,5 @@
 # ONE-DATA-STUDIO-LITE Makefile
-.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean
+.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -92,3 +92,18 @@ dev-audit: ## 本地启动审计日志服务
 clean: ## 停止并清理所有容器和卷
 	bash deploy.sh stop
 	docker volume prune -f
+
+# ========== 前端开发 ==========
+
+web-install: ## 安装前端依赖
+	cd web && npm install
+
+web-dev: ## 启动前端开发服务器
+	cd web && npm run dev
+
+web-build: ## 构建前端生产版本
+	cd web && npm run build
+
+web-preview: ## 预览前端生产构建
+	cd web && npm run preview
+

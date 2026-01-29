@@ -13,6 +13,7 @@ from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db, validate_table_exists, validate_identifier
 from services.common.exceptions import register_exception_handlers, AppException
 from services.common.middleware import RequestLoggingMiddleware
+from services.common.metrics import setup_metrics
 from services.sensitive_detect.config import settings
 from services.sensitive_detect.models import (
     ScanRequest,
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="sensitive-detect")
 register_exception_handlers(app)
+setup_metrics(app)
 
 # 自定义规则存储
 _custom_rules: dict[str, DetectionRule] = {}

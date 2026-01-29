@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestNLQuery:
-    """TC-USR-04: 自然语言查询测试"""
+    """TC-USR-04: 自然语言查询测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

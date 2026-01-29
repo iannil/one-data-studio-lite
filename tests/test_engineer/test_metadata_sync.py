@@ -19,8 +19,10 @@ class TestMetadataSync:
         response = await metadata_sync_client.post(
             "/api/metadata/webhook",
             json={
+                "entity_type": "dataset",
                 "entity_urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.users,PROD)",
                 "change_type": "CREATE",
+                "aspect_name": "schemaMetadata",
                 "changed_fields": ["schema"],
                 "timestamp": "2024-01-29T10:00:00Z"
             }
@@ -56,8 +58,10 @@ class TestMetadataSync:
         response = await metadata_sync_client.post(
             "/api/metadata/webhook",
             json={
+                "entity_type": "dataset",
                 "entity_urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.users,PROD)",
                 "change_type": "UPDATE",
+                "aspect_name": "schemaMetadata",
                 "changed_fields": ["schema"],
                 "timestamp": "2024-01-29T10:00:00Z"
             }
@@ -75,8 +79,10 @@ class TestMetadataSync:
         response = await metadata_sync_client.post(
             "/api/metadata/webhook",
             json={
+                "entity_type": "dataset",
                 "entity_urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.old_table,PROD)",
                 "change_type": "DELETE",
+                "aspect_name": "schemaMetadata",
                 "timestamp": "2024-01-29T10:00:00Z"
             }
         )

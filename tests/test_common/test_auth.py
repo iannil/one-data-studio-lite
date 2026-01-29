@@ -110,6 +110,7 @@ class TestAuth:
 
     @pytest.mark.asyncio
     @pytest.mark.p0
+    @pytest.mark.integration
     async def test_com_02_09_valid_token_access(
         self, nl2sql_client: AsyncClient, admin_token: str
     ):

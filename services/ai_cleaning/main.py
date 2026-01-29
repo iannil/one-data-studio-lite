@@ -13,6 +13,7 @@ from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db, validate_table_exists, validate_identifier
 from services.common.exceptions import register_exception_handlers, AppException
 from services.common.middleware import RequestLoggingMiddleware
+from services.common.metrics import setup_metrics
 from services.ai_cleaning.config import settings
 from services.ai_cleaning.models import (
     AnalyzeRequest,
@@ -40,6 +41,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="ai-cleaning")
 register_exception_handlers(app)
+setup_metrics(app)
 
 
 async def _call_llm(prompt: str) -> str:

@@ -12,6 +12,7 @@ from services.common.database import get_db, validate_table_exists, validate_ide
 from services.common.exceptions import register_exception_handlers, NotFoundError, AppException
 from services.common.http_client import ServiceClient
 from services.common.middleware import RequestLoggingMiddleware
+from services.common.metrics import setup_metrics
 from services.data_api.config import settings
 from services.data_api.models import (
     DatasetQuery,
@@ -38,6 +39,7 @@ app.add_middleware(
 )
 app.add_middleware(RequestLoggingMiddleware, service_name="data-api")
 register_exception_handlers(app)
+setup_metrics(app)
 
 datahub_client = ServiceClient(settings.DATAHUB_GMS_URL, token=settings.DATAHUB_TOKEN)
 

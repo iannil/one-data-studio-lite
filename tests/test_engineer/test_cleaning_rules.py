@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestCleaningRules:
-    """TC-ENG-04: AI 清洗规则推荐测试"""
+    """TC-ENG-04: AI 清洗规则推荐测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

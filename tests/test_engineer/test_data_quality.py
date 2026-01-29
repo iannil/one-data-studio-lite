@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestDataQuality:
-    """TC-ENG-03: 数据质量分析测试"""
+    """TC-ENG-03: 数据质量分析测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

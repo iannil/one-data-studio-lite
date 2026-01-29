@@ -1,32 +1,64 @@
-# ONE-DATA-STUDIO-LITE - Apache Superset 部署
+# ONE-DATA-STUDIO-LITE - Apache Superset 部署 (简化版)
 # 端口: 8088 (Web UI)
-# 注意: 使用前请创建 .env 文件或设置环境变量
+# 使用内嵌 PostgreSQL，无需外部数据库
 
 services:
+  superset-db:
+    image: postgres:15-alpine
+    container_name: ods-superset-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset123
+    volumes:
+      - superset-db-data:/var/lib/postgresql/data
+    networks:
+      - ods-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  superset-redis:
+    image: redis:7-alpine
+    container_name: ods-superset-redis
+    restart: unless-stopped
+    volumes:
+      - superset-redis-data:/data
+    networks:
+      - ods-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   superset-init:
     image: apache/superset:3.1.0
     container_name: ods-superset-init
     command: >
-      sh -c "
+      bash -c "
         superset db upgrade &&
         superset fab create-admin \
           --username admin \
           --firstname Admin \
           --lastname User \
           --email admin@onedata.local \
-          --password $${SUPERSET_ADMIN_PASSWORD:-admin123} &&
+          --password admin123 || true &&
         superset init
       "
     environment: &superset-env
-      SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:-change-this-secret-key-in-production}"
-      SQLALCHEMY_DATABASE_URI: "${SUPERSET_DATABASE_URI:-mysql+pymysql://root:changeme@host.docker.internal:3306/superset}"
+      SUPERSET_SECRET_KEY: "one-data-studio-superset-secret-key-2024"
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://superset:superset123@superset-db:5432/superset"
       REDIS_URL: "redis://superset-redis:6379/0"
       SUPERSET_LOAD_EXAMPLES: "no"
-    volumes:
-      - ./superset_config.py:/app/pythonpath/superset_config.py:ro
     networks:
       - ods-network
     depends_on:
+      superset-db:
+        condition: service_healthy
       superset-redis:
         condition: service_healthy
 
@@ -38,15 +70,12 @@ services:
       - "8088:8088"
     environment: *superset-env
     volumes:
-      - ./superset_config.py:/app/pythonpath/superset_config.py:ro
       - superset-home:/app/superset_home
     networks:
       - ods-network
     depends_on:
       superset-init:
         condition: service_completed_successfully
-      superset-redis:
-        condition: service_healthy
 
   superset-worker:
     image: apache/superset:3.1.0
@@ -55,7 +84,6 @@ services:
     command: celery --app=superset.tasks.celery_app:app worker --pool=prefork -O fair -c 2
     environment: *superset-env
     volumes:
-      - ./superset_config.py:/app/pythonpath/superset_config.py:ro
       - superset-home:/app/superset_home
     networks:
       - ods-network
@@ -63,39 +91,10 @@ services:
       superset-init:
         condition: service_completed_successfully
 
-  superset-beat:
-    image: apache/superset:3.1.0
-    container_name: ods-superset-beat
-    restart: unless-stopped
-    command: celery --app=superset.tasks.celery_app:app beat --pidfile /tmp/celerybeat.pid -s /tmp/celerybeat-schedule
-    environment: *superset-env
-    volumes:
-      - ./superset_config.py:/app/pythonpath/superset_config.py:ro
-    networks:
-      - ods-network
-    depends_on:
-      superset-init:
-        condition: service_completed_successfully
-
-  superset-redis:
-    image: redis:7-alpine
-    container_name: ods-superset-redis
-    restart: unless-stopped
-    ports:
-      - "6380:6379"
-    volumes:
-      - superset-redis-data:/data
-    networks:
-      - ods-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
 volumes:
-  superset-home:
+  superset-db-data:
   superset-redis-data:
+  superset-home:
 
 networks:
   ods-network:

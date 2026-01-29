@@ -7,8 +7,9 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.integration
 class TestSensitiveScan:
-    """TC-SEC-01: 敏感数据扫描测试"""
+    """TC-SEC-01: 敏感数据扫描测试（需要数据库）"""
 
     @pytest.mark.asyncio
     @pytest.mark.p0

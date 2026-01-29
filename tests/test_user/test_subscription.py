@@ -20,8 +20,9 @@ class TestSubscription:
             "/api/assets/test_users/subscribe",
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
-                "notify_on": ["schema_change", "data_update"],
-                "email": "user@example.com"
+                "asset_id": "test_users",
+                "subscriber": "user@example.com",
+                "events": ["schema_change", "data_update"]
             }
         )
         # 功能可能未实现
@@ -41,8 +42,9 @@ class TestSubscription:
             "/api/assets/test_users/subscribe",
             headers={"Authorization": f"Bearer {admin_token}"},
             json={
-                "notify_on": ["schema_change"],
-                "email": "user@example.com"
+                "asset_id": "test_users",
+                "subscriber": "user@example.com",
+                "events": ["schema_change"]
             }
         )
         assert response.status_code in (200, 404, 501)
@@ -57,14 +59,14 @@ class TestSubscription:
         response1 = await data_api_client.post(
             "/api/assets/test_users/subscribe",
             headers={"Authorization": f"Bearer {admin_token}"},
-            json={"notify_on": ["schema_change"], "email": "user@example.com"}
+            json={"asset_id": "test_users", "subscriber": "user@example.com", "events": ["schema_change"]}
         )
 
         # 重复订阅
         response2 = await data_api_client.post(
             "/api/assets/test_users/subscribe",
             headers={"Authorization": f"Bearer {admin_token}"},
-            json={"notify_on": ["schema_change"], "email": "user@example.com"}
+            json={"asset_id": "test_users", "subscriber": "user@example.com", "events": ["schema_change"]}
         )
 
         # 两次请求都应该有响应（可能成功或返回错误）
