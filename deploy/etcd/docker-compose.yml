@@ -1,0 +1,103 @@
+# etcd 配置中心部署
+# 用于 ONE-DATA-STUDIO-LITE 统一配置管理
+#
+# 功能:
+# - 配置集中存储 (KV)
+# - 配置热更新 (Watch 机制)
+# - 配置版本控制 (etcd 内置)
+# - 敏感配置加密 (应用层 AES-256)
+#
+# 使用方法:
+#   make etcd-up        # 启动 etcd
+#   make etcd-down      # 停止 etcd
+#   make etcd-ctl       # 进入 etcdctl 交互模式
+
+version: "3.8"
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.12
+    container_name: one-data-studio-etcd
+    restart: unless-stopped
+    ports:
+      - "2379:2379"  # 客户端通信端口
+      - "2380:2380"  # 对等通信端口（集群模式）
+    environment:
+      # 节点名称
+      ETCD_NAME: one-data-studio-etcd
+
+      # 数据目录
+      ETCD_DATA_DIR: /etcd-data
+
+      # 监听地址
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://localhost:2379
+
+      # 对等通信（单节点模式）
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://localhost:2380
+      ETCD_INITIAL_CLUSTER: one-data-studio-etcd=http://localhost:2380
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ETCD_INITIAL_CLUSTER_TOKEN: one-data-studio-etcd-cluster
+
+      # 配置保留策略（自动清理旧版本）
+      ETCD_AUTO_COMPACTION_MODE: periodic
+      ETCD_AUTO_COMPACTION_RETENTION: "24"  # 保留 24 小时的历史版本
+
+      # 快照备份
+      ETCD_SNAPSHOT_COUNT: "10000"  # 每 10000 次写操作创建快照
+
+      # 日志配置
+      ETCD_LOG_LEVEL: info
+      ETCD_LOG_OUTPUTS: stdout
+
+      # 性能调优
+      ETCD_QUOTA_BACKEND_BYTES: "8589934592"  # 8GB 配额
+
+      # 安全（生产环境建议启用 TLS）
+      # ETCD_CERT_FILE: /etc/etcd/tls/server.crt
+      # ETCD_KEY_FILE: /etc/etcd/tls/server.key
+      # ETCD_CLIENT_CERT_AUTH: "true"
+      # ETCD_TRUSTED_CA_FILE: /etc/etcd/tls/ca.crt
+
+    volumes:
+      # 数据持久化
+      - etcd-data:/etcd-data
+
+      # TLS 证书（可选）
+      # - ./tls:/etc/etcd/tls:ro
+
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - one-data-studio-network
+
+  # etcdctl 工具容器（用于手动操作）
+  etcdctl:
+    image: quay.io/coreos/etcd:v3.5.12
+    container_name: one-data-studio-etcdctl
+    profiles:
+      - tools  # 仅在使用 --profile tools 时启动
+    environment:
+      ETCDCTL_ENDPOINTS: http://etcd:2379
+      ETCDCTL_DIAL_TIMEOUT: 3s
+    networks:
+      - one-data-studio-network
+    working_dir: /etcdctl-workspace
+    command: ["sh", "-c", "echo 'etcdctl 工具容器已就绪。使用 docker exec -it one-data-studio-etcdctl sh 进入' && sleep infinity"]
+
+volumes:
+  etcd-data:
+    driver: local
+    name: one-data-studio-etcd-data
+
+networks:
+  one-data-studio-network:
+    name: one-data-studio-network
+    driver: bridge
+    external: true

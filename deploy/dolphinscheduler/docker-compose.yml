@@ -14,22 +14,38 @@ services:
     networks:
       - ods-network
 
-  dolphinscheduler-mysql:
-    image: mysql:8.0
-    container_name: ods-ds-mysql
+  dolphinscheduler-postgres:
+    image: postgres:15-alpine
+    container_name: ods-ds-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ds2024
-      MYSQL_DATABASE: dolphinscheduler
+      POSTGRES_USER: dolphinscheduler
+      POSTGRES_PASSWORD: ds2024
+      POSTGRES_DB: dolphinscheduler
     volumes:
-      - ds-mysql-data:/var/lib/mysql
+      - ds-pg-data:/var/lib/postgresql/data
     networks:
       - ods-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U dolphinscheduler"]
+      interval: 5s
+      timeout: 3s
       retries: 5
+
+  dolphinscheduler-schema-init:
+    image: apache/dolphinscheduler-tools:3.2.1
+    container_name: ods-ds-schema-init
+    command: ["tools/bin/upgrade-schema.sh"]
+    environment:
+      DATABASE: postgresql
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://dolphinscheduler-postgres:5432/dolphinscheduler"
+      SPRING_DATASOURCE_USERNAME: dolphinscheduler
+      SPRING_DATASOURCE_PASSWORD: ds2024
+    networks:
+      - ods-network
+    depends_on:
+      dolphinscheduler-postgres:
+        condition: service_healthy
 
   dolphinscheduler-api:
     image: apache/dolphinscheduler-api:3.2.1
@@ -38,9 +54,9 @@ services:
     ports:
       - "12345:12345"
     environment: &ds-env
-      DATABASE: mysql
-      SPRING_DATASOURCE_URL: "jdbc:mysql://dolphinscheduler-mysql:3306/dolphinscheduler?useUnicode=true&characterEncoding=UTF-8&useSSL=false"
-      SPRING_DATASOURCE_USERNAME: root
+      DATABASE: postgresql
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://dolphinscheduler-postgres:5432/dolphinscheduler"
+      SPRING_DATASOURCE_USERNAME: dolphinscheduler
       SPRING_DATASOURCE_PASSWORD: ds2024
       REGISTRY_ZOOKEEPER_CONNECT_STRING: dolphinscheduler-zookeeper:2181
       JAVA_OPTS: "-Xms512m -Xmx1g"
@@ -50,8 +66,8 @@ services:
     networks:
       - ods-network
     depends_on:
-      dolphinscheduler-mysql:
-        condition: service_healthy
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
       dolphinscheduler-zookeeper:
         condition: service_started
 
@@ -67,8 +83,8 @@ services:
     networks:
       - ods-network
     depends_on:
-      dolphinscheduler-mysql:
-        condition: service_healthy
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
 
   dolphinscheduler-worker:
     image: apache/dolphinscheduler-worker:3.2.1
@@ -85,8 +101,8 @@ services:
     networks:
       - ods-network
     depends_on:
-      dolphinscheduler-mysql:
-        condition: service_healthy
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
 
   dolphinscheduler-alert:
     image: apache/dolphinscheduler-alert-server:3.2.1
@@ -98,12 +114,12 @@ services:
     networks:
       - ods-network
     depends_on:
-      dolphinscheduler-mysql:
-        condition: service_healthy
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
 
 volumes:
   ds-zk-data:
-  ds-mysql-data:
+  ds-pg-data:
   ds-logs:
   ds-resource:
 

@@ -1,0 +1,75 @@
+# ONE-DATA-STUDIO-LITE - Loki 日志聚合部署
+# 端口: 3100 (Loki), 3000 (Promtail), 9090 (Grafana)
+
+services:
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: ods-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./config:/etc/loki:ro
+    networks:
+      - one-data-studio-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  promtail:
+    image: grafana/promtail:1.6.0
+    container_name: ods-promtail
+    restart: unless-stopped
+    volumes:
+      - /var/log:/var/log:ro
+      - ./config/promtail:/etc/promtail:ro
+    networks:
+      - one-data-studio-network
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: ods-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "/"
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - one-data-studio-network
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  loki-data:
+    driver: local
+    name: one-data-studio-loki-data
+  grafana-data:
+    driver: local
+    name: one-data-studio-grafana-data
+
+networks:
+  one-data-studio-network:
+    name: one-data-studio-network
+    driver: bridge
+    external: true

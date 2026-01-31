@@ -1,9 +1,9 @@
 """AI清洗规则推荐服务 - FastAPI 应用"""
 
 import json
+import logging
 import uuid
 
-import httpx
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db, validate_table_exists, validate_identifier
 from services.common.exceptions import register_exception_handlers, AppException
+from services.common.llm_client import call_llm, LLMError
 from services.common.middleware import RequestLoggingMiddleware
 from services.common.metrics import setup_metrics
 from services.ai_cleaning.config import settings
@@ -25,6 +26,8 @@ from services.ai_cleaning.models import (
     GenerateConfigRequest,
     SeaTunnelTransformConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -44,19 +47,48 @@ register_exception_handlers(app)
 setup_metrics(app)
 
 
-async def _call_llm(prompt: str) -> str:
-    """调用 LLM"""
-    url = f"{settings.LLM_BASE_URL}/api/generate"
-    payload = {
-        "model": settings.LLM_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "options": {"temperature": 0.1, "num_predict": 4096},
-    }
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(url, json=payload)
-        resp.raise_for_status()
-        return resp.json().get("response", "").strip()
+async def _call_llm_service(prompt: str) -> str:
+    """调用 LLM（使用统一 LLM 客户端）"""
+    try:
+        return await call_llm(prompt=prompt, use_cache=False)
+    except LLMError as e:
+        raise AppException(f"LLM 调用失败: {e}", code=e.code)
+
+
+def _parse_llm_json_response(llm_response: str, context: str = "") -> list:
+    """解析 LLM 返回的 JSON
+
+    Args:
+        llm_response: LLM 返回的原始文本
+        context: 上下文信息（用于日志）
+
+    Returns:
+        解析后的列表，解析失败时返回空列表并记录警告
+
+    Note:
+        不会静默失败，会记录警告日志
+    """
+    try:
+        json_str = llm_response
+        # 尝试提取 markdown 代码块中的 JSON
+        if "```" in json_str:
+            parts = json_str.split("```")
+            if len(parts) >= 2:
+                json_str = parts[1]
+                if json_str.startswith("json"):
+                    json_str = json_str[4:]
+        return json.loads(json_str.strip())
+    except json.JSONDecodeError as e:
+        logger.warning(
+            f"LLM JSON 解析失败{f' ({context})' if context else ''}: {e}. "
+            f"原始响应: {llm_response[:200]}..."
+        )
+        return []
+    except (IndexError, AttributeError) as e:
+        logger.warning(
+            f"LLM 响应格式异常{f' ({context})' if context else ''}: {e}"
+        )
+        return []
 
 
 @app.post("/api/cleaning/analyze", response_model=DataQualityReport)
@@ -177,19 +209,35 @@ async def recommend_rules(
 
 只输出 JSON 数组，不要其他内容。"""
 
-    llm_response = await _call_llm(prompt)
+    llm_response = await _call_llm_service(prompt)
 
-    # 解析 LLM 返回的规则
-    try:
-        # 尝试提取 JSON
-        json_str = llm_response
-        if "```" in json_str:
-            json_str = json_str.split("```")[1]
-            if json_str.startswith("json"):
-                json_str = json_str[4:]
-        rules_data = json.loads(json_str.strip())
-    except (json.JSONDecodeError, IndexError):
-        rules_data = []
+    # 解析 LLM 返回的规则（改进的错误处理）
+    rules_data = _parse_llm_json_response(
+        llm_response,
+        context=f"清洗规则推荐 - 表 {req.table_name}"
+    )
+
+    # 如果解析失败，提供默认规则建议
+    if not rules_data and report.issues:
+        logger.info(f"LLM 返回解析失败，使用默认规则建议")
+        # 根据检测到的问题生成默认规则
+        for issue in report.issues:
+            if issue.issue_type == QualityIssueType.NULL_VALUES:
+                rules_data.append({
+                    "name": f"填充空值 - {issue.column}",
+                    "description": f"填充字段 {issue.column} 的空值",
+                    "target_column": issue.column,
+                    "rule_type": "fill",
+                    "config": {"fill_value": "", "fill_strategy": "empty_string"},
+                })
+            elif issue.issue_type == QualityIssueType.DUPLICATES:
+                rules_data.append({
+                    "name": f"去重 - {issue.column}",
+                    "description": f"去除字段 {issue.column} 的重复值",
+                    "target_column": issue.column,
+                    "rule_type": "deduplicate",
+                    "config": {},
+                })
 
     rules = []
     for r in rules_data:

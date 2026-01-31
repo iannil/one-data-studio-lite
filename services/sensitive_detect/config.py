@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
     SHARDINGSPHERE_URL: str = "http://localhost:3307"
 
+    # Portal 服务地址（用于联动创建脱敏规则）
+    PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost:8010")
+    # 内部服务通信 Token（用于服务间认证）
+    INTERNAL_TOKEN: str = os.environ.get("INTERNAL_TOKEN", "")
+
     model_config = {"env_prefix": "SENSITIVE_"}
 
 

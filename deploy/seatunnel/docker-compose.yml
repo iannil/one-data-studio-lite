@@ -1,27 +1,38 @@
 # ONE-DATA-STUDIO-LITE - Apache SeaTunnel 部署
-# 端口: 5801 (REST API)
+# 端口: 5802 (REST API via Hazelcast)
 # 参考: https://seatunnel.apache.org/
 
 services:
   seatunnel:
-    image: apache/seatunnel:2.3.5
+    image: apache/seatunnel:2.3.8
     container_name: ods-seatunnel
     restart: unless-stopped
     ports:
-      - "5801:5801"
+      - "5802:5802"
     environment:
       SEATUNNEL_HOME: /opt/seatunnel
-      JAVA_OPTS: "-Xms512m -Xmx2g"
+      ST_DOCKER_MEMBER_LIST: "localhost"
     volumes:
-      - ./config:/opt/seatunnel/config
+      - ./config/seatunnel.yaml:/opt/seatunnel/config/seatunnel.yaml:ro
+      - ./config/hazelcast.yaml:/opt/seatunnel/config/hazelcast.yaml:ro
+      - ./config/hazelcast-client.yaml:/opt/seatunnel/config/hazelcast-client.yaml:ro
+      - ./config/jvm_options:/opt/seatunnel/config/jvm_options:ro
       - ./jobs:/opt/seatunnel/jobs
       - seatunnel-data:/opt/seatunnel/data
+      - seatunnel-logs:/opt/seatunnel/logs
     networks:
       - ods-network
-    command: ["./bin/seatunnel-cluster.sh", "-d"]
+    command: ["./bin/seatunnel-cluster.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5802/hazelcast/rest/cluster"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   seatunnel-data:
+  seatunnel-logs:
 
 networks:
   ods-network:

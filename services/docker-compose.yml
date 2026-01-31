@@ -19,8 +19,8 @@ x-service-common: &service-common
     SUPERSET_URL: "${SUPERSET_URL:-http://host.docker.internal:8088}"
     CUBE_STUDIO_URL: "${CUBE_STUDIO_URL:-http://host.docker.internal:30080}"
     DOLPHINSCHEDULER_API_URL: "${DOLPHINSCHEDULER_API_URL:-http://host.docker.internal:12345/dolphinscheduler}"
-    DOLPHINSCHEDULER_TOKEN: "${DOLPHINSCHEDULER_TOKEN:-}"
-    SEATUNNEL_API_URL: "${SEATUNNEL_API_URL:-http://host.docker.internal:5801}"
+    DOLPHINSCHEDULER_TOKEN: "${DOLPHINSCHEDULER_TOKEN:-a27c7d529a0bf364de5c14dc0c481469}"
+    SEATUNNEL_API_URL: "${SEATUNNEL_API_URL:-http://host.docker.internal:5802}"
 
 services:
   portal:
@@ -28,6 +28,22 @@ services:
     container_name: ods-portal
     ports:
       - "8010:8010"
+    environment:
+      <<: *service-env
+      PORTAL_CUBE_STUDIO_URL: "http://host.docker.internal:30080"
+      PORTAL_SUPERSET_URL: "http://host.docker.internal:8088"
+      PORTAL_DATAHUB_URL: "http://host.docker.internal:9002"
+      PORTAL_DATAHUB_GMS_URL: "http://host.docker.internal:8081"
+      PORTAL_DOLPHINSCHEDULER_URL: "http://host.docker.internal:12345"
+      PORTAL_DOLPHINSCHEDULER_TOKEN: "a27c7d529a0bf364de5c14dc0c481469"
+      PORTAL_HOP_URL: "http://host.docker.internal:8083"
+      PORTAL_SEATUNNEL_URL: "http://host.docker.internal:5802"
+      PORTAL_NL2SQL_URL: "http://ods-nl2sql:8011"
+      PORTAL_AI_CLEANING_URL: "http://ods-ai-cleaning:8012"
+      PORTAL_METADATA_SYNC_URL: "http://ods-metadata-sync:8013"
+      PORTAL_DATA_API_URL: "http://ods-data-api:8014"
+      PORTAL_SENSITIVE_DETECT_URL: "http://ods-sensitive-detect:8015"
+      PORTAL_AUDIT_LOG_URL: "http://ods-audit-log:8016"
     command: uvicorn services.portal.main:app --host 0.0.0.0 --port 8010
 
   nl2sql:

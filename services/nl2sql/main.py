@@ -4,7 +4,6 @@ import time
 import uuid
 from typing import Optional
 
-import httpx
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db
 from services.common.exceptions import register_exception_handlers, AppException
+from services.common.llm_client import call_llm, LLMError
 from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
 from services.nl2sql.config import settings
@@ -50,26 +50,12 @@ register_exception_handlers(app)
 setup_metrics(app)
 
 
-async def _call_llm(prompt: str, system: str = SYSTEM_PROMPT) -> str:
-    """调用 LLM 生成文本"""
-    url = f"{settings.LLM_BASE_URL}/api/generate"
-    payload = {
-        "model": settings.LLM_MODEL,
-        "prompt": prompt,
-        "system": system,
-        "stream": False,
-        "options": {
-            "temperature": settings.LLM_TEMPERATURE,
-            "num_predict": settings.LLM_MAX_TOKENS,
-        },
-    }
+async def _call_llm_service(prompt: str, system: str = SYSTEM_PROMPT) -> str:
+    """调用 LLM 生成文本（使用统一 LLM 客户端）"""
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            resp = await client.post(url, json=payload)
-            resp.raise_for_status()
-            return resp.json().get("response", "").strip()
-    except Exception as e:
-        raise AppException(f"LLM 调用失败: {e}", code=503)
+        return await call_llm(prompt=prompt, system=system, use_cache=False)
+    except LLMError as e:
+        raise AppException(f"LLM 调用失败: {e}", code=e.code)
 
 
 async def _get_schema_info(db: AsyncSession, database: Optional[str] = None) -> str:
@@ -121,7 +107,7 @@ async def nl2sql_query(
     prompt += "\n" + QUERY_TEMPLATE.format(question=req.question)
 
     # 调用 LLM 生成 SQL
-    generated_sql = await _call_llm(prompt)
+    generated_sql = await _call_llm_service(prompt)
     # 清理 SQL（移除可能的 markdown 标记）
     generated_sql = generated_sql.strip().strip("`").strip()
     if generated_sql.startswith("sql"):
@@ -148,7 +134,7 @@ async def nl2sql_query(
 
     # 生成解释
     explain_prompt = EXPLAIN_TEMPLATE.format(sql=generated_sql, schema_info=schema_info)
-    explanation = await _call_llm(explain_prompt)
+    explanation = await _call_llm_service(explain_prompt)
 
     return NL2SQLResponse(
         success=True,
@@ -171,7 +157,7 @@ async def explain_sql(
     """解释 SQL 查询"""
     schema_info = await _get_schema_info(db, req.database)
     prompt = EXPLAIN_TEMPLATE.format(sql=req.sql, schema_info=schema_info)
-    explanation = await _call_llm(prompt)
+    explanation = await _call_llm_service(prompt)
     return SQLExplanation(sql=req.sql, explanation=explanation)
 
 

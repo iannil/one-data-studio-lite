@@ -21,6 +21,13 @@ class LoginResponse(BaseModel):
     message: str = ""
 
 
+class RefreshTokenResponse(BaseModel):
+    """Token刷新响应"""
+    success: bool
+    token: Optional[str] = None
+    message: str = ""
+
+
 class UserInfo(BaseModel):
     """用户信息"""
     user_id: str

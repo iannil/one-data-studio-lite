@@ -7,30 +7,22 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      // Portal 服务
       '/auth': {
         target: 'http://localhost:8010',
         changeOrigin: true,
       },
-      '/api/subsystems': {
+      '/api': {
         target: 'http://localhost:8010',
         changeOrigin: true,
       },
-      // NL2SQL 服务
-      '/api/nl2sql': {
-        target: 'http://localhost:8011',
-        changeOrigin: true,
-      },
-      // 敏感数据检测服务
-      '/api/sensitive': {
-        target: 'http://localhost:8015',
-        changeOrigin: true,
-      },
-      // 审计日志服务
-      '/api/audit': {
-        target: 'http://localhost:8016',
+      '/health': {
+        target: 'http://localhost:8010',
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    outDir: '../services/portal/static',
+    emptyOutDir: true,
   },
 })

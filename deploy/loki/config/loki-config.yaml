@@ -1,0 +1,100 @@
+# ONE-DDATA-STUDIO-LITE - Loki 配置文件
+# 位置: deploy/loki/config/loki-config.yaml
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+# 限制每个租户的摄取速率
+ingestion:
+  rate_limit_enabled: false
+  ingest_batch_upload_deadline: 5s
+
+# 查询限制
+limits_config:
+  max_streams_per_user: 0
+  max_global_streams_per_user: 0
+  max_query_series: 100000
+  max_query_line_length: 2048
+  max_entries_limit_per_query: 5000
+  max_streams_matchers_per_query: 1000
+  max_label_names_per_series: 30
+  max_label_values_per_series: 200
+
+# 存储配置
+storage:
+  rules:
+    - stream:
+        match: '{level="ERROR"}'
+        action: keep
+        # 保留所有 ERROR 日志
+    - stream:
+        match: '{job="portal"}'
+        action: keep
+        # 保留所有 Portal 日志
+    - stream:
+        match: '{job="nl2sql|job="ai_cleaning|job="metadata_sync"}'
+        action: label
+        # 为 AI 服务单独索引
+    - stream:
+        match: '{level="DEBUG"}'
+        action: delete
+        # 删除 DEBUG 日志（生产环境）
+  period_config:
+    # 清理旧数据
+    - from: "2024-01-01"
+      delete:
+        delete_older_than: 30d
+      delete_match_filter: '{level="INFO"}'
+    - from: "2024-01-01"
+      delete:
+        delete_older_than: 7d
+      delete_match_filter: '{level="DEBUG"}'
+
+# 分片配置
+chunk_store_config:
+  max_look_back_period: 0s
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store:
+        type: tsdb
+        tsdb:
+          time_range_of_stores:
+            - from: 2024-01-01
+              to: 2026-12-31
+              index:
+                period: 24h
+                object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+#.compactor:
+#  working_directory: /loki/compactor
+#  shared_store: filesystem
+#  compaction:
+#    retention_enabled: true
+#    retention_delete_delay: 168h
+#    delete_delay: 168h
+#    interval: 24h
+
+# 查询后的结果缓存
+query_range:
+  split_queries_by_interval: 15m
+  max_entries_limit_per_query: 5000
+  max_outliers_per_series: 100
+  max_series_per_query: 10000
+  timeout: 3m
+
+# 索引
+compactor:
+  working_directory: /loki/compactor
+  shared_store: filesystem
+  retention_enabled: true
+  delete_delay: 168h
+  retention_delete_delay: 168h
+  compaction_interval: 24h

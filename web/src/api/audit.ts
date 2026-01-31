@@ -9,19 +9,19 @@ export interface AuditQueryParams extends PaginationParams {
 
 // 查询审计日志
 export const getLogs = async (params: AuditQueryParams = {}): Promise<AuditEvent[]> => {
-  const response = await client.get<AuditEvent[]>('/api/audit/logs', { params });
+  const response = await client.get<AuditEvent[]>('/api/proxy/audit/api/audit/logs', { params });
   return response.data;
 };
 
 // 获取单条日志
 export const getLog = async (logId: string): Promise<AuditEvent> => {
-  const response = await client.get<AuditEvent>(`/api/audit/logs/${logId}`);
+  const response = await client.get<AuditEvent>(`/api/proxy/audit/api/audit/logs/${logId}`);
   return response.data;
 };
 
 // 获取审计统计
 export const getStats = async (): Promise<AuditStats> => {
-  const response = await client.get<AuditStats>('/api/audit/stats');
+  const response = await client.get<AuditStats>('/api/proxy/audit/api/audit/stats');
   return response.data;
 };
 
@@ -31,7 +31,7 @@ export const exportLogs = async (
   query: AuditQueryParams = {}
 ): Promise<Blob> => {
   const response = await client.post(
-    '/api/audit/export',
+    '/api/proxy/audit/api/audit/export',
     { format, query },
     { responseType: 'blob' }
   );

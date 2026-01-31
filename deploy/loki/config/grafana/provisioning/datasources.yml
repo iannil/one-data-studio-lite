@@ -1,0 +1,32 @@
+# ONE-DATA-STUDIO-LITE - Grafana 数据源配置
+
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki-datasource
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasource: loki
+        - query: loki
+      timeoutMs: 5000
+      isEditable: true
+      isOss: false
+      version: 1
+
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus-datasource
+    access: proxy
+    url: http://prometheus:9090
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: 30s
+      httpMethod: POST
+      exemplarTraceIdHighlights: []
+      exemplarTraceIdTitleColumn: "trace_id"
+    isEditable: true

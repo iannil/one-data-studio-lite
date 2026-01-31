@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
 DEPLOY_DIR="$PROJECT_ROOT/deploy"
 
 RED='\033[0;31m'
@@ -141,7 +141,7 @@ print_access_info() {
     echo "    DolphinScheduler:  http://localhost:12345   (admin/dolphinscheduler123)"
     echo "    Apache Hop:        http://localhost:8083"
     echo "    SeaTunnel API:     http://localhost:5801"
-    echo "    ShardingSphere:    localhost:3307           (root/one-data-studio-2024)"
+    echo "    ShardingSphere:    localhost:3309           (root/one-data-studio-2024)"
     echo ""
     echo "  二开服务:"
     echo "    统一门户:          http://localhost:8010    (admin/admin123)"

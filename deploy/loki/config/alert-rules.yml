@@ -1,0 +1,205 @@
+# ONE-DATA-STUDIO-LITE - Loki 告警规则配置
+# 位置: deploy/loki/config/alert-rules.yml
+
+groups:
+  # ============================================================
+  # 服务健康告警
+  # ============================================================
+  - name: service_health_alerts
+    interval: 30s
+    rules:
+      # 服务无日志输出告警（可能宕机）
+      - alert: ServiceNoLogs
+        expr: |
+          sum(count_over_time({service="portal"} [5m])) == 0
+        for: 10m
+        labels:
+          severity: critical
+          service: portal
+        annotations:
+          summary: "Portal 服务无日志输出"
+          description: "Portal 服务在过去 10 分钟内无日志输出，可能已停止运行"
+
+      - alert: NL2SQLServiceNoLogs
+        expr: |
+          sum(count_over_time({service="nl2sql"} [5m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: nl2sql
+        annotations:
+          summary: "NL2SQL 服务无日志输出"
+          description: "NL2SQL 服务在过去 10 分钟内无日志输出，可能已停止运行"
+
+  # ============================================================
+  # 错误率告警
+  # ============================================================
+  - name: error_rate_alerts
+    interval: 30s
+    rules:
+      # 高错误率告警
+      - alert: HighErrorRate
+        expr: |
+          sum(count_over_time({level="ERROR"} [5m])) / sum(count_over_time({} [5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "系统错误率过高"
+          description: "系统错误率在过去 5 分钟内超过 5%"
+
+      - alert: CriticalErrorRate
+        expr: |
+          sum(count_over_time({level="ERROR"} [5m])) / sum(count_over_time({} [5m])) > 0.15
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "系统错误率严重"
+          description: "系统错误率在过去 2 分钟内超过 15%，需要立即处理"
+
+      # 服务特定错误率告警
+      - alert: PortalHighErrorRate
+        expr: |
+          sum(count_over_time({service="portal", level="ERROR"} [5m])) / sum(count_over_time({service="portal"} [5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: portal
+        annotations:
+          summary: "Portal 服务错误率过高"
+          description: "Portal 服务错误率在过去 5 分钟内超过 10%"
+
+  # ============================================================
+  # 异常检测告警
+  # ============================================================
+  - name: anomaly_detection_alerts
+    interval: 30s
+    rules:
+      # 异常日志突增
+      - alert: ExceptionSpike
+        expr: |
+          sum(count_over_time({} |~ `(?i)exception` [2m])) > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到异常日志突增"
+          description: "在过去 2 分钟内检测到超过 50 条异常日志"
+
+      # 超时告警
+      - alert: TimeoutSpike
+        expr: |
+          sum(count_over_time({} |~ `(?i)timeout` [5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "检测到超时日志突增"
+          description: "在过去 5 分钟内检测到超过 20 条超时日志"
+
+      # 连接失败告警
+      - alert: ConnectionFailure
+        expr: |
+          sum(count_over_time({} |~ `(?i)(connection refused|connection reset|connection timeout)` [1m])) > 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "检测到连接失败"
+          description: "在过去 1 分钟内检测到超过 10 条连接失败日志"
+
+  # ============================================================
+  # 业务指标告警
+  # ============================================================
+  - name: business_metrics_alerts
+    interval: 30s
+    rules:
+      # LLM 调用失败率
+      - alert: HighLLMFailureRate
+        expr: |
+          sum(count_over_time({} |~ `(?i)llm.*failed|llm.*error` [5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM 调用失败率过高"
+          description: "在过去 5 分钟内检测到超过 10 条 LLM 调用失败日志"
+
+      # 数据库连接池耗尽
+      - alert: DatabasePoolExhausted
+        expr: |
+          sum(count_over_time({} |~ `(?i)connection pool.*exhausted|pool.*timeout` [1m])) > 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "数据库连接池可能耗尽"
+          description: "检测到数据库连接池相关的错误日志"
+
+      # API 请求延迟过高
+      - alert: HighAPILatency
+        expr: |
+          quantile_over_time(0.95, {duration_ms!=""} | unwrap duration_ms [5m]) > 3000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 请求延迟过高"
+          description: "P95 请求延迟在过去 5 分钟内超过 3000ms"
+
+  # ============================================================
+  # 资源使用告警
+  # ============================================================
+  - name: resource_usage_alerts
+    interval: 30s
+    rules:
+      # 内存告警
+      - alert: HighMemoryUsage
+        expr: |
+          sum(count_over_time({} |~ `(?i)out of memory|memory.*error|oom` [1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "检测到内存问题"
+          description: "检测到内存不足或 OOM 相关日志"
+
+      # 磁盘空间告警
+      - alert: DiskSpaceLow
+        expr: |
+          sum(count_over_time({} |~ `(?i)no space left|disk.*full` [1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "磁盘空间不足"
+          description: "检测到磁盘空间不足的日志"
+
+  # ============================================================
+  # 安全告警
+  # ============================================================
+  - name: security_alerts
+    interval: 30s
+    rules:
+      # 认证失败
+      - alert: HighAuthFailureRate
+        expr: |
+          sum(count_over_time({} |~ `(?i)authentication.*failed|unauthorized|forbidden` [5m])) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "认证失败率过高"
+          description: "在过去 5 分钟内检测到超过 50 条认证失败日志"
+
+      # SQL 注入尝试
+      - alert: SQLInjectionAttempt
+        expr: |
+          sum(count_over_time({} |~ `(?i)(sql injection|union select|' or '1'='1)` [1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "检测到 SQL 注入尝试"
+          description: "检测到可能的 SQL 注入攻击"
