@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Tabs, Table, Tag, message, Typography, Spin, Descriptions, Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getAssetDetail, getDatasetSchema } from '../../api/data-api';
+import { getAssetDetailV1, getDatasetSchemaV1 } from '../../api/data-api';
 import { getLineage } from '../../api/datahub';
 
 const { Title, Text } = Typography;
@@ -20,12 +20,12 @@ const AssetDetail: React.FC = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [assetData, schemaData] = await Promise.all([
-          getAssetDetail(id).catch(() => null),
-          getDatasetSchema(id).catch(() => null),
+        const [assetResp, schemaResp] = await Promise.all([
+          getAssetDetailV1(id).catch(() => null),
+          getDatasetSchemaV1(id).catch(() => null),
         ]);
-        setAsset(assetData);
-        setSchema(schemaData);
+        setAsset(assetResp?.data);
+        setSchema(schemaResp?.data);
         // 尝试获取血缘（需要 URN 格式）
         if (id.startsWith('urn:')) {
           const lineageData = await getLineage(id, 'OUTGOING').catch(() => null);

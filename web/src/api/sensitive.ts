@@ -1,4 +1,5 @@
 import client from './client';
+import type { ApiResponse } from './types';
 import { SensitiveScanRequest, SensitiveScanReport, DetectionRule } from '../types';
 
 // ============================================================
@@ -40,18 +41,18 @@ export interface ScanAndApplyResponse {
 }
 
 // ============================================================
-// API 函数
+// v1 版本 API（推荐使用，统一响应格式）
 // ============================================================
 
 /**
  * 扫描敏感数据
  */
 export const scan = async (request: SensitiveScanRequest): Promise<SensitiveScanReport> => {
-  const response = await client.post<SensitiveScanReport>(
-    '/api/proxy/sensitive/api/sensitive/scan',
+  const response = await client.post<ApiResponse<SensitiveScanReport>>(
+    '/api/proxy/sensitive/v1/scan',
     request
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 /**
@@ -61,52 +62,52 @@ export const classify = async (
   dataSamples: unknown[],
   context?: string
 ): Promise<{ analysis: string }> => {
-  const response = await client.post('/api/proxy/sensitive/api/sensitive/classify', {
-    data_samples: dataSamples,
-    context,
-  });
-  return response.data;
+  const response = await client.post<ApiResponse<{ analysis: string }>>(
+    '/api/proxy/sensitive/v1/classify',
+    { data_samples: dataSamples, context }
+  );
+  return response.data.data || response.data;
 };
 
 /**
  * 获取检测规则列表
  */
 export const getRules = async (): Promise<DetectionRule[]> => {
-  const response = await client.get<DetectionRule[]>(
-    '/api/proxy/sensitive/api/sensitive/rules'
+  const response = await client.get<ApiResponse<DetectionRule[]>>(
+    '/api/proxy/sensitive/v1/rules'
   );
-  return response.data;
+  return response.data.data || [];
 };
 
 /**
  * 获取单个检测规则
  */
 export const getRule = async (ruleId: string): Promise<DetectionRule> => {
-  const response = await client.get<DetectionRule>(
-    `/api/proxy/sensitive/api/sensitive/rules/${ruleId}`
+  const response = await client.get<ApiResponse<DetectionRule>>(
+    `/api/proxy/sensitive/v1/rules/${ruleId}`
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 /**
  * 添加检测规则
  */
 export const addRule = async (rule: Omit<DetectionRule, 'id'>): Promise<DetectionRule> => {
-  const response = await client.post<DetectionRule>(
-    '/api/proxy/sensitive/api/sensitive/rules',
+  const response = await client.post<ApiResponse<DetectionRule>>(
+    '/api/proxy/sensitive/v1/rules',
     rule
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 /**
  * 删除检测规则
  */
 export const deleteRule = async (ruleId: string): Promise<{ message: string }> => {
-  const response = await client.delete<{ message: string }>(
-    `/api/proxy/sensitive/api/sensitive/rules/${ruleId}`
+  const response = await client.delete<ApiResponse<{ message: string }>>(
+    `/api/proxy/sensitive/v1/rules/${ruleId}`
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 /**
@@ -116,21 +117,21 @@ export const getReports = async (
   page: number = 1,
   pageSize: number = 20
 ): Promise<SensitiveScanReport[]> => {
-  const response = await client.get<SensitiveScanReport[]>(
-    '/api/proxy/sensitive/api/sensitive/reports',
+  const response = await client.get<ApiResponse<SensitiveScanReport[]>>(
+    '/api/proxy/sensitive/v1/reports',
     { params: { page, page_size: pageSize } }
   );
-  return response.data;
+  return response.data.data || [];
 };
 
 /**
  * 获取单个扫描报告
  */
 export const getReport = async (reportId: string): Promise<SensitiveScanReport> => {
-  const response = await client.get<SensitiveScanReport>(
-    `/api/proxy/sensitive/api/sensitive/reports/${reportId}`
+  const response = await client.get<ApiResponse<SensitiveScanReport>>(
+    `/api/proxy/sensitive/v1/reports/${reportId}`
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 /**
@@ -144,11 +145,11 @@ export const getReport = async (reportId: string): Promise<SensitiveScanReport> 
 export const scanAndApply = async (
   request: ScanAndApplyRequest
 ): Promise<ScanAndApplyResponse> => {
-  const response = await client.post<ScanAndApplyResponse>(
-    '/api/proxy/sensitive/api/sensitive/scan-and-apply',
+  const response = await client.post<ApiResponse<ScanAndApplyResponse>>(
+    '/api/proxy/sensitive/v1/scan-and-apply',
     request
   );
-  return response.data;
+  return response.data.data || response.data;
 };
 
 // ============================================================

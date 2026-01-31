@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Input } from 'antd';
 import { LineChartOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { getCharts } from '../../api/superset';
+import { getChartsV1 } from '../../api/superset';
 
 const { Title, Text } = Typography;
 
@@ -13,8 +13,8 @@ const Charts: React.FC = () => {
   const fetchCharts = async () => {
     setLoading(true);
     try {
-      const data = await getCharts();
-      setCharts(data?.result || data?.charts || []);
+      const resp = await getChartsV1({ page: 1, page_size: 100 });
+      setCharts(resp?.data?.result || []);
     } catch {
       message.error('获取图表列表失败');
     } finally {

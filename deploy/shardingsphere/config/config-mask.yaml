@@ -6,9 +6,9 @@ databaseName: one_data_mask
 
 dataSources:
   ds_0:
-    url: jdbc:mysql://192.168.107.6:3306/one_data_studio?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://ods-mysql:3306/one_data_studio?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
-    password: changeme
+    password: one-data-studio-2024
     connectionTimeoutMilliseconds: 30000
     idleTimeoutMilliseconds: 60000
     maxLifetimeMilliseconds: 1800000

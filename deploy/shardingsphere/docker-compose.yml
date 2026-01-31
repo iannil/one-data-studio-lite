@@ -11,9 +11,9 @@ services:
       - "3309:3307"
     environment:
       JVM_OPTS: "-Xmx512m -Xms256m"
-      MYSQL_HOST: "host.docker.internal"
+      MYSQL_HOST: "ods-mysql"
       MYSQL_PORT: "3306"
-      MYSQL_DATABASE: "one_data_warehouse"
+      MYSQL_DATABASE: "one_data_studio"
       MYSQL_USERNAME: "root"
       MYSQL_PASSWORD: "one-data-studio-2024"
     volumes:

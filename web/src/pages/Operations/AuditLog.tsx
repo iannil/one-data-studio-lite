@@ -305,7 +305,7 @@ const AuditLog: React.FC = () => {
         title="日志详情"
         open={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        width={500}
+        size={500}
       >
         {selectedLog && (
           <Descriptions column={1} bordered size="small">

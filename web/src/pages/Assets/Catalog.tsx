@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, Table, Input, Select, Tag, message, Typography, Space, Button, Spin } from 'antd';
 import { BookOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { searchAssets } from '../../api/data-api';
+import { searchAssetsV1 } from '../../api/data-api';
 
 const { Title } = Typography;
 
@@ -16,11 +16,11 @@ const Catalog: React.FC = () => {
   const fetchAssets = async () => {
     setLoading(true);
     try {
-      const data = await searchAssets({
+      const resp = await searchAssetsV1({
         keyword: keyword || undefined,
         type: typeFilter,
       });
-      setAssets(data?.assets || data?.results || data || []);
+      setAssets(resp?.data || []);
     } catch {
       message.error('搜索数据资产失败');
     } finally {

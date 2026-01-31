@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Input } from 'antd';
 import { DashboardOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { getDashboards } from '../../api/superset';
+import { getDashboardsV1 } from '../../api/superset';
 
 const { Title, Text } = Typography;
 
@@ -13,8 +13,8 @@ const Bi: React.FC = () => {
   const fetchDashboards = async () => {
     setLoading(true);
     try {
-      const data = await getDashboards();
-      setDashboards(data?.result || data?.dashboards || []);
+      const resp = await getDashboardsV1({ page: 1, page_size: 100 });
+      setDashboards(resp?.data?.result || []);
     } catch {
       message.error('获取仪表板列表失败');
     } finally {

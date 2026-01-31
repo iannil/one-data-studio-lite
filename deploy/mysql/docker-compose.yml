@@ -1,7 +1,5 @@
 # ONE-DATA-STUDIO-LITE 应用数据库
-# 用于 Portal、NL2SQL、AI清洗、元数据同步等服务的数据库
-
-version: '3.8'
+# 用于 Portal、NL2SQL、AI清洗、元数据同步、ShardingSphere 等服务的数据库
 
 services:
   mysql:
@@ -9,29 +7,36 @@ services:
     container_name: ods-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: changeme
+      MYSQL_ROOT_PASSWORD: one-data-studio-2024
       MYSQL_DATABASE: one_data_studio
       MYSQL_USER: ods_user
       MYSQL_PASSWORD: ods_password
       TZ: Asia/Shanghai
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=1000
+      - --max_allowed_packet=256M
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pone-data-studio-2024"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
-      - one-data-studio-network
+      - ods-network
 
 volumes:
   mysql_data:
     driver: local
 
 networks:
-  one-data-studio-network:
+  ods-network:
+    name: ods-network
     external: true

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Input, Button, Table, Tabs, message, Typography, Space, Spin, Tag } from 'antd';
 import { ApiOutlined, SearchOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { getDatasetSchema, queryDataset, subscribeDataset } from '../../api/data-api';
+import { getDatasetSchemaV1, queryDatasetV1, subscribeDatasetV1 } from '../../api/data-api';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -21,8 +21,8 @@ const DataApiManage: React.FC = () => {
     }
     setLoadingSchema(true);
     try {
-      const data = await getDatasetSchema(datasetId);
-      setSchema(data);
+      const resp = await getDatasetSchemaV1(datasetId);
+      setSchema(resp?.data);
     } catch {
       message.error('获取 Schema 失败');
     } finally {
@@ -37,8 +37,8 @@ const DataApiManage: React.FC = () => {
     }
     setQuerying(true);
     try {
-      const data = await queryDataset(datasetId, { sql: sql || undefined, limit: 100 });
-      setQueryResult(data);
+      const resp = await queryDatasetV1(datasetId, { sql: sql || undefined, limit: 100 });
+      setQueryResult(resp?.data);
     } catch {
       message.error('查询失败');
     } finally {
@@ -52,7 +52,7 @@ const DataApiManage: React.FC = () => {
       return;
     }
     try {
-      await subscribeDataset(datasetId);
+      await subscribeDatasetV1(datasetId);
       message.success('订阅成功');
     } catch {
       message.error('订阅失败');

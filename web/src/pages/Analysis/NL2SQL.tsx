@@ -19,7 +19,7 @@ import {
   TableOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
-import { query, getTables } from '../../api/nl2sql';
+import { queryV1, getTablesV1 } from '../../api/nl2sql';
 import { TableInfo, NL2SQLQueryResponse } from '../../types';
 
 const { TextArea } = Input;
@@ -35,8 +35,8 @@ const NL2SQL: React.FC = () => {
   useEffect(() => {
     const fetchTables = async () => {
       try {
-        const data = await getTables();
-        setTables(data);
+        const resp = await getTablesV1();
+        setTables(resp?.data || []);
       } catch (error) {
         message.error('获取表列表失败');
       } finally {
@@ -54,10 +54,11 @@ const NL2SQL: React.FC = () => {
     setQuerying(true);
     setResult(null);
     try {
-      const data = await query({ question, max_rows: 100 });
-      setResult(data);
-      if (!data.success) {
-        message.error('查询失败');
+      const resp = await queryV1({ question });
+      if (resp?.success && resp?.data) {
+        setResult(resp.data);
+      } else {
+        message.error(resp?.message || '查询失败');
       }
     } catch (error: any) {
       message.error(error.response?.data?.detail || '查询失败');

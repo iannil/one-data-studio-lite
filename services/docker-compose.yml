@@ -10,7 +10,7 @@ x-service-common: &service-common
   networks:
     - ods-network
   environment: &service-env
-    DATABASE_URL: "${DATABASE_URL:-mysql+aiomysql://root:changeme@host.docker.internal:3306/one_data_studio}"
+    DATABASE_URL: "${DATABASE_URL:-mysql+aiomysql://root:one-data-studio-2024@ods-mysql:3306/one_data_studio}"
     JWT_SECRET: "${JWT_SECRET:-dev-only-change-in-production}"
     LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:31434}"
     LLM_MODEL: "${LLM_MODEL:-qwen2.5:7b}"
