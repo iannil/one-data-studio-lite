@@ -15,7 +15,8 @@ import os
 import re
 import secrets
 from typing import Optional
-from pydantic_settings import BaseSettings
+
+from services.common.base_config import BaseServiceConfig
 
 
 def _get_jwt_secret() -> str:
@@ -59,10 +60,16 @@ def _get_dev_users() -> dict:
     # 开发环境默认用户（生产环境不应使用）
     return {
         "admin": {"password": "admin123", "role": "admin", "display_name": "管理员"},
+        "super_admin": {"password": "admin123", "role": "super_admin", "display_name": "超级管理员"},
+        "analyst": {"password": "ana123", "role": "analyst", "display_name": "数据分析师"},
+        "viewer": {"password": "view123", "role": "viewer", "display_name": "查看者"},
+        "data_scientist": {"password": "sci123", "role": "data_scientist", "display_name": "数据科学家"},
+        "engineer": {"password": "eng123", "role": "engineer", "display_name": "数据工程师"},
+        "steward": {"password": "stw123", "role": "steward", "display_name": "数据治理员"},
     }
 
 
-class Settings(BaseSettings):
+class Settings(BaseServiceConfig):
     """门户服务配置
 
     支持从环境变量和 etcd 配置中心加载配置。
@@ -127,6 +134,12 @@ class Settings(BaseSettings):
     # 数据库 - 生产环境必须通过环境变量设置
     # ============================================================
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
+
+    # ============================================================
+    # Redis 配置（用于 Token 黑名单）
+    # ============================================================
+    REDIS_URL: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_BLACKLIST_DB: int = int(os.environ.get("REDIS_BLACKLIST_DB", "0"))
 
     # ============================================================
     # 开发环境用户配置（生产环境应使用数据库或外部认证）

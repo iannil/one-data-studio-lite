@@ -1,10 +1,11 @@
 """AI清洗服务 - 配置"""
 
 import os
-from pydantic_settings import BaseSettings
+
+from services.common.base_config import ServiceConfig
 
 
-class Settings(BaseSettings):
+class Settings(ServiceConfig):
     APP_NAME: str = "AI Cleaning Rule Service"
     APP_PORT: int = 8012
     DEBUG: bool = False

@@ -10,6 +10,9 @@ build/
 .venv/
 venv/
 env/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # IDE
 .idea/
@@ -17,6 +20,8 @@ env/
 *.swp
 *.swo
 *~
+*.tmp
+*.bak
 
 # OS
 .DS_Store
@@ -33,15 +38,41 @@ kubeconfig
 
 # Secrets (never commit)
 .env
+.env.local
+.env.*.local
 *.pem
 *.key
 credentials.json
 
 # Logs
 *.log
+*.pid
 logs/
+l0gs/
 
 # Data
 *.sql
 *.dump
 data/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Release artifacts (template only, never commit actual release files)
+release/*/
+!release/.gitkeep
+
+# Backup files (created by backup script)
+backup/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+*.swp
+*.swo
+*.bak
+*.backup

@@ -1,10 +1,11 @@
 """审计日志 - 配置"""
 
 import os
-from pydantic_settings import BaseSettings
+
+from services.common.base_config import ServiceConfig
 
 
-class Settings(BaseSettings):
+class Settings(ServiceConfig):
     APP_NAME: str = "Audit Log Service"
     APP_PORT: int = 8016
     DEBUG: bool = False

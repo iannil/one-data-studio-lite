@@ -1,6 +1,10 @@
 """Prometheus 指标收集"""
 
-from prometheus_fastapi_instrumentator import Instrumentator
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
 
 
 def setup_metrics(app):
@@ -12,4 +16,10 @@ def setup_metrics(app):
     - 响应状态码分布
     - 请求大小
     """
-    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+    if PROMETHEUS_AVAILABLE:
+        Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+    else:
+        # 如果 Prometheus 不可用，记录警告但继续运行
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("prometheus_fastapi_instrumentator not installed, metrics disabled")

@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db, validate_table_exists, validate_identifier
+from services.common.database import get_db, validate_table_exists, validate_identifier, get_table_columns
 from services.common.exceptions import register_exception_handlers, AppException, NotFoundError
 from services.common.llm_client import call_llm, LLMError
 from services.common.middleware import RequestLoggingMiddleware
@@ -139,13 +139,10 @@ async def scan_table(
     except ValueError as e:
         raise AppException(str(e), code=400)
 
-    # 获取列信息
-    cols_result = await db.execute(text(
-        "SELECT COLUMN_NAME, DATA_TYPE "
-        "FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
-    ), {"table": req.table_name})
-    columns = cols_result.fetchall()
+    # 获取列信息（使用兼容函数）
+    all_columns = await get_table_columns(db, req.table_name)
+    # Extract only name and type
+    columns = [(col[0], col[1]) for col in all_columns]
 
     sensitive_fields: list[SensitiveField] = []
 
@@ -404,12 +401,10 @@ async def scan_and_apply(
     except ValueError as e:
         raise AppException(str(e), code=400)
 
-    cols_result = await db.execute(text(
-        "SELECT COLUMN_NAME, DATA_TYPE "
-        "FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
-    ), {"table": req.table_name})
-    columns = cols_result.fetchall()
+    # 获取列信息（使用兼容函数）
+    all_columns = await get_table_columns(db, req.table_name)
+    # Extract only name and type
+    columns = [(col[0], col[1]) for col in all_columns]
 
     sensitive_fields: list[SensitiveField] = []
 

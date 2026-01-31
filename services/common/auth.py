@@ -27,6 +27,12 @@ class TokenPayload(BaseModel):
     username: str
     role: str = "user"
     exp: datetime
+    iat: Optional[datetime] = None  # 签发时间（可选）
+
+    @property
+    def user_id(self) -> str:
+        """获取用户ID（sub的别名，提供向后兼容）"""
+        return self.sub
 
 
 def create_token(
@@ -36,20 +42,58 @@ def create_token(
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """创建 JWT 令牌"""
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=JWT_EXPIRE_HOURS))
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(hours=JWT_EXPIRE_HOURS))
     payload = {
         "sub": user_id,
         "username": username,
         "role": role,
         "exp": expire,
+        "iat": now.timestamp(),  # Unix 时间戳
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
+def _check_token_blacklist(token: str) -> bool:
+    """检查 Token 是否在黑名单中"""
+    try:
+        from services.common.token_blacklist import get_blacklist
+        blacklist = get_blacklist()
+        return blacklist.is_revoked(token)
+    except Exception:
+        return False
+
+
+def _check_user_revoked(user_id: str, token: str) -> bool:
+    """检查用户 Token 是否被批量撤销"""
+    try:
+        from services.common.token_blacklist import get_blacklist
+        blacklist = get_blacklist()
+        return blacklist.is_user_revoked(user_id, token)
+    except Exception:
+        return False
+
+
 def verify_token(token: str) -> TokenPayload:
     """验证 JWT 令牌"""
+    # 检查黑名单
+    if _check_token_blacklist(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="令牌已撤销",
+        )
+
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+
+        # 检查用户是否被批量撤销
+        user_id = payload.get("sub")
+        if user_id and _check_user_revoked(user_id, token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="令牌已撤销（权限变更）",
+            )
+
         return TokenPayload(**payload)
     except jwt.ExpiredSignatureError:
         raise HTTPException(

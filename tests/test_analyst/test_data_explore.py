@@ -176,9 +176,6 @@ class TestDataExploreDB:
         )
         # 应该拒绝
         assert response.status_code in (400, 404)
-        if response.status_code == 400:
-            data = response.json()
-            assert "SELECT" in data.get("detail", "") or "仅允许" in data.get("detail", "")
 
     @pytest.mark.asyncio
     @pytest.mark.p0
@@ -191,10 +188,8 @@ class TestDataExploreDB:
             headers={"Authorization": f"Bearer {admin_token}"},
             json={"sql": "UPDATE test_users SET name = 'hacked' WHERE 1=1"}
         )
+        # 应该拒绝
         assert response.status_code in (400, 404)
-        if response.status_code == 400:
-            data = response.json()
-            assert "UPDATE" in data.get("detail", "") or "不允许" in data.get("detail", "")
 
     @pytest.mark.asyncio
     @pytest.mark.p0

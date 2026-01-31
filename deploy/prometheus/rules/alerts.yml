@@ -1,0 +1,116 @@
+groups:
+  - name: one_data_studio_alerts
+    interval: 30s
+    rules:
+      # 服务可用性告警
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: "{{ $labels.job }}"
+        annotations:
+          summary: "服务 {{ $labels.job }} 不可用"
+          description: "服务 {{ $labels.job }} ({{ $labels.instance }}) 已下架超过 1 分钟"
+
+      # API 响应时间告警
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API 响应时间过高"
+          description: "服务 {{ $labels.service }} 的 P95 响应时间超过 500ms"
+
+      # API 错误率告警
+      - alert: HighAPIErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API 错误率过高"
+          description: "服务 {{ $labels.service }} 的错误率超过 5%"
+
+      # 数据库连接池告警
+      - alert: DatabaseConnectionPoolHigh
+        expr: |
+          sum(pg_stat_activity_count) by (datname)
+          /
+          pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "数据库连接池使用率过高"
+          description: "数据库 {{ $labels.datname }} 连接池使用率超过 80%"
+
+      # Redis 内存告警
+      - alert: RedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: "Redis 内存使用率过高"
+          description: "Redis 内存使用率超过 90%"
+
+      # 磁盘空间告警
+      - alert: DiskSpaceHigh
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "磁盘空间不足"
+          description: "节点 {{ $labels.instance }} 的磁盘剩余空间低于 10%"
+
+      # CPU 使用率告警
+      - alert: CPUUsageHigh
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "CPU 使用率过高"
+          description: "节点 {{ $labels.instance }} 的 CPU 使用率超过 80%"
+
+      # Token 黑名单 Redis 不可用
+      - alert: TokenBlacklistDown
+        expr: |
+          up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: auth
+        annotations:
+          summary: "Token 黑名单 Redis 不可用"
+          description: "Token 黑名单功能所需的 Redis 服务已下架，撤销 Token 功能可能失效"
+
+      # 配置中心不可用
+      - alert: ConfigCenterDown
+        expr: |
+          up{job="etcd"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: config
+        annotations:
+          summary: "配置中心不可用"
+          description: "etcd 配置中心服务已下架，热更新功能可能失效"

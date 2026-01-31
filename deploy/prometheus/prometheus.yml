@@ -1,0 +1,75 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'one-data-studio'
+    env: 'production'
+
+# Alertmanager 配置
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# 规则文件
+rule_files:
+  - 'rules/*.yml'
+
+# 抓取配置
+scrape_configs:
+  # Prometheus 自身
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Portal 服务
+  - job_name: 'portal'
+    static_configs:
+      - targets: ['portal:8010']
+    metrics_path: '/metrics'
+
+  # 内部微服务
+  - job_name: 'internal-services'
+    static_configs:
+      - targets:
+          - 'nl2sql:8011'
+          - 'ai_cleaning:8012'
+          - 'metadata_sync:8013'
+          - 'data_api:8014'
+          - 'sensitive_detect:8015'
+          - 'audit_log:8016'
+    metrics_path: '/metrics'
+
+  # 外部组件
+  - job_name: 'external-components'
+    static_configs:
+      - targets: ['datahub-gms:8081']
+        labels:
+          service: 'datahub'
+      - targets: ['superset:8088']
+        labels:
+          service: 'superset'
+      - targets: ['dolphinscheduler:12345']
+        labels:
+          service: 'dolphinscheduler'
+
+  # MySQL Exporter（可选）
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+        labels:
+          service: 'mysql'
+
+  # Redis Exporter（可选）
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+
+  # etcd（可选）
+  - job_name: 'etcd'
+    static_configs:
+      - targets: ['etcd:2379']
+        labels:
+          service: 'etcd'

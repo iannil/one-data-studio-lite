@@ -61,28 +61,52 @@ async def _call_llm_service(prompt: str, system: str = SYSTEM_PROMPT) -> str:
 async def _get_schema_info(db: AsyncSession, database: Optional[str] = None) -> str:
     """获取数据库表结构信息"""
     schema_parts = []
-    # 查询所有表
-    result = await db.execute(text(
-        "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"
-    ))
-    tables = result.fetchall()
 
-    for table_name, table_comment in tables:
-        # 查询表的列信息
-        cols_result = await db.execute(text(
-            "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_COMMENT, COLUMN_KEY "
-            "FROM information_schema.COLUMNS "
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
-        ), {"table": table_name})
-        columns = cols_result.fetchall()
+    # 检测数据库类型
+    result = await db.execute(text("SELECT sqlite_version()"))
+    is_sqlite = result.fetchone() is not None
 
-        col_desc = ", ".join(
-            f"`{c[0]}` {c[1]}" + (f" -- {c[2]}" if c[2] else "")
-            for c in columns
-        )
-        comment = f" -- {table_comment}" if table_comment else ""
-        schema_parts.append(f"表 `{table_name}`{comment}: ({col_desc})")
+    if is_sqlite:
+        # SQLite 使用 sqlite_master
+        result = await db.execute(text(
+            "SELECT name, tbl_name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        ))
+        tables = [(row[0], None) for row in result.fetchall()]
+
+        for table_name, table_comment in tables:
+            # SQLite 使用 pragma_table_info
+            cols_result = await db.execute(text(f"PRAGMA table_info(`{table_name}`)"))
+            columns = cols_result.fetchall()
+
+            col_desc = ", ".join(
+                f"`{c[1]}` {c[2]}" + ("" if not c[3] else " PRIMARY KEY")
+                for c in columns
+            )
+            schema_parts.append(f"表 `{table_name}`: ({col_desc})")
+    else:
+        # MySQL 使用 information_schema
+        result = await db.execute(text(
+            "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"
+        ))
+        tables = result.fetchall()
+
+        for table_name, table_comment in tables:
+            # 查询表的列信息
+            cols_result = await db.execute(text(
+                "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_COMMENT, COLUMN_KEY "
+                "FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
+            ), {"table": table_name})
+            columns = cols_result.fetchall()
+
+            col_desc = ", ".join(
+                f"`{c[0]}` {c[1]}" + (f" -- {c[2]}" if c[2] else "")
+                for c in columns
+            )
+            comment = f" -- {table_comment}" if table_comment else ""
+            schema_parts.append(f"表 `{table_name}`{comment}: ({col_desc})")
 
     return "\n".join(schema_parts) if schema_parts else "暂无可用表结构信息"
 
@@ -167,30 +191,64 @@ async def list_tables(
     user: TokenPayload = Depends(get_current_user),
 ):
     """列出可用表和字段"""
-    result = await db.execute(text(
-        "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"
-    ))
     tables = []
-    for table_name, table_comment in result.fetchall():
-        cols_result = await db.execute(text(
-            "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_COMMENT, COLUMN_KEY, IS_NULLABLE "
-            "FROM information_schema.COLUMNS "
-            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
-        ), {"table": table_name})
-        columns = [
-            ColumnInfo(
-                name=c[0], data_type=c[1], comment=c[2] or None,
-                is_primary_key=(c[3] == "PRI"), is_nullable=(c[4] == "YES"),
-            )
-            for c in cols_result.fetchall()
-        ]
-        tables.append(TableInfo(
-            database="default",
-            table_name=table_name,
-            comment=table_comment or None,
-            columns=columns,
+
+    # 检测数据库类型
+    result = await db.execute(text("SELECT sqlite_version()"))
+    is_sqlite = result.fetchone() is not None
+
+    if is_sqlite:
+        # SQLite 使用 sqlite_master
+        result = await db.execute(text(
+            "SELECT name FROM sqlite_master "
+            "WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         ))
+        table_names = [row[0] for row in result.fetchall()]
+
+        for table_name in table_names:
+            # 使用 PRAGMA table_info 获取列信息
+            cols_result = await db.execute(text(f"PRAGMA table_info(`{table_name}`)"))
+            columns = []
+            for c in cols_result.fetchall():
+                # c: (cid, name, type, notnull, dflt_value, pk)
+                columns.append(ColumnInfo(
+                    name=c[1],
+                    data_type=c[2] or "TEXT",
+                    comment=None,
+                    is_primary_key=(c[5] > 0),
+                    is_nullable=(not c[3]),
+                ))
+            tables.append(TableInfo(
+                database="default",
+                table_name=table_name,
+                comment=None,
+                columns=columns,
+            ))
+    else:
+        # MySQL 使用 information_schema
+        result = await db.execute(text(
+            "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'"
+        ))
+        for table_name, table_comment in result.fetchall():
+            cols_result = await db.execute(text(
+                "SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_COMMENT, COLUMN_KEY, IS_NULLABLE "
+                "FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
+            ), {"table": table_name})
+            columns = [
+                ColumnInfo(
+                    name=c[0], data_type=c[1], comment=c[2] or None,
+                    is_primary_key=(c[3] == "PRI"), is_nullable=(c[4] == "YES"),
+                )
+                for c in cols_result.fetchall()
+            ]
+            tables.append(TableInfo(
+                database="default",
+                table_name=table_name,
+                comment=table_comment or None,
+                columns=columns,
+            ))
     return tables
 
 

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db, validate_table_exists, validate_identifier
+from services.common.database import get_db, validate_table_exists, validate_identifier, get_table_columns
 from services.common.exceptions import register_exception_handlers, AppException
 from services.common.llm_client import call_llm, LLMError
 from services.common.middleware import RequestLoggingMiddleware
@@ -108,13 +108,8 @@ async def analyze_table(
     count_result = await db.execute(text(f"SELECT COUNT(*) FROM {safe_table}"))
     total_rows = count_result.scalar() or 0
 
-    # 获取列信息
-    cols_result = await db.execute(text(
-        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE "
-        "FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table"
-    ), {"table": req.table_name})
-    columns = cols_result.fetchall()
+    # 获取列信息（使用兼容函数）
+    columns = await get_table_columns(db, req.table_name)
 
     issues: list[QualityIssue] = []
 

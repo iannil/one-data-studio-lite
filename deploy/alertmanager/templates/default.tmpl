@@ -1,0 +1,16 @@
+{{ define "default.title" }}
+[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}]
+{{ end }}
+
+{{ define "default.content" }}
+{{ range .Alerts }}
+**告警**: {{ .Labels.alertname }}
+**级别**: {{ .Labels.severity }}
+**服务**: {{ .Labels.service | default "N/A" }}
+**实例**: {{ .Labels.instance }}
+**详情**: {{ .Annotations.description }}
+**时间**: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+{{ if .EndsAt }}**结束时间**: {{ .EndsAt.Format "2006-01-02 15:04:05" }}{{ end }}
+---
+{{ end }}
+{{ end }}

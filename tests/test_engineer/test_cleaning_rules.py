@@ -138,6 +138,7 @@ class TestCleaningRules:
                     {
                         "rule_id": "r2",
                         "name": "替换异常值",
+                        "description": "替换status列的unknown值为pending",
                         "target_column": "status",
                         "rule_type": "replace",
                         "config": {"old_value": "unknown", "new_value": "pending"}
@@ -164,6 +165,7 @@ class TestCleaningRules:
                     {
                         "rule_id": "r3",
                         "name": "填充默认值",
+                        "description": "填充age列的空值为0",
                         "target_column": "age",
                         "rule_type": "fill",
                         "config": {"fill_value": "0"}
@@ -190,6 +192,7 @@ class TestCleaningRules:
                     {
                         "rule_id": "r4",
                         "name": "去除重复",
+                        "description": "根据id列去除重复行",
                         "target_column": "id",
                         "rule_type": "deduplicate",
                         "config": {}

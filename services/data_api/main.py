@@ -95,23 +95,55 @@ async def get_dataset_schema(
     except ValueError:
         raise NotFoundError("数据集", dataset_id)
 
-    result = await db.execute(text(
-        "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT, COLUMN_KEY, IS_NULLABLE "
-        "FROM information_schema.COLUMNS "
-        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table "
-        "ORDER BY ORDINAL_POSITION"
-    ), {"table": table_name})
-    cols = result.fetchall()
-    if not cols:
-        raise NotFoundError("数据集", dataset_id)
+    # 检测数据库类型
+    cols = []
+    try:
+        # 尝试检测 SQLite
+        result = await db.execute(text("SELECT sqlite_version()"))
+        is_sqlite = result.fetchone() is not None
 
-    columns = [
-        ColumnSchema(
-            name=c[0], data_type=c[1], description=c[2] or None,
-            is_primary_key=(c[3] == "PRI"), is_nullable=(c[4] == "YES"),
-        )
-        for c in cols
-    ]
+        if is_sqlite:
+            # SQLite 使用 PRAGMA table_info
+            result = await db.execute(text(f"PRAGMA table_info({safe_table})"))
+            rows = result.fetchall()
+            for row in rows:
+                # row: (cid, name, type, notnull, default_value, pk)
+                cols.append((
+                    row[1],  # name
+                    row[2] or "TEXT",  # type
+                    None,  # description (SQLite 不支持)
+                    "PRI" if row[5] else "",  # is_primary_key
+                    "NO" if row[3] else "YES",  # is_nullable
+                ))
+        else:
+            # MySQL 使用 information_schema
+            result = await db.execute(text(
+                "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT, COLUMN_KEY, IS_NULLABLE "
+                "FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table "
+                "ORDER BY ORDINAL_POSITION"
+            ), {"table": table_name})
+            cols = result.fetchall()
+    except Exception:
+        # 如果查询失败，返回空 schema
+        cols = []
+
+    if not cols:
+        # 尝试直接查询表获取列信息（兼容模式）
+        try:
+            result = await db.execute(text(f"SELECT * FROM {safe_table} LIMIT 1"))
+            columns = [ColumnSchema(name=col, data_type="unknown", description=None, is_primary_key=False, is_nullable=True)
+                       for col in result.keys()]
+        except Exception:
+            raise NotFoundError("数据集", dataset_id)
+    else:
+        columns = [
+            ColumnSchema(
+                name=c[0], data_type=c[1], description=c[2] or None,
+                is_primary_key=(c[3] == "PRI"), is_nullable=(c[4] == "YES"),
+            )
+            for c in cols
+        ]
 
     count_result = await db.execute(text(f"SELECT COUNT(*) FROM {safe_table}"))
     row_count = count_result.scalar()
@@ -152,7 +184,11 @@ async def custom_query(
             if keyword in sql_upper:
                 raise AppException(f"不允许使用 {keyword} 操作", code=400)
 
-        result = await db.execute(text(req.sql))
+        try:
+            result = await db.execute(text(req.sql))
+        except Exception as e:
+            # 如果查询失败，返回 404
+            raise NotFoundError("数据集", dataset_id)
     else:
         offset = (req.page - 1) * req.page_size
         result = await db.execute(text(

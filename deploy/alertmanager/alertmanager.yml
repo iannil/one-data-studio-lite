@@ -1,0 +1,80 @@
+global:
+  resolve_timeout: 5m
+
+# 告警路由
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default'
+
+  routes:
+    # 严重告警单独路由
+    - match:
+        severity: critical
+      receiver: 'critical'
+      continue: true
+
+    # 警告级别告警
+    - match:
+        severity: warning
+      receiver: 'warning'
+
+# 接收器配置
+receivers:
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://webhook:5000/alert'
+        send_resolved: true
+
+  - name: 'critical'
+    # 钉钉 Webhook
+    # 获取方式: 钉钉群 -> 群设置 -> 智能群助手 -> 添加机器人 -> 自定义
+    webhook_configs:
+      - url: '__DINGTALK_WEBHOOK_URL__'
+        send_resolved: true
+
+    # 企业微信 Webhook
+    # wechat_configs:
+    #   - corp_id: '__CORP_ID__'
+    #     agent_id: '__AGENT_ID__'
+    #     api_secret: '__API_SECRET__'
+    #     to_user: '@all'
+    #     message: |
+    #       {{ range .Alerts }}
+    #       告警: {{ .Annotations.summary }}
+    #       详情: {{ .Annotations.description }}
+    #       时间: {{ .StartsAt }}
+    #       {{ end }}
+
+    # 邮件通知
+    # email_configs:
+    #   - to: '__ADMIN_EMAIL__'
+    #     from: 'alertmanager@one-data-studio'
+    #     smarthost: 'smtp.example.com:587'
+    #     auth_username: '__SMTP_USER__'
+    #     auth_password: '__SMTP_PASSWORD__'
+    #     require_tls: true
+
+  - name: 'warning'
+    webhook_configs:
+      - url: '__WARNING_WEBHOOK_URL__'
+        send_resolved: true
+
+# 抑制规则
+inhibit_rules:
+  # 如果服务下架，抑制该服务的其他告警
+  - source_match:
+      severity: 'critical'
+      alertname: 'ServiceDown'
+    target_match:
+      severity: 'warning'
+    equal: ['instance']
+
+  # 严重错误抑制警告
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']

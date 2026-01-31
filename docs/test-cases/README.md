@@ -1,72 +1,128 @@
 # ONE-DATA-STUDIO-LITE 测试用例文档
 
+> **文档版本**: v2.0
+> **更新日期**: 2026-01-31
+> **覆盖范围**: 6种用户角色 × 9个生命周期阶段 × 15个功能模块
+
+---
+
 ## 概述
 
 本目录包含 ONE-DATA-STUDIO-LITE 智能大数据平台的完整测试用例文档，按用户角色的全生命周期组织。
 
-## 测试用例结构
+---
 
-| 文件 | 描述 | 用例数量 |
-|------|------|----------|
-| [00-通用测试用例.md](./00-通用测试用例.md) | 认证、健康检查、错误处理等通用功能测试 | ~30 |
-| [01-系统管理员测试用例.md](./01-系统管理员测试用例.md) | 系统管理员全生命周期测试 | ~25 |
-| [02-数据工程师测试用例.md](./02-数据工程师测试用例.md) | 数据工程师全生命周期测试 | ~40 |
-| [03-数据分析师测试用例.md](./03-数据分析师测试用例.md) | 数据分析师全生命周期测试 | ~35 |
-| [04-数据治理专员测试用例.md](./04-数据治理专员测试用例.md) | 数据治理专员全生命周期测试 | ~30 |
-| [05-数据安全管理员测试用例.md](./05-数据安全管理员测试用例.md) | 数据安全管理员全生命周期测试 | ~35 |
-| [06-业务用户测试用例.md](./06-业务用户测试用例.md) | 业务用户全生命周期测试 | ~25 |
+## 用户角色体系
+
+| 角色代码 | 角色名称 | 职责描述 |
+|----------|----------|----------|
+| **SUP** | 超级管理员 | 最高权限，系统初始化、角色管理、紧急响应 |
+| **ADM** | 管理员 | 系统管理、用户管理、监控审计 |
+| **SCI** | 数据科学家 | 数据分析、模型开发、实验管理 |
+| **ANA** | 数据分析师 | 数据查询、报表制作、可视化分析 |
+| **VW** | 查看者 | 只读数据访问、报表查看 |
+| **SVC** | 服务账户 | 服务间通信、内部 API 调用 |
 
 ---
 
-## 用户角色定义
+## 测试用例文档结构
 
-### 1. 系统管理员 (System Administrator)
-- **代码**: ADM
-- **职责**: 平台运维、用户管理、权限配置、系统监控
-- **使用服务**: Portal, Cube-Studio, Audit Log
-
-### 2. 数据工程师 (Data Engineer)
-- **代码**: ENG
-- **职责**: ETL开发、数据同步任务、数据管道构建
-- **使用服务**: AI Cleaning, Metadata Sync, SeaTunnel, Hop, DolphinScheduler
-
-### 3. 数据分析师 (Data Analyst)
-- **代码**: ANA
-- **职责**: 数据分析、报表制作、业务洞察
-- **使用服务**: NL2SQL, Data API, Superset
-
-### 4. 数据治理专员 (Data Steward)
-- **代码**: STW
-- **职责**: 元数据管理、数据标准制定、数据质量监控
-- **使用服务**: DataHub, Metadata Sync, AI Cleaning
-
-### 5. 数据安全管理员 (Security Administrator)
-- **代码**: SEC
-- **职责**: 敏感数据识别、脱敏规则配置、访问权限审计
-- **使用服务**: Sensitive Detect, Audit Log, ShardingSphere
-
-### 6. 业务用户 (Business User)
-- **代码**: USR
-- **职责**: 数据消费、报表查看、自助查询
-- **使用服务**: Portal, NL2SQL, Data API, Superset(只读)
+| 文件 | 描述 | 用例数量 |
+|------|------|----------|
+| [00-测试规范.md](./00-测试规范.md) | 测试用例编写规范、编号规则、优先级定义 | - |
+| [01-通用测试用例.md](./01-通用测试用例.md) | 健康检查、认证授权、错误处理等通用功能 | ~30 |
+| [02-超级管理员测试用例.md](./02-超级管理员测试用例.md) | SUP 角色全生命周期测试 | ~45 |
+| [03-管理员测试用例.md](./03-管理员测试用例.md) | ADM 角色全生命周期测试 | ~38 |
+| [04-数据科学家测试用例.md](./04-数据科学家测试用例.md) | SCI 角色全生命周期测试 | ~35 |
+| [05-数据分析师测试用例.md](./05-数据分析师测试用例.md) | ANA 角色全生命周期测试 | ~30 |
+| [06-查看者测试用例.md](./06-查看者测试用例.md) | VW 角色全生命周期测试 | ~20 |
+| [07-服务账户测试用例.md](./07-服务账户测试用例.md) | SVC 角色全生命周期测试 | ~25 |
+| [08-跨角色权限测试用例.md](./08-跨角色权限测试用例.md) | 角色间权限隔离、越权测试 | ~15 |
+| [09-功能覆盖矩阵.md](./09-功能覆盖矩阵.md) | 功能模块与测试用例映射关系 | - |
 
 ---
 
 ## 测试用例编号规则
 
 ```
-TC-{角色代码}-{阶段编号}-{序号}
+TC-{角色代码}-{生命周期阶段}-{功能模块}-{序号}
 ```
 
-| 角色代码 | 说明 |
+### 编号说明
+
+| 部分 | 说明 | 可选值 |
+|------|------|--------|
+| 角色代码 | 用户角色 | COM, SUP, ADM, SCI, ANA, VW, SVC, XROLE |
+| 生命周期阶段 | 用户生命周期阶段 | 01-09 |
+| 功能模块 | 功能模块编号 | 01-15 |
+| 序号 | 用例序号 | 01-99 |
+
+### 角色代码说明
+
+| 代码 | 说明 |
+|------|------|
+| COM | 通用 (Common) - 跨角色通用测试 |
+| SUP | 超级管理员 (Super Admin) |
+| ADM | 管理员 (Admin) |
+| SCI | 数据科学家 (Data Scientist) |
+| ANA | 数据分析师 (Data Analyst) |
+| VW | 查看者 (Viewer) |
+| SVC | 服务账户 (Service Account) |
+| XROLE | 跨角色 (Cross-Role) - 权限隔离测试 |
+
+### 生命周期阶段编号
+
+| 编号 | 阶段名称 | 描述 |
+|------|----------|------|
+| 01 | 账号创建 | 创建用户账号、首次登录 |
+| 02 | 权限配置 | 分配权限、角色配置 |
+| 03 | 数据访问 | 数据查询、Schema 获取 |
+| 04 | 功能使用 | 各角色核心功能使用 |
+| 05 | 监控审计 | 查看操作日志、审计报告 |
+| 06 | 维护操作 | 密钥轮换、资源管理 |
+| 07 | 账号禁用 | 禁用账号、权限回收 |
+| 08 | 账号删除 | 删除账号、数据清理 |
+| 09 | 紧急操作 | 紧急响应、故障处理 |
+
+### 功能模块编号
+
+| 编号 | 模块名称 | API 端点前缀 |
+|------|----------|--------------|
+| 01 | AUTH | /auth/* |
+| 02 | PORTAL | /health, /api/subsystems |
+| 03 | NL2SQL | /api/nl2sql/* |
+| 04 | AI_CLEANING | /api/cleaning/* |
+| 05 | METADATA_SYNC | /api/metadata/* |
+| 06 | DATA_API | /api/assets/*, /api/data/* |
+| 07 | SENSITIVE_DETECT | /api/sensitive/* |
+| 08 | AUDIT_LOG | /api/audit/* |
+| 09 | CUBE_STUDIO | /pipeline_modelview/*, /api/generate |
+| 10 | DATAHUB | /entities/* |
+| 11 | SUPERSET | /api/v1/* |
+| 12 | SEATUNNEL | /hazelcast/rest/* |
+| 13 | DOLPHINSCHEDULER | /projects/* |
+| 14 | HOP | /hop/api/* |
+| 15 | SHARDINGSPHERE | /v1/mask-rules/* |
+
+### 编号示例
+
+| 用例编号 | 说明 |
 |----------|------|
-| COM | 通用 (Common) |
-| ADM | 系统管理员 |
-| ENG | 数据工程师 |
-| ANA | 数据分析师 |
-| STW | 数据治理专员 |
-| SEC | 数据安全管理员 |
-| USR | 业务用户 |
+| TC-SUP-01-01-01 | 超级管理员-账号创建-认证-创建超级管理员账号 |
+| TC-ADM-02-08-01 | 管理员-权限配置-Audit Log-配置审计权限 |
+| TC-ANA-04-03-01 | 数据分析师-功能使用-NL2SQL-自然语言查询 |
+| TC-XROLE-04-06-01 | 跨角色-功能使用-Data API-数据访问权限隔离 |
+
+---
+
+## 测试优先级
+
+| 级别 | 说明 | 标记 |
+|------|------|------|
+| P0 | 核心功能，必须通过 | 🔴 |
+| P1 | 重要功能 | 🟡 |
+| P2 | 一般功能 | 🟢 |
+| P3 | 边界/异常测试 | ⚪ |
 
 ---
 
@@ -88,7 +144,12 @@ TC-{角色代码}-{阶段编号}-{序号}
 
 | 用户名 | 密码 | 角色 | 说明 |
 |--------|------|------|------|
-| admin | admin123 | admin | 开发环境管理员账号 |
+| super_admin | admin123 | super_admin | 超级管理员账号 |
+| admin | admin123 | admin | 管理员账号 |
+| scientist | sci123 | data_scientist | 数据科学家账号 |
+| analyst | ana123 | analyst | 数据分析师账号 |
+| viewer | view123 | viewer | 查看者账号 |
+| service_svc | - | service_account | 服务账户（使用 Secret） |
 
 ### 前置条件
 
@@ -96,85 +157,6 @@ TC-{角色代码}-{阶段编号}-{序号}
 2. 数据库连接正常
 3. LLM 服务 (Ollama) 可用
 4. DataHub/DolphinScheduler 等外部组件已部署
-
----
-
-## 功能覆盖矩阵
-
-确保所有 API 接口被测试用例覆盖：
-
-### Portal 服务 (8010)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| / | GET | TC-COM-01-01 |
-| /health | GET | TC-COM-01-02 |
-| /auth/login | POST | TC-COM-02-01 ~ 04 |
-| /auth/logout | POST | TC-COM-02-05 |
-| /api/subsystems | GET | TC-ADM-02-01 |
-
-### NL2SQL 服务 (8011)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-03 |
-| /api/nl2sql/query | POST | TC-ANA-02-01 ~ 05, TC-USR-04-01 ~ 04 |
-| /api/nl2sql/explain | POST | TC-ANA-02-06 ~ 07 |
-| /api/nl2sql/tables | GET | TC-ANA-02-08 ~ 09 |
-
-### AI Cleaning 服务 (8012)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-04 |
-| /api/cleaning/analyze | POST | TC-ENG-03-01 ~ 05 |
-| /api/cleaning/recommend | POST | TC-ENG-04-01 ~ 04 |
-| /api/cleaning/generate-config | POST | TC-ENG-04-05 ~ 08 |
-| /api/cleaning/rules | GET | TC-ENG-04-09 |
-
-### Metadata Sync 服务 (8013)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-05 |
-| /api/metadata/webhook | POST | TC-ENG-02-01 ~ 03 |
-| /api/metadata/sync | POST | TC-ENG-02-04 ~ 05 |
-| /api/metadata/mappings | GET | TC-ENG-02-06 |
-| /api/metadata/mappings/{id} | PUT | TC-ENG-02-07 ~ 08 |
-
-### Data API 服务 (8014)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-06 |
-| /api/data/{dataset_id} | GET | TC-ANA-01-01 ~ 04 |
-| /api/data/{dataset_id}/schema | GET | TC-ANA-01-05 ~ 07 |
-| /api/data/{dataset_id}/query | POST | TC-ANA-01-08 ~ 12 |
-| /api/assets/search | GET | TC-ANA-01-13 ~ 16, TC-USR-02-01 ~ 04 |
-| /api/assets/{asset_id} | GET | TC-ANA-01-17 ~ 18 |
-| /api/assets/{asset_id}/subscribe | POST | TC-USR-06-01 ~ 03 |
-
-### Sensitive Detect 服务 (8015)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-07 |
-| /api/sensitive/scan | POST | TC-SEC-01-01 ~ 06 |
-| /api/sensitive/classify | POST | TC-SEC-02-01 ~ 04 |
-| /api/sensitive/rules | GET | TC-SEC-03-01 ~ 02 |
-| /api/sensitive/rules | POST | TC-SEC-03-03 ~ 05 |
-| /api/sensitive/reports | GET | TC-SEC-01-07 |
-
-### Audit Log 服务 (8016)
-
-| 接口 | 方法 | 覆盖测试用例 |
-|------|------|--------------|
-| /health | GET | TC-COM-01-08 |
-| /api/audit/log | POST | TC-ADM-05-01 ~ 02 |
-| /api/audit/logs | GET | TC-ADM-05-03 ~ 07, TC-SEC-06-01 ~ 05 |
-| /api/audit/logs/{id} | GET | TC-ADM-05-08 |
-| /api/audit/stats | GET | TC-ADM-05-09, TC-SEC-06-06 |
-| /api/audit/export | POST | TC-ADM-05-10 ~ 11, TC-SEC-07-01 ~ 02 |
 
 ---
 
@@ -198,24 +180,48 @@ make status
 - **Postman**: GUI 测试工具
 - **pytest + httpx**: 自动化测试
 
-### 3. 测试报告
+### 3. pytest 执行示例
+
+```bash
+# 运行所有测试
+pytest
+
+# 运行特定角色的测试
+pytest -m super_admin
+pytest -m data_scientist
+
+# 运行特定优先级的测试
+pytest -m p0
+pytest -m p1
+
+# 运行特定标记的测试
+pytest -m integration
+pytest -m "not slow"
+```
+
+### 4. 测试报告
 
 建议使用以下格式记录测试结果：
 
 | 用例编号 | 状态 | 执行时间 | 备注 |
 |----------|------|----------|------|
-| TC-XXX-XX-XX | PASS/FAIL | 2024-XX-XX | - |
+| TC-XXX-XX-XX-XX | PASS/FAIL | 2026-XX-XX | - |
 
 ---
 
-## 测试优先级
+## 测试用例统计
 
-| 级别 | 说明 | 标记 |
-|------|------|------|
-| P0 | 核心功能，必须通过 | 🔴 |
-| P1 | 重要功能 | 🟡 |
-| P2 | 一般功能 | 🟢 |
-| P3 | 边界/异常测试 | ⚪ |
+| 角色 | 预估用例数 | P0 | P1 | P2 | P3 |
+|------|-----------|----|----|----|----|
+| SUP | 45 | 15 | 12 | 10 | 8 |
+| ADM | 38 | 12 | 10 | 10 | 6 |
+| SCI | 35 | 10 | 12 | 8 | 5 |
+| ANA | 30 | 10 | 8 | 7 | 5 |
+| VW | 20 | 8 | 6 | 4 | 2 |
+| SVC | 25 | 10 | 8 | 5 | 2 |
+| 通用 | 30 | 16 | 5 | 3 | 6 |
+| 跨角色 | 15 | 8 | 4 | 2 | 1 |
+| **总计** | **238** | **89** | **65** | **49** | **35** |
 
 ---
 
@@ -223,4 +229,5 @@ make status
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v2.0 | 2026-01-31 | 重构角色体系，新增 SUP/SCI/VW/SVC 角色，完善生命周期阶段划分 |
 | v1.0 | 2024-01-29 | 初始版本，覆盖六大用户角色全生命周期 |

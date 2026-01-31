@@ -1,6 +1,7 @@
 """统一入口门户 - FastAPI 应用"""
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,6 +22,9 @@ from services.portal.models import (
     RefreshTokenResponse,
     SubsystemStatus,
     UserInfo,
+    ChangePasswordRequest,
+    RegisterRequest,
+    ApiResponse,
 )
 from services.portal.routers import (
     audit,
@@ -36,6 +40,10 @@ from services.portal.routers import (
     sensitive,
     shardingsphere,
     superset,
+    users,  # 新增
+    roles,  # 新增
+    service_accounts,  # 新增
+    system as system_router,  # 新增
 )
 
 logger = logging.getLogger(__name__)
@@ -229,6 +237,12 @@ app.include_router(data_api.router)
 app.include_router(sensitive.router)
 app.include_router(audit.router)
 
+# 新增管理路由
+app.include_router(users.router)
+app.include_router(roles.router)
+app.include_router(service_accounts.router)
+app.include_router(system_router.router)
+
 # 子系统配置
 SUBSYSTEMS = [
     {"name": "cube-studio", "display_name": "Cube-Studio (AI平台)", "url": settings.CUBE_STUDIO_URL, "health_path": "/health"},
@@ -325,8 +339,8 @@ async def validate_token(request: Request):
     try:
         payload = verify_token(token)
 
-        # 获取用户权限
-        user_config = settings.DEV_USERS.get(payload.get("user_id", ""), {})
+        # 获取用户配置（从 DEV_USERS 中查找）
+        user_config = settings.DEV_USERS.get(payload.username, {})
         if not user_config:
             return {
                 "valid": False,
@@ -334,18 +348,18 @@ async def validate_token(request: Request):
                 "message": "用户不存在"
             }
 
-        roles = [user_config.get("role", "user")]
-        permissions = _get_permissions_for_role(user_config.get("role", "user"))
+        role = user_config.get("role", "user")
+        permissions = _get_permissions_for_role(role)
 
         return {
             "valid": True,
-            "user_id": payload.get("user_id"),
-            "username": payload.get("username"),
-            "display_name": user_config.get("display_name", payload.get("username")),
-            "roles": roles,
+            "user_id": payload.user_id,
+            "username": payload.username,
+            "display_name": user_config.get("display_name", payload.username),
+            "roles": [role],
             "permissions": permissions,
-            "expires_at": payload.get("exp"),
-            "issued_at": payload.get("iat"),
+            "expires_at": payload.exp,
+            "issued_at": payload.iat,  # Unix 时间戳
         }
 
     except ValueError as e:
@@ -386,6 +400,7 @@ def _get_permissions_for_role(role: str) -> list[str]:
     ]
 
     role_permissions = {
+        "super_admin": admin_permissions + ["system:super_admin"],
         "admin": admin_permissions,
         "data_scientist": [
             "data:read", "data:write",
@@ -402,24 +417,156 @@ def _get_permissions_for_role(role: str) -> list[str]:
             "data:read",
             "pipeline:read",
         ],
+        "service_account": [
+            "service:call",
+            "data:read",
+        ],
+        "engineer": [
+            "data:read", "data:write",
+            "pipeline:read", "pipeline:run", "pipeline:manage",
+            "metadata:read", "metadata:write",
+        ],
+        "steward": [
+            "data:read",
+            "metadata:read", "metadata:write",
+            "quality:read", "quality:manage",
+        ],
+        "user": [
+            "data:read",
+        ],
     }
 
     return role_permissions.get(role, [])
 
 
 @app.post("/auth/revoke")
-async def revoke_token(request: Request):
+async def revoke_token(request: Request, current_user: TokenPayload = Depends(get_current_user)):
     """撤销 Token（强制登出）
 
-    在生产环境中，可以使用 Token 黑名单实现。
-    当前实现返回成功，实际撤销需要额外的存储支持。
+    将当前 Token 加入黑名单，使其立即失效。
+    需要 Redis 服务支持（通过 REDIS_URL 配置）。
     """
-    # TODO: 实现 Token 黑名单（使用 Redis 或数据库）
-    # 1. 将 Token 的 jti 添加到黑名单
-    # 2. 设置过期时间 = Token 原过期时间
-    # 3. 验证时检查黑名单
+    from services.common.token_blacklist import get_blacklist
 
-    return {"success": True, "message": "Token 已撤销"}
+    # 获取当前 Token
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="无效的认证头")
+
+    token = auth_header[7:]  # 移除 "Bearer " 前缀
+
+    blacklist = get_blacklist()
+    if not blacklist.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="黑名单服务不可用，请联系管理员"
+        )
+
+    # 撤销当前 Token
+    success = blacklist.revoke(token)
+
+    if success:
+        return {"success": True, "message": "Token 已撤销"}
+    else:
+        raise HTTPException(status_code=500, detail="撤销 Token 失败")
+
+
+@app.post("/auth/revoke-user/{user_id}")
+async def revoke_user_tokens(
+    user_id: str,
+    request: Request,
+    current_user: TokenPayload = Depends(get_current_user)
+):
+    """撤销指定用户的所有 Token
+
+    仅管理员可调用，用于权限变更后强制用户重新登录。
+    """
+    # 权限检查
+    if current_user.role not in ("admin", "super_admin"):
+        raise HTTPException(status_code=403, detail="权限不足")
+
+    from services.common.token_blacklist import get_blacklist
+
+    blacklist = get_blacklist()
+    if not blacklist.is_available():
+        raise HTTPException(
+            status_code=503,
+            detail="黑名单服务不可用"
+        )
+
+    # 获取当前 Token（排除当前登录用户的 Token）
+    auth_header = request.headers.get("Authorization", "")
+    except_token = None
+    if auth_header.startswith("Bearer "):
+        except_token = auth_header[7:]
+
+    count = blacklist.revoke_user_tokens(user_id, except_token=except_token)
+
+    return {
+        "success": True,
+        "message": f"用户 {user_id} 的所有 Token 已撤销",
+        "count": count
+    }
+
+
+@app.post("/auth/register", response_model=LoginResponse, status_code=201)
+async def register(req: RegisterRequest):
+    """用户注册
+
+    仅在系统未初始化时可用，或由超级管理员调用。
+    """
+    # TODO: 实现数据库支持的注册逻辑
+    # 当前返回开发环境模拟响应
+    token = create_token(
+        user_id=req.username,
+        username=req.username,
+        role=req.role,
+    )
+    return LoginResponse(
+        success=True,
+        token=token,
+        user=UserInfo(
+            user_id=req.username,
+            username=req.username,
+            role=req.role,
+            display_name=req.display_name,
+        ),
+        message="注册成功",
+    )
+
+
+@app.post("/auth/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: TokenPayload = Depends(get_current_user),
+):
+    """修改当前用户密码"""
+    # TODO: 实现数据库支持的密码修改逻辑
+    # 当前返回模拟响应
+    return {"success": True, "message": "密码修改成功"}
+
+
+@app.get("/auth/permissions")
+async def get_permissions(current_user: TokenPayload = Depends(get_current_user)):
+    """获取当前用户的权限列表"""
+    permissions = _get_permissions_for_role(current_user.role)
+
+    return {
+        "user_id": current_user.user_id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "permissions": permissions,
+    }
+
+
+@app.get("/", response_model=PortalInfo)
+async def portal_home():
+    """门户首页 - 返回系统信息"""
+    return PortalInfo(
+        name="ONE-DATA-STUDIO-LITE",
+        version="0.1.0",
+        subsystems=await _check_subsystems()
+    )
 
 
 @app.get("/health")
