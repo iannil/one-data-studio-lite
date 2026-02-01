@@ -1,5 +1,10 @@
 /**
  * Pipeline Page Object Model
+ *
+ * Updated to match actual component implementation at:
+ * - Route: /analysis/pipelines
+ * - Component: Pipelines
+ * - Features: List pipelines, run pipelines (no editor/CRUD yet)
  */
 
 import { Page, Locator, expect } from '@playwright/test';
@@ -10,10 +15,11 @@ import { TIMEOUTS } from '@utils/constants';
  * Pipeline Page class
  */
 export class PipelinePage extends BasePage {
-  // Selectors
-  private readonly container = '[data-testid="pipeline-page"], .pipeline-page';
-  private readonly pipelineList = '.pipeline-list, [data-testid="pipeline-list"]';
+  // Selectors - updated to match actual implementation
+  private readonly container = '[data-testid="pipeline-page"], .pipeline-page, div:has(h4:has-text("AI Pipeline"))';
+  private readonly pipelineList = '.pipeline-list, [data-testid="pipeline-list"], .ant-table';
   private readonly createButton = '[data-testid="create-pipeline-button"], button:has-text("创建")';
+  private readonly refreshButton = 'button:has-text("刷新")';
   private readonly runButton = '[data-testid="run-pipeline-button"], button:has-text("运行")';
   private readonly stopButton = '[data-testid="stop-pipeline-button"], button:has-text("停止")';
   private readonly deleteButton = '[data-testid="delete-pipeline-button"], button:has-text("删除")';
@@ -36,14 +42,38 @@ export class PipelinePage extends BasePage {
 
   /**
    * Wait for page to load
+   * Uses multiple possible selectors for flexibility
    */
   async waitForPageLoad(): Promise<void> {
-    await this.waitForElement(this.container);
+    // Try each possible container selector
+    const selectors = this.container.split(', ');
+    let loaded = false;
+
+    for (const selector of selectors) {
+      try {
+        await this.page.locator(selector).waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+        loaded = true;
+        break;
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!loaded) {
+      // Fallback: wait for table or heading
+      try {
+        await this.page.locator('.ant-table').waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      } catch {
+        await this.page.locator('h1, h2, h3, h4, h5').filter({ hasText: /Pipeline|AI/ }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      }
+    }
+
     await this.waitForLoading();
   }
 
   /**
    * Get pipeline list
+   * Updated to work with the actual table-based implementation
    */
   async getPipelines(): Promise<Array<{
     id: string;
@@ -52,10 +82,6 @@ export class PipelinePage extends BasePage {
     lastRun: string;
     schedule: string;
   }>> {
-    await this.waitForTable(this.pipelineList);
-
-    const cards = this.page.locator(`${this.pipelineCard}, .ant-table-tbody .ant-table-row`);
-    const count = await cards.count();
     const pipelines: Array<{
       id: string;
       name: string;
@@ -63,6 +89,32 @@ export class PipelinePage extends BasePage {
       lastRun: string;
       schedule: string;
     }> = [];
+
+    // Try to get pipelines from the table (actual implementation)
+    const tables = this.page.locator('.ant-table');
+    const tableCount = await tables.count();
+
+    if (tableCount > 0) {
+      const rows = await tables.first().locator('.ant-table-tbody .ant-table-row').all();
+      for (let i = 0; i < rows.length; i++) {
+        const cells = await rows[i].locator('.ant-table-cell').all();
+        // The actual table has: ID, name, describe, status, created_by, changed_on, actions
+        if (cells.length >= 4) {
+          pipelines.push({
+            id: (await cells[0].textContent() || '').trim(),
+            name: (await cells[1].textContent() || '').trim(),
+            status: (await cells[3].textContent() || '').trim(),
+            lastRun: '',
+            schedule: '',
+          });
+        }
+      }
+      return pipelines;
+    }
+
+    // Fallback to old card/list implementation
+    const cards = this.page.locator(this.pipelineCard);
+    const count = await cards.count();
 
     for (let i = 0; i < count; i++) {
       const item = cards.nth(i);

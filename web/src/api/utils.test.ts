@@ -227,36 +227,59 @@ describe('handleApiError', () => {
     vi.clearAllMocks();
   });
 
-  it('should show error message from Error object', () => {
+  it('should show safe error message for plain Error object', () => {
     const error = new Error('Test error');
     handleApiError(error, { showMessage: true });
 
-    expect(mockMessage.error).toHaveBeenCalledWith('Test error');
+    // Security: plain errors return safe generic message
+    expect(mockMessage.error).toHaveBeenCalledWith('操作失败，请稍后再试');
   });
 
-  it('should show error message from string', () => {
+  it('should show safe error message for string', () => {
     handleApiError('String error', { showMessage: true });
 
-    expect(mockMessage.error).toHaveBeenCalledWith('String error');
+    expect(mockMessage.error).toHaveBeenCalledWith('操作失败，请稍后再试');
   });
 
-  it('should show error message from object with message property', () => {
+  it('should show safe error message for object without status code', () => {
     const error = { message: 'Object error' };
     handleApiError(error, { showMessage: true });
 
-    expect(mockMessage.error).toHaveBeenCalledWith('Object error');
+    expect(mockMessage.error).toHaveBeenCalledWith('操作失败，请稍后再试');
+  });
+
+  it('should use safe message mapped by HTTP status code', () => {
+    const error = { response: { status: 404 } };
+    handleApiError(error, { showMessage: true });
+
+    expect(mockMessage.error).toHaveBeenCalledWith('请求的资源不存在');
   });
 
   it('should use default message when error has no message', () => {
     handleApiError({}, { showMessage: true, defaultMessage: 'Default' });
 
-    expect(mockMessage.error).toHaveBeenCalledWith('Default');
+    // Security: empty object gets safe message first
+    expect(mockMessage.error).toHaveBeenCalledWith('操作失败，请稍后再试');
   });
 
   it('should not show message when showMessage is false', () => {
     handleApiError(new Error('Test'), { showMessage: false });
 
     expect(mockMessage.error).not.toHaveBeenCalled();
+  });
+
+  it('should show safe message for 401 unauthorized', () => {
+    const error = { response: { status: 401 } };
+    handleApiError(error, { showMessage: true });
+
+    expect(mockMessage.error).toHaveBeenCalledWith('登录已过期，请重新登录');
+  });
+
+  it('should show safe message for 429 rate limit', () => {
+    const error = { status: 429 };
+    handleApiError(error, { showMessage: true });
+
+    expect(mockMessage.error).toHaveBeenCalledWith('操作过于频繁，请稍后再试');
   });
 
   it('should remove token and redirect on 401', () => {

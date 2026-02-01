@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Card, Input, Button, Table, Tabs, message, Typography, Space, Spin, Tag } from 'antd';
 import { ApiOutlined, SearchOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { getDatasetSchemaV1, queryDatasetV1, subscribeDatasetV1 } from '../../api/data-api';
+import { getDatasetSchemaV1, queryDatasetV1, subscribeDatasetV1, type DatasetSchema, type QueryResult } from '../../api/data-api';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 const DataApiManage: React.FC = () => {
   const [datasetId, setDatasetId] = useState('');
-  const [schema, setSchema] = useState<any>(null);
+  const [schema, setSchema] = useState<DatasetSchema | null>(null);
   const [loadingSchema, setLoadingSchema] = useState(false);
   const [sql, setSql] = useState('');
-  const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [querying, setQuerying] = useState(false);
 
   const fetchSchema = async () => {
@@ -73,9 +73,9 @@ const DataApiManage: React.FC = () => {
     ellipsis: true,
   })) || [];
 
-  const resultData = queryResult?.rows?.map((row: any, i: number) => {
+  const resultData = queryResult?.rows?.map((row, i: number) => {
     if (Array.isArray(row)) {
-      const record: Record<string, any> = { key: i };
+      const record: Record<string, string | number | boolean | null> = { key: i };
       queryResult.columns.forEach((col: string, idx: number) => {
         record[col] = row[idx];
       });
@@ -95,7 +95,7 @@ const DataApiManage: React.FC = () => {
           ) : schema ? (
             <Table
               columns={schemaColumns}
-              dataSource={(schema.fields || schema.columns || []).map((f: any, i: number) => ({ ...f, key: i }))}
+              dataSource={(schema.fields || schema.columns || []).map((f, i: number) => ({ ...f, key: i }))}
               pagination={false}
               size="small"
             />

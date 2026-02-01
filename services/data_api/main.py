@@ -13,6 +13,7 @@ from services.common.exceptions import register_exception_handlers, NotFoundErro
 from services.common.http_client import ServiceClient
 from services.common.middleware import RequestLoggingMiddleware
 from services.common.metrics import setup_metrics
+from services.common.security import get_allowed_origins, SecurityHeadersMiddleware
 from services.data_api.config import settings
 from services.data_api.models import (
     DatasetQuery,
@@ -30,13 +31,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# 安全的 CORS 配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+# 添加安全响应头中间件
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware, service_name="data-api")
 register_exception_handlers(app)
 setup_metrics(app)

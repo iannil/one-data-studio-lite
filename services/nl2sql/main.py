@@ -15,6 +15,7 @@ from services.common.exceptions import register_exception_handlers, AppException
 from services.common.llm_client import call_llm, LLMError
 from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
+from services.common.security import get_allowed_origins, SecurityHeadersMiddleware, validate_sql
 from services.nl2sql.config import settings
 from services.nl2sql.models import (
     NL2SQLRequest,
@@ -38,13 +39,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# 安全的 CORS 配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+# 添加安全响应头中间件
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware, service_name="nl2sql")
 register_exception_handlers(app)
 setup_metrics(app)
@@ -137,10 +142,10 @@ async def nl2sql_query(
     if generated_sql.startswith("sql"):
         generated_sql = generated_sql[3:].strip()
 
-    # 安全检查：只允许 SELECT
-    sql_upper = generated_sql.upper().strip()
-    if not sql_upper.startswith("SELECT"):
-        raise AppException("安全限制：仅允许 SELECT 查询", code=400)
+    # 安全检查：使用增强的 SQL 验证
+    is_valid, error_msg = validate_sql(generated_sql)
+    if not is_valid:
+        raise AppException(f"安全限制：{error_msg}", code=400)
 
     # 执行 SQL
     try:

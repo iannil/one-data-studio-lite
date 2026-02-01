@@ -22,13 +22,18 @@ export type ChangeType = 'CREATE' | 'UPDATE' | 'DELETE' | 'SCHEMA_CHANGE';
 /** ETL 映射规则 */
 export interface ETLMapping {
   id?: string;
-  source_urn: string;
-  target_task_type: 'dolphinscheduler' | 'seatunnel' | 'hop';
-  target_task_id: string;
-  trigger_on: ChangeType[];
-  auto_update_config: boolean;
+  name?: string;
+  source_urn?: string;
+  source_platform?: string;
+  target_task_type?: 'dolphinscheduler' | 'seatunnel' | 'hop';
+  target_platform?: string;
+  target_task_id?: string;
+  trigger_on?: ChangeType[];
+  auto_update_config?: boolean;
   description?: string;
   enabled?: boolean;
+  status?: string;
+  last_sync?: string;
 }
 
 /** 同步结果 */

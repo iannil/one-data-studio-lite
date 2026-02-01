@@ -40,10 +40,18 @@ export interface RecommendRulesRequest {
 }
 
 export interface CleaningRule {
+  id?: string;
   name: string;
   description: string;
   type: string;
-  config: Record<string, unknown>;
+  scenario?: string;
+  config?: Record<string, unknown>;
+}
+
+/** Extended cleaning rule with recommendation metadata */
+export interface CleaningRuleRecommendation extends CleaningRule {
+  column?: string;
+  confidence?: number;
 }
 
 export interface RecommendRulesResult {

@@ -1,25 +1,25 @@
-"""NL2SQL 服务 - 配置"""
+"""NL2SQL 服务 - 配置
 
-import os
+使用统一的 ServiceConfig 基类，减少重复配置。
+"""
 
 from services.common.base_config import ServiceConfig
 
 
 class Settings(ServiceConfig):
+    """NL2SQL 服务配置
+
+    服务端口和特定配置在此定义，通用配置继承自 ServiceConfig。
+    """
     APP_NAME: str = "NL2SQL Service"
     APP_PORT: int = 8011
-    DEBUG: bool = False
 
-    # LLM 配置 (Cube-Studio 部署的 Ollama)
-    LLM_BASE_URL: str = os.environ.get("LLM_BASE_URL", "http://localhost:31434")
-    LLM_MODEL: str = os.environ.get("LLM_MODEL", "qwen2.5:7b")
-    LLM_TEMPERATURE: float = 0.1
-    LLM_MAX_TOKENS: int = 2048
+    # NL2SQL 特有配置
+    DEFAULT_DATABASE: str = "default"
+    MAX_ROWS: int = 1000
+    ENABLE_QUERY_CACHE: bool = True
 
-    # Superset 连接
-    SUPERSET_URL: str = "http://localhost:8088"
-
-    model_config = {"env_prefix": "NL2SQL_"}
+    model_config = {"env_prefix": "NL2SQL_", "case_sensitive": False, "extra": "ignore"}
 
 
 settings = Settings()

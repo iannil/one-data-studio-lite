@@ -251,6 +251,32 @@ class ServiceAccountORM(Base):
     )
 
 
+class UserApiKeyORM(Base):
+    """用户API密钥 ORM 模型
+
+    存储用户的API访问密钥，用于API认证。
+    """
+    __tablename__ = "user_api_keys"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    key_name = Column(String(100), nullable=False)
+    api_key = Column(String(100), nullable=False, unique=True, index=True)
+    api_secret = Column(String(200), nullable=False)
+    scopes = Column(JSON, nullable=True)  # 权限范围列表
+    is_active = Column(Boolean, nullable=False, default=True)
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=func.now())
+    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    created_by = Column(String(100), nullable=True)
+
+    __table_args__ = (
+        Index("ix_user_api_keys_user_id", "user_id"),
+        Index("ix_user_api_keys_active", "is_active"),
+    )
+
+
 class SystemConfigORM(Base):
     """系统配置 ORM 模型
 

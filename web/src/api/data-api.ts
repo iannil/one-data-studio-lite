@@ -17,29 +17,35 @@ export type { ApiResponse };
 // ============================================================
 
 export interface DataAsset {
-  id: string;
+  id?: string;
+  urn?: string;
   name: string;
   type: string;
   description?: string;
+  platform?: string;
   schema?: string;
   database?: string;
   tags?: string[];
+  updated_at?: string;
+}
+
+export interface DatasetSchemaField {
+  name: string;
+  type: string;
+  nullable?: boolean;
+  description?: string;
 }
 
 export interface DatasetSchema {
   id: string;
   name: string;
-  columns: Array<{
-    name: string;
-    type: string;
-    nullable?: boolean;
-    description?: string;
-  }>;
+  fields?: DatasetSchemaField[];
+  columns?: DatasetSchemaField[];
 }
 
 export interface QueryResult {
   columns: string[];
-  rows: Array<unknown[]>;
+  rows: Array<Array<string | number | boolean | null>>;
   total: number;
 }
 

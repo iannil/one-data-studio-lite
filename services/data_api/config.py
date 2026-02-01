@@ -1,24 +1,25 @@
-"""数据资产API - 配置"""
+"""数据资产API网关 - 配置
 
-import os
+使用统一的 ServiceConfig 基类，减少重复配置。
+"""
 
 from services.common.base_config import ServiceConfig
 
 
 class Settings(ServiceConfig):
+    """数据资产 API 网关配置
+
+    服务端口和特定配置在此定义，通用配置继承自 ServiceConfig。
+    """
     APP_NAME: str = "Data Asset API Gateway"
     APP_PORT: int = 8014
-    DEBUG: bool = False
 
-    DATAHUB_GMS_URL: str = "http://localhost:8081"
-    DATAHUB_TOKEN: str = os.environ.get("DATAHUB_TOKEN", "")
-    LLM_BASE_URL: str = os.environ.get("LLM_BASE_URL", "http://localhost:31434")
-    LLM_MODEL: str = os.environ.get("LLM_MODEL", "qwen2.5:7b")
+    # Data API 特有配置
+    ENABLE_CACHE: bool = True
+    CACHE_TTL: int = 300  # 5分钟
+    MAX_RESULTS: int = 10000
 
-    # 速率限制
-    RATE_LIMIT_PER_MINUTE: int = 60
-
-    model_config = {"env_prefix": "DATA_API_"}
+    model_config = {"env_prefix": "DATA_API_", "case_sensitive": False, "extra": "ignore"}
 
 
 settings = Settings()

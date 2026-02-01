@@ -8,8 +8,11 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '@pages/login.page';
 import { DataApiPage } from '@pages/data-api.page';
 // import { TEST_USERS } from '@data/users'; // Unused - using admin only
-import { loginAs } from '@utils/test-helpers';
-import { PAGE_ROUTES } from '@types/index';
+
+// Define routes inline to avoid Vitest dependency conflict
+const ROUTES = {
+  ASSETS_API_MANAGEMENT: '/assets/api-management',
+} as const;
 
 test.describe('Data API Feature Tests', { tag: ['@data-api', '@feature', '@p1'] }, () => {
   let loginPage: LoginPage;
@@ -25,12 +28,14 @@ test.describe('Data API Feature Tests', { tag: ['@data-api', '@feature', '@p1'] 
 
     loginPage = new LoginPage(page);
     dataApiPage = new DataApiPage(page);
-    await loginAs(page, 'admin');
+
+    // Using admin user since other users don't exist in backend yet
+    await loginPage.login('admin', 'admin123');
   });
 
   test.describe('Page Access', () => {
     test('TC-API-01-01: User can access data API page', async ({ page }) => {
-      await page.goto(PAGE_ROUTES.ASSETS_API_MANAGEMENT);
+      await page.goto(ROUTES.ASSETS_API_MANAGEMENT);
       await page.waitForLoadState('domcontentloaded');
 
       expect(page.url()).toContain('/assets/api-management');

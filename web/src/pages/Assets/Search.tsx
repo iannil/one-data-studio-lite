@@ -22,6 +22,7 @@ import {
   TableOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -137,6 +138,7 @@ const DATA_SOURCE_OPTIONS = [
 const POPULAR_TAGS = ['用户', '订单', '产品', '销售', '日志', '实时', '报表'];
 
 const Search: React.FC = () => {
+  const navigate = useNavigate();
   const [searchText, setSearchText] = useState('');
   const [filteredAssets, setFilteredAssets] = useState<Asset[]>(DEMO_ASSETS);
   const [selectedTypes, setSelectedTypes] = useState<AssetType[]>([]);
@@ -447,8 +449,7 @@ const Search: React.FC = () => {
             size="small"
             onRow={(record) => ({
               onDoubleClick: () => {
-                // TODO: Navigate to asset detail page
-                // navigate(`/assets/${record.id}`);
+                navigate(`/assets/detail/${record.id}`);
               },
             })}
           />

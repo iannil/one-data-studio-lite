@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Input, Tag, message, Typography, Space, Button, Spin } from 'antd';
 import { DatabaseOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { searchEntities } from '../../api/datahub';
+import { searchEntities, type DataHubEntity } from '../../api/datahub';
 
 const { Title } = Typography;
 
 const DataSources: React.FC = () => {
-  const [dataSources, setDataSources] = useState<any[]>([]);
+  const [dataSources, setDataSources] = useState<DataHubEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
@@ -35,13 +35,13 @@ const DataSources: React.FC = () => {
       title: '数据源名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: any) => text || record.urn?.split(':').pop() || '-',
+      render: (text: string, record: DataHubEntity) => text || record.urn?.split(':').pop() || '-',
     },
     {
       title: '类型',
       dataIndex: 'type',
       key: 'type',
-      render: (text: string, record: any) => {
+      render: (text: string, record: DataHubEntity) => {
         const t = text || record.platform || '-';
         return <Tag color="blue">{t}</Tag>;
       },

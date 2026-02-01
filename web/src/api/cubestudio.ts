@@ -20,8 +20,11 @@ export type { ApiResponse };
 export interface Pipeline {
   id: number;
   name: string;
+  describe?: string;
   description?: string;
   status?: string;
+  created_by?: string | { username?: string };
+  changed_on?: string;
   created_at?: string;
 }
 

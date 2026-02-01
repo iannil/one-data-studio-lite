@@ -45,9 +45,34 @@ export interface UserInfoResponse {
   user_id: string;
   username: string;
   display_name: string;
+  email?: string;
   role: string;
   roles: string[];
   permissions: string[];
+}
+
+/** 密码重置请求 */
+export interface PasswordResetRequest {
+  email: string;
+}
+
+/** 验证码验证请求 */
+export interface VerifyCodeRequest {
+  email: string;
+  code: string;
+}
+
+/** 密码重置确认请求 */
+export interface ResetPasswordConfirmRequest {
+  email: string;
+  code: string;
+  new_password: string;
+}
+
+/** 修改密码请求 */
+export interface ChangePasswordRequest {
+  old_password: string;
+  new_password: string;
 }
 
 // ============================================================
@@ -89,6 +114,34 @@ export const getUserInfo = async (): Promise<UserInfoResponse> => {
 /** 撤销 Token */
 export const revokeToken = async (): Promise<{ success: boolean; message: string }> => {
   const response = await client.post<{ success: boolean; message: string }>('/auth/revoke');
+  return response.data;
+};
+
+// ============================================================
+// 密码管理 API
+// ============================================================
+
+/** 发送密码重置验证码 */
+export const sendPasswordResetCode = async (email: string): Promise<{ success: boolean; message: string }> => {
+  const response = await client.post<{ success: boolean; message: string }>('/auth/password/reset/code', { email });
+  return response.data;
+};
+
+/** 验证重置验证码 */
+export const verifyResetCode = async (email: string, code: string): Promise<{ success: boolean; valid: boolean; message: string }> => {
+  const response = await client.post<{ success: boolean; valid: boolean; message: string }>('/auth/password/reset/verify', { email, code });
+  return response.data;
+};
+
+/** 确认密码重置 */
+export const resetPassword = async (email: string, code: string, new_password: string): Promise<{ success: boolean; message: string }> => {
+  const response = await client.post<{ success: boolean; message: string }>('/auth/password/reset/confirm', { email, code, new_password });
+  return response.data;
+};
+
+/** 修改密码 (需要旧密码) */
+export const changePassword = async (old_password: string, new_password: string): Promise<{ success: boolean; message: string }> => {
+  const response = await client.post<{ success: boolean; message: string }>('/auth/password/change', { old_password, new_password });
   return response.data;
 };
 

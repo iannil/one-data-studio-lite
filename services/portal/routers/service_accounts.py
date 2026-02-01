@@ -1,6 +1,6 @@
 """服务账户管理 API 路由
 
-提供服务账户 CRUD 操作、密钥管理等功能。
+提供服务账户 CRUD 操作、密钥管理、调用历史等功能。
 """
 
 import secrets
@@ -9,18 +9,20 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, insert, select, update, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.auth import get_current_user, TokenPayload
 from services.common.database import get_db
-from services.common.orm_models import ServiceAccountORM, RoleORM
+from services.common.orm_models import ServiceAccountORM, RoleORM, AuditEventORM
 from services.portal.models import (
     ServiceAccountCreate,
     ServiceAccountResponse,
     ServiceAccountCreateResponse,
     ServiceAccountListResponse,
     ApiResponse,
+    ServiceAccountCallHistory,
+    ServiceAccountCallHistoryResponse,
 )
 
 router = APIRouter(prefix="/api/service-accounts", tags=["service-accounts"])
@@ -298,3 +300,195 @@ async def enable_service_account(
     await db.commit()
 
     return ApiResponse(message=f"服务账户 '{name}' 已启用")
+
+
+# ============================================================
+# 服务账户调用历史
+# ============================================================
+
+@router.get("/{name}/call-history", response_model=ServiceAccountCallHistoryResponse)
+async def get_service_account_call_history(
+    name: str,
+    start_date: str | None = Query(None, description="开始日期 (ISO 8601)"),
+    end_date: str | None = Query(None, description="结束日期 (ISO 8601)"),
+    subsystem: str | None = Query(None, description="过滤子系统"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[TokenPayload, Depends(get_current_user)],
+):
+    """获取服务账户调用历史
+
+    从审计日志中查询服务账户的 API 调用记录。
+    需要管理员或超级管理员权限。
+    """
+    _check_admin_permission(current_user)
+
+    # 验证服务账户存在
+    result = await db.execute(select(ServiceAccountORM).where(ServiceAccountORM.name == name))
+    sa = result.scalars().first()
+    if not sa:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"服务账户 '{name}' 不存在"
+        )
+
+    # 构建查询条件
+    conditions = [AuditEventORM.user == name]
+
+    # 日期过滤
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            conditions.append(AuditEventORM.created_at >= start_dt)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="开始日期格式错误，请使用 ISO 8601 格式"
+            )
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            conditions.append(AuditEventORM.created_at <= end_dt)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="结束日期格式错误，请使用 ISO 8601 格式"
+            )
+
+    # 子系统过滤
+    if subsystem:
+        conditions.append(AuditEventORM.subsystem == subsystem)
+
+    # 查询总数
+    count_query = select(func.count()).select_from(AuditEventORM).where(and_(*conditions))
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    # 查询统计数据
+    stats_query = select(
+        func.count().label('total_calls'),
+        func.sum(
+            func.case(
+                (AuditEventORM.status_code < 400, 1),
+                else_=0
+            )
+        ).label('success_calls'),
+        func.avg(AuditEventORM.duration_ms).label('avg_duration')
+    ).select_from(AuditEventORM).where(and_(*conditions))
+
+    stats_result = await db.execute(stats_query)
+    stats_row = stats_result.first()
+
+    stats = {
+        "total_calls": stats_row.total_calls if stats_row else 0,
+        "success_calls": stats_row.success_calls if stats_row else 0,
+        "success_rate": round(
+            (stats_row.success_calls / stats_row.total_calls * 100) if stats_row and stats_row.total_calls > 0 else 0,
+            2
+        ),
+        "avg_duration_ms": round(stats_row.avg_duration, 2) if stats_row and stats_row.avg_duration else 0,
+    }
+
+    # 查询记录（分页）
+    offset = (page - 1) * page_size
+    query = (
+        select(AuditEventORM)
+        .where(and_(*conditions))
+        .order_by(AuditEventORM.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+
+    result = await db.execute(query)
+    events = result.scalars().all()
+
+    items = [
+        ServiceAccountCallHistory(
+            id=event.id,
+            subsystem=event.subsystem,
+            action=event.action,
+            resource=event.resource,
+            status_code=event.status_code,
+            duration_ms=event.duration_ms,
+            ip_address=event.ip_address,
+            created_at=event.created_at.isoformat() if event.created_at else "",
+        )
+        for event in events
+    ]
+
+    return ServiceAccountCallHistoryResponse(
+        service_account=name,
+        total=total,
+        page=page,
+        page_size=page_size,
+        items=items,
+        stats=stats,
+    )
+
+
+@router.get("/{name}/call-history/stats", response_model=ApiResponse)
+async def get_service_account_call_stats(
+    name: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[TokenPayload, Depends(get_current_user)],
+):
+    """获取服务账户调用统计摘要
+
+    返回服务账户的调用统计信息，包括最近调用时间、总调用次数、成功率等。
+    需要管理员或超级管理员权限。
+    """
+    _check_admin_permission(current_user)
+
+    # 验证服务账户存在
+    result = await db.execute(
+        select(ServiceAccountORM).where(ServiceAccountORM.name == name)
+    )
+    sa = result.scalars().first()
+    if not sa:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"服务账户 '{name}' 不存在"
+        )
+
+    # 查询最近30天的统计
+    from datetime import timedelta
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+
+    stats_query = select(
+        func.count().label('total_calls'),
+        func.sum(
+            func.case(
+                (AuditEventORM.status_code < 400, 1),
+                else_=0
+            )
+        ).label('success_calls'),
+        func.avg(AuditEventORM.duration_ms).label('avg_duration'),
+        func.max(AuditEventORM.created_at).label('last_call_at'),
+    ).select_from(AuditEventORM).where(
+        and_(
+            AuditEventORM.user == name,
+            AuditEventORM.created_at >= thirty_days_ago
+        )
+    )
+
+    stats_result = await db.execute(stats_query)
+    stats_row = stats_result.first()
+
+    stats_data = {
+        "service_account": name,
+        "last_used_at": sa.last_used_at.isoformat() if sa.last_used_at else None,
+        "last_30_days": {
+            "total_calls": stats_row.total_calls if stats_row else 0,
+            "success_calls": stats_row.success_calls if stats_row else 0,
+            "success_rate": round(
+                (stats_row.success_calls / stats_row.total_calls * 100) if stats_row and stats_row.total_calls > 0 else 0,
+                2
+            ),
+            "avg_duration_ms": round(stats_row.avg_duration, 2) if stats_row and stats_row.avg_duration else 0,
+            "last_call_at": stats_row.last_call_at.isoformat() if stats_row and stats_row.last_call_at else None,
+        } if stats_row else {}
+    }
+
+    return ApiResponse(data=stats_data)

@@ -1,5 +1,10 @@
 /**
  * Data API Page Object Model
+ *
+ * Updated to match actual component implementation at:
+ * - Route: /assets/data-api
+ * - Component: DataApiManage
+ * - Features: Schema viewing, SQL query, subscription
  */
 
 import { Page, Locator, expect } from '@playwright/test';
@@ -10,14 +15,17 @@ import { TIMEOUTS } from '@utils/constants';
  * Data API Page class
  */
 export class DataApiPage extends BasePage {
-  // Selectors
-  private readonly container = '[data-testid="data-api-page"], .data-api-page';
+  // Selectors - updated to match actual implementation
+  private readonly container = '[data-testid="data-api-page"], .data-api-page, div:has(h4:has-text("数据API管理"))';
   private readonly catalog = '[data-testid="api-catalog"], .api-catalog';
   private readonly endpointList = '[data-testid="api-endpoint"], .api-endpoint';
-  private readonly queryEditor = '.query-editor, .sql-editor';
+  private readonly queryEditor = '.query-editor, .sql-editor, textarea[placeholder*="SQL"]';
   private readonly executeButton = 'button:has-text("执行"), button:has-text("查询")';
   private readonly resultArea = '.query-result, .result-area';
   private readonly schemaView = '.schema-view, .table-schema';
+  private readonly datasetIdInput = 'input[placeholder*="数据集"]';
+  private readonly fetchSchemaButton = 'button:has-text("获取"), button:has-text("查询")';
+  private readonly subscribeButton = 'button:has-text("订阅")';
 
   constructor(page: Page) {
     super(page);
@@ -27,7 +35,7 @@ export class DataApiPage extends BasePage {
    * Navigate to data API page
    */
   async goto(): Promise<void> {
-    await super.goto('/assets/api-management');
+    await super.goto('/assets/data-api');
   }
 
   /**
@@ -39,9 +47,32 @@ export class DataApiPage extends BasePage {
 
   /**
    * Wait for page to load
+   * Uses multiple possible selectors for flexibility
    */
   async waitForPageLoad(): Promise<void> {
-    await this.waitForElement(this.container);
+    // Try each possible container selector
+    const selectors = this.container.split(', ');
+    let loaded = false;
+
+    for (const selector of selectors) {
+      try {
+        await this.page.locator(selector).waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+        loaded = true;
+        break;
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!loaded) {
+      // Fallback: wait for table or heading with "API"
+      try {
+        await this.page.locator('.ant-tabs').waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      } catch {
+        await this.page.locator('h1, h2, h3, h4, h5').filter({ hasText: /API|数据API/ }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      }
+    }
+
     await this.waitForLoading();
   }
 
@@ -162,6 +193,7 @@ export class DataApiPage extends BasePage {
 
   /**
    * Get table schema
+   * Updated to work with the actual table-based implementation
    */
   async getTableSchema(): Promise<Array<{
     name: string;
@@ -169,6 +201,39 @@ export class DataApiPage extends BasePage {
     nullable: boolean;
     description: string;
   }>> {
+    const schema: Array<{
+      name: string;
+      type: string;
+      nullable: boolean;
+      description: string;
+    }> = [];
+
+    // Try to get schema from the table (actual implementation)
+    const tables = this.page.locator('.ant-table');
+    const tableCount = await tables.count();
+
+    if (tableCount > 0) {
+      // The schema table has columns: 字段名, 类型, 描述, 可为空
+      const rows = await tables.first().locator('.ant-table-tbody .ant-table-row').all();
+      for (let i = 0; i < rows.length; i++) {
+        const cells = await rows[i].locator('.ant-table-cell').all();
+        if (cells.length >= 4) {
+          const name = (await cells[0].textContent() || '').trim();
+          const type = (await cells[1].textContent() || '').trim();
+          const description = (await cells[2].textContent() || '').trim();
+          const nullableText = (await cells[3].textContent() || '').trim();
+          schema.push({
+            name,
+            type,
+            nullable: nullableText === '是' || nullableText.toLowerCase() === 'yes',
+            description,
+          });
+        }
+      }
+      return schema;
+    }
+
+    // Fallback to old schema view implementation
     const schemaView = this.page.locator(this.schemaView);
     const isVisible = await schemaView.isVisible().catch(() => false);
 
@@ -178,13 +243,6 @@ export class DataApiPage extends BasePage {
 
     const columns = schemaView.locator('.schema-column, .column-item');
     const count = await columns.count();
-
-    const schema: Array<{
-      name: string;
-      type: string;
-      nullable: boolean;
-      description: string;
-    }> = [];
 
     for (let i = 0; i < count; i++) {
       const column = columns.nth(i);

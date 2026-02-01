@@ -4,7 +4,7 @@
  * 提供统一的响应处理函数和错误处理逻辑
  */
 
-import type { ApiResponse, ErrorResponse } from './types';
+import type { ApiResponse, ErrorResponse, PageData, PaginatedResponse } from './types';
 import { isSuccessResponse, ErrorCode } from './types';
 import { removeToken } from '../utils/token';
 import { message } from 'antd';
@@ -108,6 +108,65 @@ export async function handleResponse<T>(
 }
 
 /**
+ * HTTP 状态码对应的用户友好错误消息
+ * 避免暴露内部系统信息
+ */
+const SAFE_ERROR_MESSAGES: Record<number, string> = {
+  400: '请求参数错误，请检查输入',
+  401: '登录已过期，请重新登录',
+  403: '没有权限执行此操作',
+  404: '请求的资源不存在',
+  409: '数据冲突，请刷新后重试',
+  422: '数据验证失败，请检查输入',
+  429: '操作过于频繁，请稍后再试',
+  500: '服务暂时不可用，请稍后再试',
+  502: '服务连接失败，请稍后再试',
+  503: '服务暂时不可用',
+  504: '请求超时，请稍后再试',
+};
+
+/**
+ * 获取安全的错误消息
+ * 不暴露内部系统细节，仅返回用户友好的通用消息
+ */
+function getSafeErrorMessage(error: unknown): string {
+  // 开发环境：记录详细错误到控制台
+  if (import.meta.env.DEV) {
+    console.error('API error:', error);
+  }
+
+  // 从响应中获取 HTTP 状态码
+  let status: number | undefined;
+
+  if (error && typeof error === 'object') {
+    const err = error as {
+      response?: { status?: number };
+      status?: number;
+      code?: number;
+    };
+    status = err.response?.status ?? err.status ?? err.code;
+  }
+
+  // 返回对应的安全消息
+  if (status && SAFE_ERROR_MESSAGES[status]) {
+    return SAFE_ERROR_MESSAGES[status];
+  }
+
+  // 网络错误
+  if (error instanceof Error && error.message.includes('Network Error')) {
+    return '网络连接失败，请检查网络设置';
+  }
+
+  // 请求超时
+  if (error instanceof Error && error.message.includes('timeout')) {
+    return '请求超时，请稍后再试';
+  }
+
+  // 默认通用消息
+  return '操作失败，请稍后再试';
+}
+
+/**
  * 处理 API 错误
  * @param error 错误对象
  * @param options 配置选项
@@ -121,24 +180,17 @@ export function handleApiError(
 ): void {
   const { showMessage = true, defaultMessage = "操作失败" } = options;
 
-  let message = defaultMessage;
-
-  if (error instanceof Error) {
-    message = error.message;
-  } else if (typeof error === 'string') {
-    message = error;
-  } else if (error && typeof error === 'object' && 'message' in error) {
-    message = (error as { message?: string }).message || message;
-  }
+  const errorMsg = getSafeErrorMessage(error) || defaultMessage;
 
   if (showMessage) {
-    message.error(message);
+    message.error(errorMsg);
   }
 
   // 处理 401 错误 - 清除 Token 并跳转登录
   if (error && typeof error === 'object') {
-    const err = error as { code?: number; status?: number };
-    if (err.code === ErrorCode.UNAUTHORIZED || err.code === ErrorCode.TOKEN_EXPIRED || err.status === 401) {
+    const err = error as { code?: number; status?: number; response?: { status?: number } };
+    const status = err.response?.status ?? err.status ?? err.code;
+    if (status === ErrorCode.UNAUTHORIZED || status === ErrorCode.TOKEN_EXPIRED || status === 401) {
       removeToken();
       window.location.href = '/login';
     }

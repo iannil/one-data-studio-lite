@@ -393,3 +393,352 @@ def validate_env_config() -> list[str]:
             warnings.append("生产环境检测到弱 JWT 密钥配置")
 
     return warnings
+
+
+# ============================================================
+// 安全中间件
+// ============================================================
+
+from typing import Callable
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+
+def get_allowed_origins() -> list[str]:
+    """获取允许的跨域来源
+
+    优先级:
+    1. 环境变量 ALLOWED_ORIGINS
+    2. 开发环境默认值 (localhost)
+
+    生产环境必须通过环境变量设置。
+    """
+    allowed = os.getenv("ALLOWED_ORIGINS", "")
+    if allowed:
+        return [origin.strip() for origin in allowed.split(",")]
+
+    # 开发环境默认值
+    return [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """安全响应头中间件
+
+    添加安全相关的 HTTP 响应头.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+
+        # 防止 MIME 类型嗅探
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # 防止点击劫持 - 完全禁止嵌入
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # 启用 XSS 过滤
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # 强制 HTTPS（仅在生产环境）
+        if os.getenv("ENVIRONMENT", "development") in ("production", "prod"):
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
+        # 内容安全策略 - 开发环境允许内联脚本和样式
+        is_dev = os.getenv("ENVIRONMENT", "development") == "development"
+        if is_dev:
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' http://localhost:* https:; "
+                "frame-ancestors 'none';"
+            )
+        else:
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https:; "
+                "frame-ancestors 'none';"
+            )
+        response.headers["Content-Security-Policy"] = csp
+
+        # 控制 Referer 信息泄露
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # 限制浏览器功能访问
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(), payment=(), "
+            "usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+        )
+
+        # 隐藏服务器信息
+        response.headers["Server"] = "ODS-API"
+
+        return response
+
+
+def validate_sql(sql: str) -> tuple[bool, str]:
+    """验证 SQL 仅包含 SELECT 查询（防止 SQL 注入）
+
+    Args:
+        sql: 待验证的 SQL 语句
+
+    Returns:
+        (是否有效, 错误消息)
+
+    Raises:
+        ValueError: SQL 包含危险操作或语法错误
+    """
+    import sqlparse
+
+    try:
+        parsed = sqlparse.parse(sql)[0]
+    except Exception:
+        return False, "SQL 语法错误"
+
+    # 检查是否为 SELECT 语句
+    if not parsed.get_type() == 'SELECT':
+        # 允许 EXPLAIN 和 WITH (CTE)
+        sql_upper = sql.strip().upper()
+        if not (sql_upper.startswith('SELECT') or
+                sql_upper.startswith('EXPLAIN') or
+                sql_upper.startswith('WITH')):
+            return False, "仅允许 SELECT、EXPLAIN 和 WITH (CTE) 查询"
+
+    # 检查是否包含危险关键词
+    dangerous_keywords = [
+        'DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER',
+        'CREATE', 'TRUNCATE', 'EXEC', 'EXECUTE', 'GRANT',
+        'REVOKE', 'COMMIT', 'ROLLBACK', 'TRANSACTION'
+    ]
+    sql_upper = sql.upper()
+
+    # 允许 WITH (CTE) 中的 SELECT，但要检查其他危险词
+    for keyword in dangerous_keywords:
+        if keyword in sql_upper:
+            return False, f"禁止使用 {keyword}"
+
+    # 检查是否包含注释（可能隐藏恶意代码）
+    if '--' in sql or '/*' in sql:
+        return False, "禁止包含 SQL 注释"
+
+    # 检查是否包含多个语句
+    if ';' in sql.rstrip().rstrip(';'):
+        return False, "禁止执行多条 SQL 语句"
+
+    # 确保有 LIMIT 子句（防止大数据量查询）
+    if 'LIMIT' not in sql_upper:
+        # 可以自动添加 LIMIT，但这里只警告
+        pass  # 将由调用方决定是否添加默认 LIMIT
+
+    return True, ""
+
+
+def sanitize_sql(sql: str, default_limit: int = 1000) -> str:
+    """清理并添加安全限制到 SQL 查询
+
+    Args:
+        sql: 原始 SQL
+        default_limit: 默认结果限制
+
+    Returns:
+        安全的 SQL 语句
+    """
+    is_valid, error = validate_sql(sql)
+    if not is_valid:
+        raise ValueError(f"SQL 验证失败: {error}")
+
+    # 如果没有 LIMIT，添加默认限制
+    if 'LIMIT' not in sql.upper():
+        sql = f"{sql.rstrip(';')} LIMIT {default_limit}"
+
+    return sql
+
+
+# ============================================================
+// 速率限制
+// ============================================================
+
+import time
+from collections import defaultdict
+from fastapi import Request, HTTPException
+
+
+class RateLimiter:
+    """简单的内存速率限制器
+
+    基于 IP 地址和端点的速率限制。
+    生产环境建议使用 Redis 实现分布式速率限制。
+
+    使用滑动时间窗口算法。
+    """
+
+    def __init__(self):
+        # {(ip, endpoint): [(timestamp1, timestamp2, ...)]}
+        self._requests: dict[tuple[str, str], list[float]] = defaultdict(list)
+        # 默认限制 (每分钟请求数)
+        self._limits: dict[str, int] = {
+            "default": 60,          # 默认每分钟 60 次
+            "/auth/login": 5,       # 登录每分钟 5 次
+            "/auth/register": 3,     # 注册每分钟 3 次
+            "/nl2sql": 30,          # NL2SQL 每分钟 30 次
+            "/query": 30,           # 数据查询每分钟 30 次
+        }
+
+    def _get_endpoint_key(self, request: Request) -> str:
+        """从请求路径获取速率限制键"""
+        path = request.url.path
+        # 精确匹配优先
+        if path in self._limits:
+            return path
+        # 前缀匹配
+        for key in self._limits:
+            if key != "default" and path.startswith(key):
+                return key
+        return "default"
+
+    def _clean_old_requests(self, key: tuple[str, str], current_time: float) -> None:
+        """清理过期请求记录（保留最近 60 秒）"""
+        cutoff = current_time - 60
+        if key in self._requests:
+            self._requests[key] = [
+                ts for ts in self._requests[key] if ts > cutoff
+            ]
+
+    def check_rate_limit(
+        self,
+        request: Request,
+        limit: int | None = None
+    ) -> tuple[bool, dict[str, int | str]]:
+        """检查是否超过速率限制
+
+        Args:
+            request: FastAPI 请求对象
+            limit: 自定义限制，覆盖默认值
+
+        Returns:
+            (是否允许, 限制信息字典)
+
+        限制信息字典包含:
+        - limit: 限制数量
+        - remaining: 剩余次数
+        - reset: 重置时间（Unix 时间戳）
+        - retry_after: 重试秒数
+        """
+        current_time = time.time()
+
+        # 获取客户端 IP
+        client_ip = request.client.host if request.client else "unknown"
+        if x_forwarded_for := request.headers.get("X-Forwarded-For"):
+            client_ip = x_forwarded_for.split(",")[0].strip()
+
+        # 获取端点限制
+        endpoint_key = self._get_endpoint_key(request)
+        rate_limit = limit or self._limits.get(endpoint_key, 60)
+
+        key = (client_ip, endpoint_key)
+
+        # 清理过期记录
+        self._clean_old_requests(key, current_time)
+
+        # 获取当前请求数
+        requests = self._requests[key]
+        request_count = len(requests)
+
+        # 计算重置时间
+        if requests:
+            # 最早的请求时间 + 60 秒
+            reset_time = int(requests[0] + 60)
+        else:
+            reset_time = int(current_time + 60)
+
+        if request_count >= rate_limit:
+            retry_after = int(reset_time - current_time) + 1
+            return False, {
+                "limit": rate_limit,
+                "remaining": 0,
+                "reset": reset_time,
+                "retry_after": max(1, retry_after),
+            }
+
+        # 记录本次请求
+        self._requests[key].append(current_time)
+
+        return True, {
+            "limit": rate_limit,
+            "remaining": rate_limit - request_count - 1,
+            "reset": reset_time,
+            "retry_after": 0,
+        }
+
+
+class RateLimitMiddleware:
+    """速率限制中间件
+
+    自动检查请求是否超过速率限制。
+    """
+
+    def __init__(self, app, limiter: RateLimiter | None = None, enabled: bool = True):
+        super().__init__(app)
+        self._limiter = limiter or RateLimiter()
+        self._enabled = enabled
+
+    async def dispatch(self, request: Request, call_next):
+        """处理请求"""
+        if not self._enabled:
+            return await call_next(request)
+
+        # 跳过健康检查端点
+        if request.url.path in ["/health", "/metrics", "/readiness", "/liveness"]:
+            return await call_next(request)
+
+        # 检查速率限制
+        allowed, info = self._limiter.check_rate_limit(request)
+
+        # 添加速率限制响应头
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(info["limit"])
+        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
+        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+
+        if not allowed:
+            response.headers["Retry-After"] = str(info["retry_after"])
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "error": "Rate limit exceeded",
+                    "limit": info["limit"],
+                    "retry_after": info["retry_after"],
+                },
+                headers={
+                    "Retry-After": str(info["retry_after"]),
+                    "X-RateLimit-Limit": str(info["limit"]),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(info["reset"]),
+                }
+            )
+
+        return response
+
+
+# 全局限速限制器实例
+_global_rate_limiter: RateLimiter | None = None
+
+
+def get_rate_limiter() -> RateLimiter:
+    """获取全局限率限制器实例"""
+    global _global_rate_limiter
+    if _global_rate_limiter is None:
+        _global_rate_limiter = RateLimiter()
+    return _global_rate_limiter

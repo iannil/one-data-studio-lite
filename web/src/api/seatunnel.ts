@@ -26,6 +26,7 @@ export interface SeaTunnelJob {
   jobStatus: JobStatus;
   jobName?: string;
   createTime?: string;
+  finishTime?: string;
   updateTime?: string;
   raw?: Record<string, unknown>;
 }

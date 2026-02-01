@@ -1,5 +1,5 @@
 # ONE-DATA-STUDIO-LITE Makefile
-.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs
+.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -139,6 +139,69 @@ security-check: ## 检查当前安全配置
 	@echo "检查安全配置..."
 	@curl -s http://localhost:8010/security/check || echo "请先启动 Portal 服务"
 
+# ========== 数据库迁移 ==========
+
+db-migrate: ## 运行数据库迁移（不迁移原始密码）
+	@echo "运行数据库迁移..."
+	python -m services.common.migrations
+
+db-migrate-dev: ## 运行数据库迁移（迁移开发用户密码）
+	@echo "运行数据库迁移（包含开发用户密码）..."
+	python -m services.common.migrations --migrate-passwords
+
+db-reset: ## 重置数据库（警告：会删除所有数据）
+	@echo "警告：此操作将删除所有数据并重新初始化数据库"
+	@read -p "确认继续？[y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "重置数据库..."; \
+		python -m services.common.migrations --migrate-passwords; \
+	else \
+		echo "操作已取消"; \
+	fi
+
+db-seed: ## 初始化种子数据（开发环境）
+	@echo "初始化种子数据（开发环境）..."
+	python -m services.common.seed_data --environment development
+
+db-seed-prod: ## 初始化种子数据（生产环境）
+	@echo "初始化种子数据（生产环境）..."
+	python -m services.common.seed_data --environment production
+
+db-verify: ## 验证数据完整性
+	@echo "验证数据完整性..."
+	python -m services.common.seed_data --verify
+
+# ========== 备份恢复 ==========
+
+backup-db: ## 备份数据库
+	@echo "备份数据库..."
+	bash scripts/backup-database.sh
+
+backup-etcd: ## 备份 etcd 配置中心
+	@echo "备份 etcd..."
+	bash scripts/backup-etcd.sh
+
+backup-all: ## 全量备份（数据库+etcd+配置）
+	@echo "执行全量备份..."
+	bash scripts/backup-all.sh
+
+restore-db: ## 恢复数据库
+	@echo "恢复数据库..."
+	bash scripts/restore-database.sh
+
+restore-etcd: ## 恢复 etcd
+	@echo "恢复 etcd..."
+	bash scripts/restore-etcd.sh
+
+schedule-backup: ## 设置定时备份（每天凌晨1点）
+	@echo "设置定时备份任务..."
+	bash scripts/schedule-backup.sh
+
+unschedule-backup: ## 取消定时备份
+	@echo "取消定时备份任务..."
+	crontab -l | grep -v backup-database.sh | crontab - || true
+
 # ========== 监控和日志 ==========
 
 loki-up: network ## 启动 Loki 日志聚合
@@ -227,4 +290,111 @@ web-build-deploy: web-build ## 构建前端并部署到 Portal 静态目录
 
 web-preview: ## 预览前端生产构建
 	cd web && npm run preview
+
+# ========== 测试命令 ==========
+
+test: ## 运行所有测试
+	@echo "运行所有测试..."
+	cd web/e2e && npm test -- --workers=1
+
+test-e2e: ## 运行E2E测试
+	@echo "运行E2E测试..."
+	cd web/e2e && npx playwright test
+
+test-unit: ## 运行单元测试
+	@echo "运行单元测试..."
+	cd web && npm run test:unit
+
+test-lifecycle: ## 运行生命周期测试
+	@echo "运行生命周期测试..."
+	cd web/e2e && npx playwright test --grep "@lifecycle"
+
+test-lifecycle-01: ## 运行生命周期阶段1测试（账户创建）
+	cd web/e2e && npx playwright test --grep "@lifecycle-01"
+
+test-lifecycle-02: ## 运行生命周期阶段2测试（权限配置）
+	cd web/e2e && npx playwright test --grep "@lifecycle-02"
+
+test-lifecycle-03: ## 运行生命周期阶段3测试（数据访问）
+	cd web/e2e && npx playwright test --grep "@lifecycle-03"
+
+test-lifecycle-04: ## 运行生命周期阶段4测试（功能使用）
+	cd web/e2e && npx playwright test --grep "@lifecycle-04"
+
+test-lifecycle-05: ## 运行生命周期阶段5测试（监控审计）
+	cd web/e2e && npx playwright test --grep "@lifecycle-05"
+
+test-lifecycle-06: ## 运行生命周期阶段6测试（维护）
+	cd web/e2e && npx playwright test --grep "@lifecycle-06"
+
+test-lifecycle-07: ## 运行生命周期阶段7测试（账户禁用）
+	cd web/e2e && npx playwright test --grep "@lifecycle-07"
+
+test-lifecycle-08: ## 运行生命周期阶段8测试（账户删除）
+	cd web/e2e && npx playwright test --grep "@lifecycle-08"
+
+test-lifecycle-09: ## 运行生命周期阶段9测试（紧急处理）
+	cd web/e2e && npx playwright test --grep "@lifecycle-09"
+
+test-subsystem: ## 运行六大子系统测试
+	@echo "运行六大子系统测试..."
+	cd web/e2e && npx playwright test --grep "@planning"
+
+test-planning: ## 运行数据规划子系统测试
+	cd web/e2e && npx playwright test --grep "@planning"
+
+test-collection: ## 运行数据汇聚子系统测试
+	cd web/e2e && npx playwright test --grep "@collection"
+
+test-development: ## 运行数据开发子系统测试
+	cd web/e2e && npx playwright test --grep "@development"
+
+test-analysis: ## 运行数据分析子系统测试
+	cd web/e2e && npx playwright test --grep "@analysis"
+
+test-assets: ## 运行数据资产子系统测试
+	cd web/e2e && npx playwright test --grep "@assets"
+
+test-security: ## 运行数据安全子系统测试
+	cd web/e2e && npx playwright test --grep "@security"
+
+test-roles: ## 运行角色权限测试
+	@echo "运行角色权限测试..."
+	cd web/e2e && npx playwright test tests/roles/
+
+test-api: ## 运行API测试
+	@echo "运行API测试..."
+	cd web/e2e && npx playwright test tests/api/
+
+test-report: ## 生成测试HTML报告
+	@echo "生成测试报告..."
+	cd web/e2e && npx playwright show-report
+
+test-report-json: ## 生成测试JSON报告
+	cd web/e2e && npx playwright test --reporter=json
+
+test-clean: ## 清理测试结果
+	@echo "清理测试结果..."
+	cd web/e2e && rm -rf playwright-report test-results
+
+test-ui: ## 打开测试UI模式
+	cd web/e2e && npx playwright test --ui
+
+test-debug: ## 调试测试
+	cd web/e2e && npx playwright test --debug
+
+test-codegen: ## 生成测试代码
+	cd web/e2e && npx playwright codegen
+
+test-smoke: ## 运行冒烟测试
+	cd web/e2e && npx playwright test --grep "@smoke"
+
+test-p0: ## 运行P0级别测试
+	cd web/e2e && npx playwright test --grep "@p0"
+
+test-p1: ## 运行P1级别测试
+	cd web/e2e && npx playwright test --grep "@p1"
+
+test-coverage: ## 生成测试覆盖率报告
+	cd web && npm run test:coverage
 

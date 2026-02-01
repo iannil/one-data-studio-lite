@@ -4,6 +4,7 @@
  */
 
 import { FullConfig } from '@playwright/test';
+import { setupServiceChecks } from './service-check';
 
 async function globalSetup(config: FullConfig) {
   console.log('🚀 Starting E2E Test Suite');
@@ -13,8 +14,8 @@ async function globalSetup(config: FullConfig) {
     retries: config.retries,
   });
 
-  // Verify backend services are available
-  // await verifyBackendServices();
+  // Check service availability
+  await setupServiceChecks(config);
 
   // Setup test database if needed
   // await setupTestDatabase();

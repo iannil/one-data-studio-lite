@@ -18,16 +18,38 @@ export type { ApiResponse };
 
 export interface Dashboard {
   id: number;
-  dashboard_title: string;
+  dashboard_title?: string;
+  title?: string;
   description?: string;
   slug?: string;
+  url?: string;
+  published?: boolean;
+  created_by?: {
+    id: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  changed_on?: string;
+  changed_on_delta_humanized?: string;
 }
 
 export interface Chart {
   id: number;
-  slice_name: string;
+  slice_name?: string;
+  chart_name?: string;
   description?: string;
   viz_type?: string;
+  datasource_name_text?: string;
+  datasource?: { id: number; name: string };
+  created_by?: {
+    id: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  changed_on?: string;
+  changed_on_delta_humanized?: string;
 }
 
 export interface Dataset {

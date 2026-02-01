@@ -1,5 +1,10 @@
 /**
  * Data Cleaning Page Object Model
+ *
+ * Updated to match actual component implementation at:
+ * - Route: /development/cleaning
+ * - Component: CleaningRules (data-testid="cleaning-rules-page")
+ * - Features: AI recommendation, rule templates (no CRUD operations yet)
  */
 
 import { Page, Locator } from '@playwright/test';
@@ -10,8 +15,16 @@ import { TIMEOUTS } from '@utils/constants';
  * Data Cleaning Page class
  */
 export class DataCleaningPage extends BasePage {
-  // Selectors
-  private readonly container = '[data-testid="cleaning-page"], .cleaning-page';
+  // Selectors - updated to match actual implementation
+  private readonly container = '[data-testid="cleaning-rules-page"], [data-testid="cleaning-page"], .cleaning-page, div:has(h4:has-text("清洗规则配置"))';
+  private readonly tableNameInput = '[data-testid="table-name-input"]';
+  private readonly aiRecommendButton = '[data-testid="ai-recommend-button"], button:has-text("AI 推荐")';
+  private readonly cleaningTabs = '[data-testid="cleaning-tabs"], .ant-tabs';
+  private readonly recommendTab = '.ant-tabs-tab:has-text("AI 推荐")';
+  private readonly templatesTab = '.ant-tabs-tab:has-text("规则模板")';
+  private readonly rulesTable = '.ant-table';
+
+  // Legacy selectors for features not yet implemented
   private readonly rulesList = '.rules-list, [data-testid="rules-list"]';
   private readonly createRuleButton = '[data-testid="create-rule-button"], button:has-text("创建规则")';
   private readonly ruleCard = '.rule-card, .cleaning-rule';
@@ -35,14 +48,50 @@ export class DataCleaningPage extends BasePage {
 
   /**
    * Wait for page to load
+   * Uses multiple possible selectors for flexibility
    */
   async waitForPageLoad(): Promise<void> {
-    await this.waitForElement(this.container);
+    // Try each possible container selector
+    const selectors = this.container.split(', ');
+    let loaded = false;
+
+    for (const selector of selectors) {
+      try {
+        await this.page.locator(selector).waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+        loaded = true;
+        break;
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!loaded) {
+      // Fallback: wait for any heading with "清洗" or "Cleaning"
+      await this.page.locator('h1, h2, h3, h4, h5').filter({ hasText: /清洗|Cleaning/ }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+    }
+
     await this.waitForLoading();
   }
 
   /**
+   * Check if AI recommendation feature is available
+   */
+  async hasAiRecommendation(): Promise<boolean> {
+    const button = this.page.locator(this.aiRecommendButton);
+    return await button.count() > 0;
+  }
+
+  /**
+   * Check if rule templates feature is available
+   */
+  async hasRuleTemplates(): Promise<boolean> {
+    const tabs = this.page.locator(this.cleaningTabs);
+    return await tabs.count() > 0;
+  }
+
+  /**
    * Get cleaning rules
+   * Updated to work with the actual table-based implementation
    */
   async getRules(): Promise<Array<{
     id: string;
@@ -52,8 +101,6 @@ export class DataCleaningPage extends BasePage {
     action: string;
     enabled: boolean;
   }>> {
-    const cards = this.page.locator(this.ruleCard);
-    const count = await cards.count();
     const rules: Array<{
       id: string;
       name: string;
@@ -62,6 +109,35 @@ export class DataCleaningPage extends BasePage {
       action: string;
       enabled: boolean;
     }> = [];
+
+    // First try to get rules from the templates table (actual implementation)
+    const tables = this.page.locator(this.rulesTable);
+    const tableCount = await tables.count();
+
+    if (tableCount > 0) {
+      // Get data from the first table
+      const rows = await tables.first().locator('.ant-table-tbody .ant-table-row').all();
+      for (let i = 0; i < rows.length; i++) {
+        const cells = await rows[i].locator('.ant-table-cell').all();
+        if (cells.length >= 2) {
+          const name = await cells[0].textContent() || '';
+          const type = await cells[1].textContent() || '';
+          rules.push({
+            id: `rule-${i}`,
+            name: name.trim(),
+            type: type.trim(),
+            condition: '',
+            action: '',
+            enabled: true,
+          });
+        }
+      }
+      return rules;
+    }
+
+    // Fallback to old card-based implementation (if it exists)
+    const cards = this.page.locator(this.ruleCard);
+    const count = await cards.count();
 
     for (let i = 0; i < count; i++) {
       const card = cards.nth(i);

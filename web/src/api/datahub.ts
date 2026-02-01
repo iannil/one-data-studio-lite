@@ -47,13 +47,32 @@ export interface TagProperties {
   description?: string;
 }
 
+/** DataHub Entity base */
+export interface DataHubEntity {
+  urn?: string;
+  type?: string;
+  name?: string;
+  description?: string;
+  platform?: string;
+  status?: string;
+}
+
+/** Search Results response */
+export interface SearchResults {
+  entities?: DataHubEntity[];
+  results?: DataHubEntity[];
+  start?: number;
+  count?: number;
+  total?: number;
+}
+
 // ============================================================
 // v1 版本 API（推荐使用，统一响应格式）
 // ============================================================
 
 /** 搜索 DataHub 实体 */
-export async function searchEntitiesV1(params: SearchParams): Promise<ApiResponse<Record<string, unknown>>> {
-  const resp = await client.post<ApiResponse<Record<string, unknown>>>('/api/proxy/datahub/v1/entities?action=search', {
+export async function searchEntitiesV1(params: SearchParams): Promise<ApiResponse<SearchResults>> {
+  const resp = await client.post<ApiResponse<SearchResults>>('/api/proxy/datahub/v1/entities?action=search', {
     entity: params.entity,
     input: params.query || '*',
     start: params.start || 0,
@@ -79,12 +98,12 @@ export async function getLineageV1(params: LineageParams): Promise<ApiResponse<L
 }
 
 /** 搜索标签 */
-export async function searchTagsV1(query?: string): Promise<ApiResponse<Record<string, unknown>>> {
+export async function searchTagsV1(query?: string): Promise<ApiResponse<SearchResults>> {
   return searchEntitiesV1({ entity: 'tag', query });
 }
 
 /** 创建标签 */
-export async function createTagV1(name: string, description?: string): Promise<ApiResponse<Record<string, unknown>>> {
+export async function createTagV1(name: string, description?: string): Promise<ApiResponse<DataHubEntity>> {
   const resp = await client.post<ApiResponse<Record<string, unknown>>>('/api/proxy/datahub/v1/entities?action=ingest', {
     entity: {
       value: {

@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Input, Button, Table, Tag, Tabs, message, Typography, Space, Spin } from 'antd';
 import { ClearOutlined, BulbOutlined, SearchOutlined } from '@ant-design/icons';
-import { recommendRulesV1, getCleaningRulesV1 } from '../../api/cleaning';
+import { recommendRulesV1, getCleaningRulesV1, type CleaningRule, type CleaningRuleRecommendation } from '../../api/cleaning';
 
 const { Title } = Typography;
 
 const CleaningRules: React.FC = () => {
   const [tableName, setTableName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<CleaningRuleRecommendation[]>([]);
+  const [templates, setTemplates] = useState<CleaningRule[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
 
   const fetchTemplates = async () => {

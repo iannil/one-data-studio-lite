@@ -8,7 +8,6 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '@pages/login.page';
 import { PipelinePage } from '@pages/pipeline.page';
 // import { TEST_USERS } from '@data/users'; // Unused - using admin only
-import { PAGE_ROUTES } from '@types/index';
 
 test.describe('Pipeline Feature Tests', { tag: ['@pipeline', '@feature', '@p1'] }, () => {
   let loginPage: LoginPage;

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Popconfirm } from 'antd';
 import { RobotOutlined, ReloadOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { getPipelines, runPipeline } from '../../api/cubestudio';
+import { getPipelines, runPipeline, type Pipeline } from '../../api/cubestudio';
 
 const { Title } = Typography;
 
 const Pipelines: React.FC = () => {
-  const [pipelines, setPipelines] = useState<any[]>([]);
+  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPipelines = async () => {
@@ -52,7 +52,10 @@ const Pipelines: React.FC = () => {
       title: '创建者',
       dataIndex: 'created_by',
       key: 'created_by',
-      render: (user: any) => (typeof user === 'string' ? user : user?.username) || '-',
+      render: (user?: Pipeline['created_by']) => {
+        if (typeof user === 'string') return user;
+        return user?.username || '-';
+      },
     },
     {
       title: '更新时间',
@@ -63,7 +66,7 @@ const Pipelines: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: Pipeline) => (
         <Popconfirm title="确认运行此 Pipeline？" onConfirm={() => handleRun(record.id)}>
           <Button type="link" size="small" icon={<PlayCircleOutlined />}>
             运行

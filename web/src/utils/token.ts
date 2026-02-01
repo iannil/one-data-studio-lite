@@ -1,3 +1,15 @@
+/**
+ * Token 管理工具
+ *
+ * 安全说明:
+ * - 默认使用 httpOnly Cookie 存储 Token（由服务器设置）
+ * - 本地存储仅用于用户信息和兼容性
+ * - localStorage 存储 Token 存在 XSS 风险，生产环境应使用 Cookie 模式
+ *
+ * 环境变量:
+ * - VITE_USE_COOKIE_AUTH=false 可禁用 Cookie 认证（仅用于开发调试）
+ */
+
 const TOKEN_KEY = 'ods_token';
 const USER_KEY = 'ods_user';
 

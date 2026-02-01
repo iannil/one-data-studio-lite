@@ -38,7 +38,7 @@ export interface NL2SQLQueryResponse {
   generated_sql: string;
   explanation: string;
   columns: string[];
-  rows: any[][];
+  rows: Array<Array<string | number | boolean | null>>;
   row_count: number;
   execution_time_ms: number;
 }
@@ -110,7 +110,7 @@ export interface AuditEvent {
   duration_ms?: number;
   ip_address?: string;
   user_agent?: string;
-  details?: Record<string, any>;
+  details?: Record<string, string | number | boolean | null>;
   created_at: string;
 }
 

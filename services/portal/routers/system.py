@@ -371,6 +371,11 @@ async def emergency_stop(
     """紧急停止所有服务
 
     需要超级管理员权限，并需要二次确认。
+
+    支持多种停止方式：
+    1. HTTP API 停止内部微服务
+    2. Docker 停止容器（如果可用）
+    3. Kubernetes 停止部署（如果可用）
     """
     _check_super_admin_permission(current_user)
 
@@ -380,12 +385,26 @@ async def emergency_stop(
             detail="需要设置 confirmed=true 确认操作"
         )
 
-    # TODO: 实现实际的停止逻辑
-    # 这里只是记录日志，实际需要调用各个服务的停止接口
+    # 执行紧急停止
+    from services.common.service_control import emergency_stop_all
+
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.warning(f"紧急停止触发 by {current_user.user_id}: {req.reason}")
+
+    stop_results = await emergency_stop_all(
+        reason=req.reason,
+        triggered_by=current_user.user_id,
+    )
 
     return ApiResponse(
-        message=f"紧急停止已触发，原因: {req.reason}",
-        data={"stopped_at": datetime.utcnow().isoformat()}
+        message=f"紧急停止已执行，原因: {req.reason}",
+        data={
+            "stopped_at": datetime.utcnow().isoformat(),
+            "stopped_by": current_user.user_id,
+            "results": stop_results,
+        }
     )
 
 
@@ -465,10 +484,38 @@ async def transfer_admin(
 
     # 验证当前密码
     from services.portal.routers.users import _verify_password
-    user_result = await db.execute(
-        select(RoleORM).where(RoleORM.role_code == current_user.role)
+    from services.common.orm_models import UserORM
+
+    # 获取当前用户信息
+    current_user_result = await db.execute(
+        select(UserORM).where(UserORM.username == current_user.user_id)
     )
-    # TODO: 实现密码验证逻辑
+    current_user_orm = current_user_result.scalar_one_or_none()
+
+    if not current_user_orm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="当前用户不存在"
+        )
+
+    # 验证密码
+    if not await _verify_password(current_password, current_user_orm.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="当前密码错误"
+        )
+
+    # 验证目标用户是否存在
+    target_user_result = await db.execute(
+        select(UserORM).where(UserORM.username == target_user)
+    )
+    target_user_orm = target_user_result.scalar_one_or_none()
+
+    if not target_user_orm:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"目标用户 {target_user} 不存在"
+        )
 
     # 修改目标用户角色为超级管理员
     from sqlalchemy import update

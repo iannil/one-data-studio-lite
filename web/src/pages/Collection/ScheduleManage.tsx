@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Select, Tag, message, Typography, Space, Button, Spin, Alert } from 'antd';
 import { ScheduleOutlined, ReloadOutlined } from '@ant-design/icons';
-import { getProjects, getProcessDefinitions, getSchedules, updateScheduleState } from '../../api/dolphinscheduler';
+import { getProjects, getProcessDefinitions, getSchedules, updateScheduleState, type Project, type ProcessDefinition, type Schedule } from '../../api/dolphinscheduler';
 
 const { Title } = Typography;
 
 const ScheduleManage: React.FC = () => {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [definitions, setDefinitions] = useState<any[]>([]);
-  const [schedules, setSchedules] = useState<any[]>([]);
+  const [definitions, setDefinitions] = useState<ProcessDefinition[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +110,7 @@ const ScheduleManage: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: Schedule) => (
         <Button
           size="small"
           type={record.releaseState === 'ONLINE' ? 'default' : 'primary'}

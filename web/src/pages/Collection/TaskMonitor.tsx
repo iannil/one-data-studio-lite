@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Select, Tag, message, Typography, Space, Button, Spin, Drawer, Alert } from 'antd';
 import { MonitorOutlined, ReloadOutlined, EyeOutlined } from '@ant-design/icons';
-import { getProjects, getTaskInstances, getTaskLog } from '../../api/dolphinscheduler';
+import { getProjects, getTaskInstances, getTaskLog, type Project, type TaskInstance } from '../../api/dolphinscheduler';
 
 const { Title } = Typography;
 
@@ -16,9 +16,9 @@ const stateColors: Record<string, string> = {
 };
 
 const TaskMonitor: React.FC = () => {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
-  const [instances, setInstances] = useState<any[]>([]);
+  const [instances, setInstances] = useState<TaskInstance[]>([]);
   const [loading, setLoading] = useState(false);
   const [stateFilter, setStateFilter] = useState<string | undefined>(undefined);
   const [logDrawerVisible, setLogDrawerVisible] = useState(false);
@@ -116,7 +116,7 @@ const TaskMonitor: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: TaskInstance) => (
         <Button
           type="link"
           size="small"

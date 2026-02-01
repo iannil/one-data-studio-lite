@@ -552,3 +552,316 @@ export class TestDataFactory {
  * Global test data factory instance
  */
 export const testDataFactory = new TestDataFactory();
+
+// ============================================================
+// Dictionary Data Generators
+// ============================================================
+
+/**
+ * Generate data layer dictionary entry
+ */
+export function generateDataLayer(overrides?: {
+  layerCode?: string;
+  layerName?: string;
+  layerLevel?: number;
+}) {
+  const layers = [
+    { code: 'ODS', name: '操作数据层', level: 1 },
+    { code: 'DWD', name: '明细数据层', level: 2 },
+    { code: 'DWS', name: '汇总数据层', level: 3 },
+    { code: 'ADS', name: '应用数据层', level: 4 },
+    { code: 'DIM', name: '维度数据层', level: 5 },
+  ];
+  const layer = layers[Math.floor(Math.random() * layers.length)];
+
+  return {
+    layerCode: overrides?.layerCode || layer.code,
+    layerName: overrides?.layerName || layer.name,
+    layerLevel: overrides?.layerLevel ?? layer.level,
+    color: '#1890ff',
+  };
+}
+
+/**
+ * Generate sync frequency dictionary entry
+ */
+export function generateSyncFrequency(overrides?: {
+  frequencyCode?: string;
+  frequencyName?: string;
+  cronExpression?: string;
+}) {
+  const frequencies = [
+    { code: 'REALTIME', name: '实时', cron: null },
+    { code: 'HOURLY', name: '每小时', cron: '0 * * * *' },
+    { code: 'DAILY', name: '每天', cron: '0 0 * * *' },
+    { code: 'WEEKLY', name: '每周', cron: '0 0 * * 0' },
+    { code: 'MONTHLY', name: '每月', cron: '0 0 1 * *' },
+  ];
+  const freq = frequencies[Math.floor(Math.random() * frequencies.length)];
+
+  return {
+    frequencyCode: overrides?.frequencyCode || freq.code,
+    frequencyName: overrides?.frequencyName || freq.name,
+    cronExpression: overrides?.cronExpression || freq.cron,
+    intervalSeconds: freq.code === 'REALTIME' ? 60 : 3600,
+  };
+}
+
+/**
+ * Generate quality level dictionary entry
+ */
+export function generateQualityLevel(overrides?: {
+  levelCode?: string;
+  levelName?: string;
+  scoreMin?: number;
+  scoreMax?: number;
+}) {
+  const levels = [
+    { code: 'EXCELLENT', name: '优秀', min: 95, max: 100 },
+    { code: 'GOOD', name: '良好', min: 85, max: 94 },
+    { code: 'FAIR', name: '一般', min: 70, max: 84 },
+    { code: 'POOR', name: '较差', min: 60, max: 69 },
+    { code: 'CRITICAL', name: '严重', min: 0, max: 59 },
+  ];
+  const level = levels[Math.floor(Math.random() * levels.length)];
+
+  return {
+    levelCode: overrides?.levelCode || level.code,
+    levelName: overrides?.levelName || level.name,
+    scoreMin: overrides?.scoreMin ?? level.min,
+    scoreMax: overrides?.scoreMax ?? level.max,
+    color: '#52c41a',
+  };
+}
+
+/**
+ * Generate sensitivity level dictionary entry
+ */
+export function generateSensitivityLevel(overrides?: {
+  levelCode?: string;
+  levelName?: string;
+  levelValue?: number;
+}) {
+  const levels = [
+    { code: 'PUBLIC', name: '公开', value: 0 },
+    { code: 'INTERNAL', name: '内部', value: 1 },
+    { code: 'SENSITIVE', name: '敏感', value: 2 },
+    { code: 'CONFIDENTIAL', name: '机密', value: 3 },
+    { code: 'RESTRICTED', name: '绝密', value: 4 },
+  ];
+  const level = levels[Math.floor(Math.random() * levels.length)];
+
+  return {
+    levelCode: overrides?.levelCode || level.code,
+    levelName: overrides?.levelName || level.name,
+    levelValue: overrides?.levelValue ?? level.value,
+    color: '#1890ff',
+  };
+}
+
+/**
+ * Generate alert level dictionary entry
+ */
+export function generateAlertLevel(overrides?: {
+  levelCode?: string;
+  levelName?: string;
+  levelValue?: number;
+}) {
+  const levels = [
+    { code: 'INFO', name: '信息', value: 1 },
+    { code: 'WARNING', name: '警告', value: 2 },
+    { code: 'CRITICAL', name: '严重', value: 3 },
+    { code: 'EMERGENCY', name: '紧急', value: 4 },
+  ];
+  const level = levels[Math.floor(Math.random() * levels.length)];
+
+  return {
+    levelCode: overrides?.levelCode || level.code,
+    levelName: overrides?.levelName || level.name,
+    levelValue: overrides?.levelValue ?? level.value,
+    color: '#faad14',
+  };
+}
+
+/**
+ * Generate task status dictionary entry
+ */
+export function generateTaskStatus(overrides?: {
+  statusCode?: string;
+  statusName?: string;
+  statusCategory?: string;
+}) {
+  const statuses = [
+    { code: 'PENDING', name: '等待中', category: 'pending' },
+    { code: 'RUNNING', name: '运行中', category: 'active' },
+    { code: 'SUCCESS', name: '成功', category: 'terminated' },
+    { code: 'FAILED', name: '失败', category: 'terminated' },
+    { code: 'CANCELLED', name: '已取消', category: 'terminated' },
+  ];
+  const status = statuses[Math.floor(Math.random() * statuses.length)];
+
+  return {
+    statusCode: overrides?.statusCode || status.code,
+    statusName: overrides?.statusName || status.name,
+    statusCategory: overrides?.statusCategory || status.category,
+    color: '#1890ff',
+  };
+}
+
+// ============================================================
+// Notification Template Generators
+// ============================================================
+
+/**
+ * Generate notification template
+ */
+export function generateNotificationTemplate(overrides?: {
+  templateCode?: string;
+  templateName?: string;
+  templateType?: string;
+  templateCategory?: string;
+}) {
+  const types = ['task', 'quality', 'system', 'auth', 'data'];
+  const categories = ['success', 'failure', 'warning', 'info'];
+  const timestamp = Date.now().toString(36);
+
+  return {
+    templateCode: overrides?.templateCode || `TPL_${timestamp}`,
+    templateName: overrides?.templateName || `Test Template ${timestamp}`,
+    templateType: overrides?.templateType || types[Math.floor(Math.random() * types.length)],
+    templateCategory: overrides?.templateCategory || categories[Math.floor(Math.random() * categories.length)],
+    subjectTemplate: `[System] {{event_name}} occurred`,
+    contentTemplate: 'Hello {{username}},\n\n{{event_details}}\n\nRegards,\nSystem',
+    variables: ['event_name', 'event_details', 'username'],
+    channels: ['email', 'web'],
+    priority: 2,
+  };
+}
+
+// ============================================================
+// Workflow Template Generators
+// ============================================================
+
+/**
+ * Generate workflow template
+ */
+export function generateWorkflowTemplate(overrides?: {
+  templateCode?: string;
+  templateName?: string;
+  templateType?: string;
+  templateCategory?: string;
+}) {
+  const types = ['sync', 'cleaning', 'fusion', 'quality'];
+  const categories = ['standard', 'full', 'increment'];
+  const timestamp = Date.now().toString(36);
+
+  return {
+    templateCode: overrides?.templateCode || `WFL_${timestamp}`,
+    templateName: overrides?.templateName || `Test Workflow ${timestamp}`,
+    templateType: overrides?.templateType || types[Math.floor(Math.random() * types.length)],
+    templateCategory: overrides?.templateCategory || categories[Math.floor(Math.random() * categories.length)],
+    description: 'Test workflow template',
+    flowConfig: {
+      version: '1.0',
+      engine: 'seatunnel',
+      parallelism: 2,
+    },
+    nodes: [
+      {
+        id: 'node_source',
+        name: '数据源',
+        type: 'source',
+        position: { x: 100, y: 100 },
+      },
+      {
+        id: 'node_target',
+        name: '目标',
+        type: 'sink',
+        position: { x: 300, y: 100 },
+      },
+    ],
+    edges: [
+      { source: 'node_source', target: 'node_target' },
+    ],
+    estimatedDuration: 30,
+    complexity: 'simple',
+  };
+}
+
+/**
+ * Generate workflow node
+ */
+export function generateWorkflowNode(overrides?: {
+  nodeId?: string;
+  nodeName?: string;
+  nodeType?: string;
+}) {
+  const types = ['source', 'transform', 'sink', 'checkpoint', 'quality_check'];
+  const timestamp = Date.now().toString(36);
+
+  return {
+    id: overrides?.nodeId || `node_${timestamp}`,
+    name: overrides?.nodeName || `Node ${timestamp}`,
+    type: overrides?.nodeType || types[Math.floor(Math.random() * types.length)],
+    position: { x: Math.floor(Math.random() * 500), y: Math.floor(Math.random() * 300) },
+  };
+}
+
+// ============================================================
+// Dashboard Template Generators
+// ============================================================
+
+/**
+ * Generate dashboard template
+ */
+export function generateDashboardTemplate(overrides?: {
+  templateCode?: string;
+  templateName?: string;
+  templateCategory?: string;
+}) {
+  const categories = ['operation', 'governance', 'system'];
+  const timestamp = Date.now().toString(36);
+
+  return {
+    templateCode: overrides?.templateCode || `DASH_${timestamp}`,
+    templateName: overrides?.templateName || `Test Dashboard ${timestamp}`,
+    templateCategory: overrides?.templateCategory || categories[Math.floor(Math.random() * categories.length)],
+    description: 'Test dashboard template',
+    layoutConfig: {
+      type: 'grid',
+      columns: 24,
+      rows: 12,
+      gap: [16, 16],
+    },
+    themeConfig: {
+      theme: 'light',
+      primaryColor: '#1890ff',
+    },
+    chartTemplates: [],
+    refreshInterval: 300,
+    isPublic: true,
+  };
+}
+
+/**
+ * Generate dashboard widget
+ */
+export function generateDashboardWidget(overrides?: {
+  widgetCode?: string;
+  widgetName?: string;
+  widgetType?: string;
+}) {
+  const types = ['line', 'bar', 'pie', 'card', 'table', 'gauge', 'map'];
+  const timestamp = Date.now().toString(36);
+
+  return {
+    widgetCode: overrides?.widgetCode || `WGT_${timestamp}`,
+    widgetName: overrides?.widgetName || `Test Widget ${timestamp}`,
+    widgetType: overrides?.widgetType || types[Math.floor(Math.random() * types.length)],
+    category: 'chart',
+    config: {},
+    dataSource: { type: 'sql', query: 'SELECT * FROM test_table' },
+    defaultSize: { w: 8, h: 4 },
+    description: 'Test widget',
+  };
+}

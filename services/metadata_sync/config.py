@@ -1,29 +1,25 @@
-"""元数据联动ETL - 配置"""
+"""元数据联动ETL - 配置
 
-import os
+使用统一的 ServiceConfig 基类，减少重复配置。
+"""
 
 from services.common.base_config import ServiceConfig
 
 
 class Settings(ServiceConfig):
+    """元数据同步服务配置
+
+    服务端口和特定配置在此定义，通用配置继承自 ServiceConfig。
+    """
     APP_NAME: str = "Metadata Sync Service"
     APP_PORT: int = 8013
-    DEBUG: bool = False
 
-    # DataHub 配置
-    DATAHUB_GMS_URL: str = "http://localhost:8081"
-    DATAHUB_TOKEN: str = os.environ.get("DATAHUB_TOKEN", "")
+    # Metadata Sync 特有配置
+    WEBHOOK_SECRET: str = ""  # 由环境变量 META_SYNC_DATAHUB_WEBHOOK_SECRET 覆盖
+    ENABLE_AUTO_SYNC: bool = True
+    SYNC_BATCH_SIZE: int = 100
 
-    # DataHub Webhook 签名密钥
-    DATAHUB_WEBHOOK_SECRET: str = os.environ.get("DATAHUB_WEBHOOK_SECRET", "")
-
-    # ETL 引擎配置
-    SEATUNNEL_API_URL: str = "http://localhost:5801"
-    DOLPHINSCHEDULER_API_URL: str = "http://localhost:12345/dolphinscheduler"
-    DOLPHINSCHEDULER_TOKEN: str = os.environ.get("DOLPHINSCHEDULER_TOKEN", "")
-    HOP_API_URL: str = "http://localhost:8083"
-
-    model_config = {"env_prefix": "META_SYNC_"}
+    model_config = {"env_prefix": "META_SYNC_", "case_sensitive": False, "extra": "ignore"}
 
 
 settings = Settings()

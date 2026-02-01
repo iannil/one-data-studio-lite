@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Modal, Input } from 'antd';
 import { SyncOutlined, ReloadOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { getJobs, cancelJob } from '../../api/seatunnel';
+import { getJobs, cancelJob, type SeaTunnelJob } from '../../api/seatunnel';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -15,7 +15,7 @@ const statusColors: Record<string, string> = {
 };
 
 const SyncJobs: React.FC = () => {
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<SeaTunnelJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitModalVisible, setSubmitModalVisible] = useState(false);
   const [configText, setConfigText] = useState('');
@@ -83,7 +83,7 @@ const SyncJobs: React.FC = () => {
     {
       title: '操作',
       key: 'actions',
-      render: (_: unknown, record: any) => (
+      render: (_: unknown, record: SeaTunnelJob) => (
         <Space>
           {record.jobStatus === 'RUNNING' && (
             <Button

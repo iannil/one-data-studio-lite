@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Input } from 'antd';
 import { DashboardOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { getDashboardsV1 } from '../../api/superset';
+import { getDashboardsV1, type Dashboard } from '../../api/superset';
 
 const { Title, Text } = Typography;
 
 const Bi: React.FC = () => {
-  const [dashboards, setDashboards] = useState<any[]>([]);
+  const [dashboards, setDashboards] = useState<Dashboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
@@ -43,7 +43,7 @@ const Bi: React.FC = () => {
       title: '仪表板名称',
       dataIndex: 'dashboard_title',
       key: 'dashboard_title',
-      render: (text: string, record: any) => text || record.title || '-',
+      render: (text: string, record: Dashboard) => text || record.title || '-',
     },
     {
       title: '状态',
@@ -57,13 +57,13 @@ const Bi: React.FC = () => {
       title: '创建者',
       dataIndex: 'created_by',
       key: 'created_by',
-      render: (user: any) => user?.username || user?.first_name || '-',
+      render: (user?: Dashboard['created_by']) => user?.username || user?.first_name || '-',
     },
     {
       title: '修改时间',
       dataIndex: 'changed_on_delta_humanized',
       key: 'changed_on',
-      render: (text: string, record: any) => text || record.changed_on || '-',
+      render: (text: string, record: Dashboard) => text || record.changed_on || '-',
     },
     {
       title: 'URL',

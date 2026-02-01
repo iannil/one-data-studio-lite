@@ -1,5 +1,10 @@
 /**
  * Sensitive Data Page Object Model
+ *
+ * Updated to match actual component implementation at:
+ * - Route: /security/sensitive
+ * - Component: Sensitive
+ * - Features: Scan sensitive data, manage detection rules, view reports
  */
 
 import { Page, Locator, expect } from '@playwright/test';
@@ -10,8 +15,8 @@ import { TIMEOUTS } from '@utils/constants';
  * Sensitive Data Page class
  */
 export class SensitiveDataPage extends BasePage {
-  // Selectors
-  private readonly container = '[data-testid="sensitive-data-page"], .sensitive-data-page';
+  // Selectors - updated to match actual implementation
+  private readonly container = '[data-testid="sensitive-data-page"], .sensitive-data-page, div:has(h4:has-text("敏感数据检测"))';
   private readonly scanButton = '[data-testid="sensitive-scan"], button:has-text("扫描")';
   private readonly scanResult = '[data-testid="sensitive-result"], .scan-result';
   private readonly table = '.ant-table, .result-table';
@@ -31,9 +36,32 @@ export class SensitiveDataPage extends BasePage {
 
   /**
    * Wait for page to load
+   * Uses multiple possible selectors for flexibility
    */
   async waitForPageLoad(): Promise<void> {
-    await this.waitForElement(this.container);
+    // Try each possible container selector
+    const selectors = this.container.split(', ');
+    let loaded = false;
+
+    for (const selector of selectors) {
+      try {
+        await this.page.locator(selector).waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+        loaded = true;
+        break;
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!loaded) {
+      // Fallback: wait for tabs or heading
+      try {
+        await this.page.locator('.ant-tabs').waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      } catch {
+        await this.page.locator('h1, h2, h3, h4, h5').filter({ hasText: /敏感|Sensitive/ }).first().waitFor({ state: 'visible', timeout: TIMEOUTS.DEFAULT });
+      }
+    }
+
     await this.waitForLoading();
   }
 

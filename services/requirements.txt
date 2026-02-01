@@ -33,3 +33,12 @@ prometheus-fastapi-instrumentator>=6.1.0
 
 # Redis (用于 Token 黑名单)
 redis>=5.0.0
+
+# 系统监控 (用于获取 CPU、内存、磁盘信息)
+psutil>=5.9.0
+
+# SQL 解析和验证 (用于防止 SQL 注入)
+sqlparse>=0.4.4
+
+# 邮件发送 (用于密码重置、通知等)
+aiosmtplib>=3.0.1

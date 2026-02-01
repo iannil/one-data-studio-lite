@@ -50,6 +50,27 @@ class ChangePasswordRequest(BaseModel):
     old_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8)
 
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """验证新密码强度"""
+        from services.common.security import check_password_strength, PasswordStrength
+
+        # 跳过默认开发密码的检查（仅在修改时）
+        if v in ["admin123", "password", "12345678"]:
+            raise ValueError("密码过于常见，请使用更强的密码")
+
+        # 检查密码强度（至少中等）
+        strength, issues = check_password_strength(v)
+
+        if strength < PasswordStrength.MODERATE:
+            if issues:
+                raise ValueError(f"密码强度不足：{'; '.join(issues)}")
+            else:
+                raise ValueError("密码强度不足，请使用包含大小写字母、数字和特殊字符的组合")
+
+        return v
+
 
 class RegisterRequest(BaseModel):
     """用户注册请求"""
@@ -58,6 +79,22 @@ class RegisterRequest(BaseModel):
     role: str = "user"
     display_name: str = Field(..., min_length=1, max_length=100)
     email: Optional[EmailStr] = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """验证密码强度"""
+        from services.common.security import check_password_strength, PasswordStrength
+
+        strength, issues = check_password_strength(v)
+
+        if strength < PasswordStrength.MODERATE:
+            if issues:
+                raise ValueError(f"密码强度不足：{'; '.join(issues)}")
+            else:
+                raise ValueError("密码强度不足，请使用包含大小写字母、数字和特殊字符的组合")
+
+        return v
 
     @field_validator("role")
     @classmethod
@@ -90,6 +127,22 @@ class UserCreate(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=100)
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """验证密码强度"""
+        from services.common.security import check_password_strength, PasswordStrength
+
+        strength, issues = check_password_strength(v)
+
+        if strength < PasswordStrength.MODERATE:
+            if issues:
+                raise ValueError(f"密码强度不足：{'; '.join(issues)}")
+            else:
+                raise ValueError("密码强度不足，请使用包含大小写字母、数字和特殊字符的组合")
+
+        return v
 
 
 class UserUpdate(BaseModel):
@@ -132,6 +185,61 @@ class DisableUserRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """重置密码请求"""
     new_password: str = Field(..., min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """验证密码强度"""
+        from services.common.security import check_password_strength, PasswordStrength
+
+        strength, issues = check_password_strength(v)
+
+        if strength < PasswordStrength.MODERATE:
+            if issues:
+                raise ValueError(f"密码强度不足：{'; '.join(issues)}")
+            else:
+                raise ValueError("密码强度不足，请使用包含大小写字母、数字和特殊字符的组合")
+
+        return v
+
+
+# ============================================================
+# 密码重置模型
+# ============================================================
+
+class PasswordResetCodeRequest(BaseModel):
+    """发送密码重置验证码请求"""
+    email: str
+    username: str = Field(default="")  # 可选，用于辅助验证
+
+
+class PasswordResetVerifyRequest(BaseModel):
+    """验证密码重置验证码请求"""
+    email: str
+    code: str = Field(..., min_length=6, max_length=8)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """确认密码重置请求"""
+    email: str
+    code: str
+    new_password: str = Field(..., min_length=8)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """验证密码强度"""
+        from services.common.security import check_password_strength, PasswordStrength
+
+        strength, issues = check_password_strength(v)
+
+        if strength < PasswordStrength.MODERATE:
+            if issues:
+                raise ValueError(f"密码强度不足：{'; '.join(issues)}")
+            else:
+                raise ValueError("密码强度不足，请使用包含大小写字母、数字和特殊字符的组合")
+
+        return v
 
 
 # ============================================================
@@ -287,6 +395,41 @@ class PortalInfo(BaseModel):
     name: str
     version: str
     subsystems: list[SubsystemStatus]
+
+
+# ============================================================
+# 服务账户调用历史模型
+# ============================================================
+
+class ServiceAccountCallHistory(BaseModel):
+    """服务账户调用历史记录"""
+    id: str
+    subsystem: str
+    action: str
+    resource: Optional[str] = None
+    status_code: Optional[int] = None
+    duration_ms: Optional[float] = None
+    ip_address: Optional[str] = None
+    created_at: str  # ISO format string
+
+
+class ServiceAccountCallHistoryQuery(BaseModel):
+    """服务账户调用历史查询参数"""
+    start_date: Optional[str] = None  # ISO format date string
+    end_date: Optional[str] = None
+    subsystem: Optional[str] = None
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=500)
+
+
+class ServiceAccountCallHistoryResponse(BaseModel):
+    """服务账户调用历史响应"""
+    service_account: str
+    total: int
+    page: int
+    page_size: int
+    items: list[ServiceAccountCallHistory]
+    stats: dict  # {total_calls, success_rate, avg_duration_ms}
 
 
 # ============================================================

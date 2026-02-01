@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Card, Table, Input, Select, Tag, message, Typography, Space, Button, Spin } from 'antd';
 import { BookOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { searchAssetsV1 } from '../../api/data-api';
+import { searchAssetsV1, type DataAsset } from '../../api/data-api';
 
 const { Title } = Typography;
 
 const Catalog: React.FC = () => {
   const navigate = useNavigate();
-  const [assets, setAssets] = useState<any[]>([]);
+  const [assets, setAssets] = useState<DataAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
   const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
@@ -37,7 +37,7 @@ const Catalog: React.FC = () => {
       title: '资产名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: any) => (
+      render: (text: string, record: DataAsset) => (
         <a onClick={() => navigate(`/assets/detail/${record.id || record.urn || ''}`)}>{text || '-'}</a>
       ),
     },

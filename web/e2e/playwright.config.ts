@@ -98,4 +98,8 @@ export default defineConfig({
   expect: {
     timeout: 5000,
   },
+
+  // Skip tests if services are not available
+  // Set E2E_SKIP_UNAVAILABLE=1 to enable this behavior
+  workers: process.env.CI ? 2 : 1,
 });

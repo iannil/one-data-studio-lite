@@ -8,8 +8,11 @@ import { test, expect } from '@playwright/test';
 import { LoginPage } from '@pages/login.page';
 import { SensitiveDataPage } from '@pages/sensitive-data.page';
 // import { TEST_USERS } from '@data/users'; // Unused - using admin only
-import { loginAs } from '@utils/test-helpers';
-import { PAGE_ROUTES } from '@types/index';
+
+// Define routes inline to avoid Vitest dependency conflict
+const ROUTES = {
+  SECURITY_SENSITIVE: '/security/sensitive',
+} as const;
 
 test.describe('Sensitive Data Feature Tests', { tag: ['@sensitive-data', '@feature', '@p1'] }, () => {
   let loginPage: LoginPage;
@@ -25,12 +28,14 @@ test.describe('Sensitive Data Feature Tests', { tag: ['@sensitive-data', '@featu
 
     loginPage = new LoginPage(page);
     sensitiveDataPage = new SensitiveDataPage(page);
-    await loginAs(page, 'admin');
+
+    // Using admin user since other users don't exist in backend yet
+    await loginPage.login('admin', 'admin123');
   });
 
   test.describe('Page Access', () => {
     test('TC-SENS-01-01: Admin can access sensitive data page', async ({ page }) => {
-      await page.goto(PAGE_ROUTES.SECURITY_SENSITIVE);
+      await page.goto(ROUTES.SECURITY_SENSITIVE);
       await page.waitForLoadState('domcontentloaded');
 
       expect(page.url()).toContain('/security/sensitive');
@@ -169,7 +174,7 @@ test.describe('Sensitive Data Feature Tests', { tag: ['@sensitive-data', '@featu
 
   test.describe('Permissions', () => {
     test('TC-SENS-06-01: Admin can access sensitive data page', async ({ page }) => {
-      await page.goto(PAGE_ROUTES.SECURITY_SENSITIVE);
+      await page.goto(ROUTES.SECURITY_SENSITIVE);
       await page.waitForLoadState('domcontentloaded');
 
       const url = page.url();
@@ -177,7 +182,7 @@ test.describe('Sensitive Data Feature Tests', { tag: ['@sensitive-data', '@featu
     });
 
     test('TC-SENS-06-02: Admin can perform scans', async ({ page }) => {
-      await page.goto(PAGE_ROUTES.SECURITY_SENSITIVE);
+      await page.goto(ROUTES.SECURITY_SENSITIVE);
       await page.waitForLoadState('domcontentloaded');
 
       const scanButton = page.locator('button:has-text("扫描")');

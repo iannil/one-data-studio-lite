@@ -1,22 +1,25 @@
-"""敏感数据检测 - 配置"""
+"""敏感数据检测服务 - 配置
 
-import os
+使用统一的 ServiceConfig 基类，减少重复配置。
+"""
 
 from services.common.base_config import ServiceConfig
 
 
 class Settings(ServiceConfig):
+    """敏感数据检测服务配置
+
+    服务端口和特定配置在此定义，通用配置继承自 ServiceConfig。
+    """
     APP_NAME: str = "Sensitive Data Detection Service"
     APP_PORT: int = 8015
-    DEBUG: bool = False
 
-    LLM_BASE_URL: str = os.environ.get("LLM_BASE_URL", "http://localhost:31434")
-    LLM_MODEL: str = os.environ.get("LLM_MODEL", "qwen2.5:7b")
-    DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
-    SHARDINGSPHERE_URL: str = "http://localhost:3307"
-    INTERNAL_TOKEN: str = os.environ.get("INTERNAL_TOKEN", "")
+    # Sensitive Detect 特有配置
+    SHARDINGSPHERE_URL: str = ""  # 由环境变量覆盖
+    CONFIDENCE_THRESHOLD: float = 0.7
+    ENABLE_LLM_ANALYSIS: bool = True
 
-    model_config = {"env_prefix": "SENSITIVE_"}
+    model_config = {"env_prefix": "SENSITIVE_", "case_sensitive": False, "extra": "ignore"}
 
 
 settings = Settings()

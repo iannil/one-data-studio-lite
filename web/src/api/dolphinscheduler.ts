@@ -27,11 +27,13 @@ export interface ProcessDefinition {
   name: string;
   description?: string;
   releaseState?: 'ONLINE' | 'OFFLINE';
+  updateTime?: string;
 }
 
 export interface Schedule {
   id: number;
   processDefinitionCode: number;
+  processDefinitionName?: string;
   releaseState: 'ONLINE' | 'OFFLINE';
   crontab: string;
 }
@@ -42,6 +44,7 @@ export interface TaskInstance {
   state: string;
   startTime?: string;
   endTime?: string;
+  duration?: string;
 }
 
 export interface TaskLog {

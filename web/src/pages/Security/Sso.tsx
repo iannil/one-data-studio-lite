@@ -22,6 +22,7 @@ import {
   EditOutlined,
   CloudServerOutlined,
 } from '@ant-design/icons';
+import { SSO_CONFIG } from '../../config/constants';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -62,8 +63,8 @@ const DEMO_CONFIGS: SsoConfig[] = [
     type: 'oauth2',
     status: 'active',
     displayName: 'WeCom',
-    clientId: 'wwxxxxx',
-    issuer: 'https://work.weixin.qq.com',
+    clientId: SSO_CONFIG.WEWORK_CLIENT_ID || 'wwxxxxx',
+    issuer: SSO_CONFIG.ISSUERS.WEWORK,
     syncAttributes: true,
     autoProvision: true,
     defaultRole: 'employee',
@@ -86,8 +87,8 @@ const DEMO_CONFIGS: SsoConfig[] = [
     type: 'oauth2',
     status: 'inactive',
     displayName: 'DingTalk',
-    clientId: 'dingxxxxx',
-    issuer: 'https://api.dingtalk.com',
+    clientId: SSO_CONFIG.DINGTALK_CLIENT_ID || 'dingxxxxx',
+    issuer: SSO_CONFIG.ISSUERS.DINGTALK,
     syncAttributes: false,
     autoProvision: false,
     createdAt: '2026-01-10 14:00:00',

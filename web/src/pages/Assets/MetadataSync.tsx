@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Modal, Form, Input, Select } from 'antd';
 import { SwapOutlined, PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
-import { getMappings, updateMapping, triggerSync } from '../../api/metadata-sync';
+import { getMappings, updateMapping, triggerSync, type ETLMapping } from '../../api/metadata-sync';
 
 const { Title } = Typography;
 
 const MetadataSync: React.FC = () => {
-  const [mappings, setMappings] = useState<any[]>([]);
+  const [mappings, setMappings] = useState<ETLMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);

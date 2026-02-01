@@ -1,19 +1,25 @@
-"""审计日志 - 配置"""
+"""审计日志服务 - 配置
 
-import os
+使用统一的 ServiceConfig 基类，减少重复配置。
+"""
 
 from services.common.base_config import ServiceConfig
 
 
 class Settings(ServiceConfig):
+    """审计日志服务配置
+
+    服务端口和特定配置在此定义，通用配置继承自 ServiceConfig。
+    """
     APP_NAME: str = "Audit Log Service"
     APP_PORT: int = 8016
-    DEBUG: bool = False
 
-    DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
-    LOG_RETENTION_DAYS: int = int(os.environ.get("AUDIT_LOG_RETENTION_DAYS", "90"))
+    # Audit Log 特有配置
+    LOG_RETENTION_DAYS: int = 90
+    ENABLE_ASYNC_WRITING: bool = True
+    BATCH_SIZE: int = 100
 
-    model_config = {"env_prefix": "AUDIT_"}
+    model_config = {"env_prefix": "AUDIT_", "case_sensitive": False, "extra": "ignore"}
 
 
 settings = Settings()

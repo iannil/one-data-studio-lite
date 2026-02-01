@@ -21,7 +21,9 @@ import {
   ThunderboltOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
+import { WORKSPACE_CONFIG } from '../../config/constants';
 
 const { Title, Text } = Typography;
 
@@ -47,33 +49,23 @@ interface RecentItem {
   visitedAt: string;
 }
 
-const DEMO_QUICK_ACTIONS: QuickAction[] = [
-  { id: '1', name: '数据源配置', icon: <AppstoreOutlined />, path: '/planning/datasources', color: '#1890ff' },
-  { id: '2', name: '数据质量检测', icon: <CheckCircleOutlined />, path: '/development/quality', color: '#52c41a' },
-  { id: '3', name: 'NL2SQL 查询', icon: <ThunderboltOutlined />, path: '/analysis/nl2sql', color: '#722ed1' },
-  { id: '4', name: '清洗规则配置', icon: <FileTextOutlined />, path: '/development/cleaning', color: '#fa8c16' },
-];
+const DEMO_QUICK_ACTIONS: QuickAction[] = WORKSPACE_CONFIG.DEMO_QUICK_ACTIONS.map((action) => ({
+  ...action,
+  icon:
+    action.name === '数据源配置' ? (
+      <AppstoreOutlined />
+    ) : action.name === '数据质量检测' ? (
+      <CheckCircleOutlined />
+    ) : action.name === 'NL2SQL 查询' ? (
+      <ThunderboltOutlined />
+    ) : (
+      <FileTextOutlined />
+    ),
+}));
 
-const DEMO_TODOS: TodoItem[] = [
-  { id: '1', title: '完成用户表数据质量检测', priority: 'high', dueDate: '2026-02-02' },
-  { id: '2', title: '审核待发布的数据API', priority: 'medium' },
-  { id: '3', title: '配置 SeaTunnel 同步任务', priority: 'high' },
-  { id: '4', title: '查看系统告警信息', priority: 'low' },
-];
-
-const DEMO_RECENTS: RecentItem[] = [
-  { id: '1', name: 'user_info', type: 'table', visitedAt: '10:30' },
-  { id: '2', name: 'sales_dashboard', type: 'dashboard', visitedAt: '10:15' },
-  { id: '3', name: 'user_profile_api', type: 'api', visitedAt: '09:45' },
-  { id: '4', name: 'daily_sync_pipeline', type: 'pipeline', visitedAt: '09:30' },
-];
-
-const DEMO_FAVORITES: RecentItem[] = [
-  { id: '1', name: 'user_info', type: 'table', visitedAt: '' },
-  { id: '2', name: 'orders', type: 'table', visitedAt: '' },
-  { id: '3', name: 'sales_dashboard', type: 'dashboard', visitedAt: '' },
-  { id: '4', name: 'user_profile_api', type: 'api', visitedAt: '' },
-];
+const DEMO_TODOS: TodoItem[] = WORKSPACE_CONFIG.DEMO_TODOS;
+const DEMO_RECENTS: RecentItem[] = WORKSPACE_CONFIG.DEMO_RECENTS;
+const DEMO_FAVORITES: RecentItem[] = WORKSPACE_CONFIG.DEMO_FAVORITES;
 
 const Workspace: React.FC = () => {
   const [todos, setTodos] = useState<TodoItem[]>(DEMO_TODOS);
@@ -127,7 +119,7 @@ const Workspace: React.FC = () => {
             <Card>
               <Statistic
                 title="今日访问"
-                value={12}
+                value={WORKSPACE_CONFIG.DEFAULT_STATS.TODAY_VISITS}
                 suffix="个"
                 prefix={<HistoryOutlined />}
               />
@@ -147,7 +139,7 @@ const Workspace: React.FC = () => {
             <Card>
               <Statistic
                 title="本周完成"
-                value={28}
+                value={WORKSPACE_CONFIG.DEFAULT_STATS.WEEK_COMPLETED}
                 suffix="个"
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: '#52c41a' }}
@@ -303,19 +295,19 @@ const Workspace: React.FC = () => {
         <Card size="small" title="数据资产概览">
           <Row gutter={16}>
             <Col span={6}>
-              <Statistic title="数据表" value={156} suffix="个" />
+              <Statistic title="数据表" value={WORKSPACE_CONFIG.DATA_ASSET_DEFAULTS.TABLES} suffix="个" />
               <Progress percent={75} showInfo={false} size="small" strokeColor="#1890ff" />
             </Col>
             <Col span={6}>
-              <Statistic title="API 接口" value={23} suffix="个" />
+              <Statistic title="API 接口" value={WORKSPACE_CONFIG.DATA_ASSET_DEFAULTS.APIS} suffix="个" />
               <Progress percent={45} showInfo={false} size="small" strokeColor="#52c41a" />
             </Col>
             <Col span={6}>
-              <Statistic title="看板" value={8} suffix="个" />
+              <Statistic title="看板" value={WORKSPACE_CONFIG.DATA_ASSET_DEFAULTS.DASHBOARDS} suffix="个" />
               <Progress percent={60} showInfo={false} size="small" strokeColor="#722ed1" />
             </Col>
             <Col span={6}>
-              <Statistic title="数据流程" value={12} suffix="个" />
+              <Statistic title="数据流程" value={WORKSPACE_CONFIG.DATA_ASSET_DEFAULTS.PIPELINES} suffix="个" />
               <Progress percent={80} showInfo={false} size="small" strokeColor="#fa8c16" />
             </Col>
           </Row>

@@ -3,9 +3,12 @@ import { getToken, removeToken, setToken, isTokenExpiringSoon } from '../utils/t
 import type { ApiResponse } from './types';
 
 // 创建 Axios 实例（开发环境通过 Vite 代理，生产环境需要配置 VITE_API_BASE_URL）
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8010';
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '',
+  baseURL: API_BASE_URL,
   timeout: 30000,
+  withCredentials: true,  // 允许发送/接收 Cookie（支持 httpOnly Cookie 认证）
   headers: {
     'Content-Type': 'application/json',
   },
@@ -37,9 +40,10 @@ const onTokenRefreshed = (token: string) => {
 const refreshTokenRequest = async (): Promise<string | null> => {
   try {
     const response = await axios.post(
-      `${import.meta.env.VITE_API_BASE_URL || ''}/auth/refresh`,
+      `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8010'}/auth/refresh`,
       {},
       {
+        withCredentials: true,  // 发送 httpOnly Cookie
         headers: {
           Authorization: `Bearer ${getToken()}`,
         },

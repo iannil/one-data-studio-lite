@@ -1,16 +1,23 @@
 """统一入口门户 - FastAPI 应用"""
 
+import hashlib
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.auth import create_token, refresh_token, get_current_user, TokenPayload
+from services.common.database import get_db
 from services.common.exceptions import register_exception_handlers
 from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
@@ -25,7 +32,11 @@ from services.portal.models import (
     ChangePasswordRequest,
     RegisterRequest,
     ApiResponse,
+    PasswordResetCodeRequest,
+    PasswordResetVerifyRequest,
+    PasswordResetConfirmRequest,
 )
+from services.common.orm_models import UserORM
 from services.portal.routers import (
     audit,
     cleaning,
@@ -213,11 +224,18 @@ app = FastAPI(
 # 中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,  # 使用配置的允许来源
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
+
+# 添加安全响应头中间件
+from services.common.security import SecurityHeadersMiddleware, RateLimitMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 添加速率限制中间件
+app.add_middleware(RateLimitMiddleware, enabled=os.getenv("ENABLE_RATE_LIMIT", "true").lower() == "true")
 app.add_middleware(RequestLoggingMiddleware, service_name="portal")
 register_exception_handlers(app)
 setup_metrics(app)
@@ -253,34 +271,146 @@ SUBSYSTEMS = [
 ]
 
 
+# ============================================================
+# 密码处理辅助函数
+# ============================================================
+
+def _hash_password(password: str) -> str:
+    """对密码进行哈希处理（与 users.py 保持一致）"""
+    salt = secrets.token_hex(16)
+    pwd_hash = hashlib.sha256(f"{password}{salt}".encode()).hexdigest()
+    return f"{salt}:{pwd_hash}"
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    """验证密码（与 users.py 保持一致）"""
+    try:
+        salt, pwd_hash = password_hash.split(":")
+        computed_hash = hashlib.sha256(f"{password}{salt}".encode()).hexdigest()
+        return computed_hash == pwd_hash
+    except ValueError:
+        return False
+
+
+async def _get_user_from_db(db: AsyncSession, username: str) -> UserORM | None:
+    """从数据库获取用户"""
+    result = await db.execute(select(UserORM).where(UserORM.username == username))
+    return result.scalars().first()
+
+
+# ============================================================
+# 认证端点
+# ============================================================
+
 @app.post("/auth/login", response_model=LoginResponse)
-async def login(req: LoginRequest):
-    """统一登录"""
-    user = settings.DEV_USERS.get(req.username)
-    if not user or user["password"] != req.password:
-        raise HTTPException(status_code=401, detail="用户名或密码错误")
+async def login(
+    req: LoginRequest,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
+    """统一登录
+
+    支持数据库用户和开发环境硬编码用户（向后兼容）。
+    优先查询数据库，如果数据库中没有用户则回退到 DEV_USERS。
+    """
+    # 尝试从数据库获取用户
+    user_orm = None
+    user_role = None
+    display_name = None
+
+    if db is not None:
+        user_orm = await _get_user_from_db(db, req.username)
+
+    if user_orm:
+        # 数据库用户
+        if not user_orm.is_active:
+            raise HTTPException(status_code=403, detail="用户已被禁用")
+
+        if user_orm.is_locked:
+            raise HTTPException(status_code=403, detail="用户已被锁定")
+
+        # 验证密码
+        if not _verify_password(req.password, user_orm.password_hash):
+            # 更新失败尝试次数
+            await db.execute(
+                update(UserORM)
+                .where(UserORM.username == req.username)
+                .values(failed_login_attempts=UserORM.failed_login_attempts + 1)
+            )
+            await db.commit()
+            raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+        # 登录成功，更新登录信息
+        client_ip = response.headers.get("X-Forwarded-For", "unknown")
+        if response.headers.get("X-Real-IP"):
+            client_ip = response.headers.get("X-Real-IP")
+
+        await db.execute(
+            update(UserORM)
+            .where(UserORM.username == req.username)
+            .values(
+                last_login_at=datetime.utcnow(),
+                last_login_ip=client_ip,
+                failed_login_attempts=0,
+            )
+        )
+        await db.commit()
+
+        user_role = user_orm.role_code
+        display_name = user_orm.display_name
+
+    else:
+        # 回退到开发环境硬编码用户
+        user = settings.DEV_USERS.get(req.username)
+        if not user or user["password"] != req.password:
+            raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+        user_role = user["role"]
+        display_name = user["display_name"]
 
     token = create_token(
         user_id=req.username,
         username=req.username,
-        role=user["role"],
+        role=user_role,
     )
-    return LoginResponse(
+
+    # 设置 httpOnly Cookie 存储 Token（更安全，防止 XSS 窃取）
+    if settings.USE_COOKIE_AUTH:
+        response.set_cookie(
+            key=settings.COOKIE_NAME,
+            value=token,
+            httponly=True,  # 关键：防止 JavaScript 访问
+            secure=settings.COOKIE_SECURE,  # 生产环境必须启用（仅 HTTPS）
+            samesite=settings.COOKIE_SAMESITE,
+            max_age=settings.COOKIE_MAX_AGE,
+            domain=settings.COOKIE_DOMAIN,
+            path="/",
+        )
+
+    login_response = LoginResponse(
         success=True,
-        token=token,
+        token=token,  # 保留 token 字段以兼容旧客户端
         user=UserInfo(
             user_id=req.username,
             username=req.username,
-            role=user["role"],
-            display_name=user["display_name"],
+            role=user_role,
+            display_name=display_name,
         ),
         message="登录成功",
     )
+    return login_response
 
 
 @app.post("/auth/logout")
-async def logout():
-    """登出"""
+async def logout(response: Response):
+    """登出 - 清除 httpOnly Cookie"""
+    # 清除 httpOnly Cookie
+    if settings.USE_COOKIE_AUTH:
+        response.delete_cookie(
+            key=settings.COOKIE_NAME,
+            path="/",
+            domain=settings.COOKIE_DOMAIN,
+        )
     return {"success": True, "message": "已登出"}
 
 
@@ -305,10 +435,14 @@ async def refresh_user_token(request: Request):
 
 
 @app.get("/auth/validate")
-async def validate_token(request: Request):
+async def validate_token(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
     """验证 Token 有效性
 
     供子系统验证 Portal 颁发的 Token。
+    支持数据库用户和开发环境硬编码用户。
 
     请求头:
         Authorization: Bearer <token>
@@ -339,23 +473,43 @@ async def validate_token(request: Request):
     try:
         payload = verify_token(token)
 
-        # 获取用户配置（从 DEV_USERS 中查找）
-        user_config = settings.DEV_USERS.get(payload.username, {})
-        if not user_config:
-            return {
-                "valid": False,
-                "code": 40402,
-                "message": "用户不存在"
-            }
+        # 尝试从数据库获取用户
+        role = "user"
+        display_name = payload.username
+        user_exists = False
 
-        role = user_config.get("role", "user")
+        if db is not None:
+            user_orm = await _get_user_from_db(db, payload.username)
+            if user_orm:
+                if not user_orm.is_active:
+                    return {
+                        "valid": False,
+                        "code": 40302,
+                        "message": "用户已被禁用"
+                    }
+                role = user_orm.role_code
+                display_name = user_orm.display_name
+                user_exists = True
+
+        # 回退到 DEV_USERS
+        if not user_exists:
+            user_config = settings.DEV_USERS.get(payload.username, {})
+            if not user_config:
+                return {
+                    "valid": False,
+                    "code": 40402,
+                    "message": "用户不存在"
+                }
+            role = user_config.get("role", "user")
+            display_name = user_config.get("display_name", payload.username)
+
         permissions = _get_permissions_for_role(role)
 
         return {
             "valid": True,
             "user_id": payload.user_id,
             "username": payload.username,
-            "display_name": user_config.get("display_name", payload.username),
+            "display_name": display_name,
             "roles": [role],
             "permissions": permissions,
             "expires_at": payload.exp,
@@ -371,16 +525,41 @@ async def validate_token(request: Request):
 
 
 @app.get("/auth/userinfo")
-async def get_user_info(user: TokenPayload = Depends(get_current_user)):
-    """获取当前登录用户信息"""
-    user_config = settings.DEV_USERS.get(user.user_id, {})
-    roles = [user_config.get("role", user.role)]
+async def get_user_info(
+    user: TokenPayload = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
+    """获取当前登录用户信息
+
+    支持数据库用户和开发环境硬编码用户。
+    """
+    display_name = user.username
+    email = None
+    phone = None
+
+    # 尝试从数据库获取用户详细信息
+    if db is not None:
+        user_orm = await _get_user_from_db(db, user.user_id)
+        if user_orm:
+            display_name = user_orm.display_name
+            email = user_orm.email
+            phone = user_orm.phone
+        else:
+            # 回退到开发环境用户
+            user_config = settings.DEV_USERS.get(user.user_id, {})
+            display_name = user_config.get("display_name", user.username)
+            email = user_config.get("email")
+            phone = user_config.get("phone")
+
+    roles = [user.role]
     permissions = _get_permissions_for_role(user.role)
 
     return {
         "user_id": user.user_id,
         "username": user.username,
-        "display_name": user_config.get("display_name", user.username),
+        "display_name": display_name,
+        "email": email,
+        "phone": phone,
         "role": user.role,
         "roles": roles,
         "permissions": permissions,
@@ -510,13 +689,38 @@ async def revoke_user_tokens(
 
 
 @app.post("/auth/register", response_model=LoginResponse, status_code=201)
-async def register(req: RegisterRequest):
+async def register(
+    req: RegisterRequest,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
     """用户注册
 
-    仅在系统未初始化时可用，或由超级管理员调用。
+    创建新用户并自动登录。支持数据库存储，如果数据库不可用则返回模拟响应。
     """
-    # TODO: 实现数据库支持的注册逻辑
-    # 当前返回开发环境模拟响应
+    if db is not None:
+        # 检查用户名是否已存在
+        existing = await _get_user_from_db(db, req.username)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f"用户名 '{req.username}' 已存在"
+            )
+
+        # 创建用户
+        password_hash = _hash_password(req.password)
+        user = UserORM(
+            username=req.username,
+            password_hash=password_hash,
+            role_code=req.role,
+            display_name=req.display_name,
+            email=req.email,
+            is_active=True,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
+    # 创建 Token
     token = create_token(
         user_id=req.username,
         username=req.username,
@@ -539,11 +743,256 @@ async def register(req: RegisterRequest):
 async def change_password(
     req: ChangePasswordRequest,
     current_user: TokenPayload = Depends(get_current_user),
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ):
-    """修改当前用户密码"""
-    # TODO: 实现数据库支持的密码修改逻辑
-    # 当前返回模拟响应
+    """修改当前用户密码
+
+    验证旧密码后更新为新密码。支持数据库存储。
+    """
+    if db is not None:
+        user = await _get_user_from_db(db, current_user.user_id)
+
+        if user:
+            # 验证旧密码
+            if not _verify_password(req.old_password, user.password_hash):
+                raise HTTPException(status_code=401, detail="原密码错误")
+
+            # 更新密码
+            new_password_hash = _hash_password(req.new_password)
+            await db.execute(
+                update(UserORM)
+                .where(UserORM.username == current_user.user_id)
+                .values(
+                    password_hash=new_password_hash,
+                    password_changed_at=datetime.utcnow(),
+                )
+            )
+            await db.commit()
+        else:
+            # 回退到开发环境用户（不支持密码修改）
+            raise HTTPException(
+                status_code=501,
+                detail="开发环境用户不支持密码修改，请使用数据库用户"
+            )
+    else:
+        raise HTTPException(
+            status_code=501,
+            detail="数据库不可用，无法修改密码"
+        )
+
     return {"success": True, "message": "密码修改成功"}
+
+
+# ============================================================
+# 密码重置功能
+# ============================================================
+
+@app.post("/auth/password/reset/code")
+async def send_password_reset_code(
+    req: PasswordResetCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
+    """发送密码重置验证码
+
+    通过邮箱发送密码重置验证码。验证码存储在 Redis 中，有效期 15 分钟。
+    开发环境下直接返回验证码用于测试。
+    """
+    import random
+    import string
+
+    email = req.email.lower().strip()
+    username = req.username.strip()
+
+    if not email:
+        raise HTTPException(status_code=400, detail="邮箱地址不能为空")
+
+    # 验证邮箱/用户是否存在
+    if db is not None:
+        # 查询用户
+        conditions = [UserORM.email == email]
+        if username:
+            conditions.append(UserORM.username == username)
+
+        result = await db.execute(select(UserORM).where(*conditions))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # 为了安全，不透露用户是否存在
+            # 开发环境可以提示
+            if settings.ENVIRONMENT.lower() != "production":
+                raise HTTPException(status_code=404, detail="用户不存在")
+            else:
+                # 生产环境返回成功消息（防止用户枚举）
+                return {
+                    "success": True,
+                    "message": "如果邮箱已注册，您将收到重置验证码",
+                    "dev_mode": False,
+                }
+    else:
+        # 数据库不可用，回退到开发环境检查
+        if username:
+            dev_users = _get_dev_users()
+            if username not in dev_users:
+                if settings.ENVIRONMENT.lower() != "production":
+                    raise HTTPException(status_code=404, detail="用户不存在")
+
+    # 生成6位数验证码
+    code = "".join(random.choices(string.digits, k=6))
+
+    # 存储到 Redis（15分钟有效期）
+    try:
+        from services.common.redis_client import get_redis_client
+
+        redis_client = await get_redis_client()
+        key = f"password_reset:{email}"
+        await redis_client.setex(key, 900, code)  # 15分钟 = 900秒
+    except Exception as e:
+        logger.warning(f"Redis 不可用，无法存储验证码: {e}")
+        # Redis 不可用时，仍然可以继续（开发环境直接返回验证码）
+
+    # 开发环境直接返回验证码
+    if settings.ENVIRONMENT.lower() != "production":
+        logger.info(f"[开发环境] 密码重置验证码: {code}")
+        return {
+            "success": True,
+            "message": "验证码已生成",
+            "code": code,  # 开发环境直接返回验证码
+            "expires_in": 900,  # 15分钟
+            "dev_mode": True,
+        }
+    else:
+        # 生产环境发送邮件
+        try:
+            from services.common.email_client import send_password_reset_email
+
+            # 获取用户名用于个性化邮件
+            display_name = None
+            if db is not None:
+                user_result = await db.execute(
+                    select(UserORM).where(UserORM.email == email)
+                )
+                user_obj = user_result.scalar_one_or_none()
+                if user_obj:
+                    display_name = user_obj.display_name
+
+            # 尝试发送邮件
+            email_sent = await send_password_reset_email(email, code, display_name)
+            if not email_sent:
+                logger.warning(f"邮件发送失败 (SMTP 未配置或不可用): {email}")
+        except ImportError:
+            logger.warning("邮件客户端模块不可用")
+        except Exception as e:
+            logger.error(f"发送密码重置邮件失败: {e}")
+
+    return {
+        "success": True,
+        "message": "如果邮箱已注册，您将收到重置验证码",
+        "expires_in": 900,  # 15分钟
+        "dev_mode": settings.ENVIRONMENT.lower() != "production",
+    }
+
+
+@app.post("/auth/password/reset/verify")
+async def verify_reset_code(
+    req: PasswordResetVerifyRequest,
+):
+    """验证密码重置验证码
+
+    验证用户输入的验证码是否正确。
+    """
+    email = req.email.lower().strip()
+    code = req.code
+
+    # 从 Redis 获取存储的验证码
+    try:
+        from services.common.redis_client import get_redis_client
+
+        redis_client = await get_redis_client()
+        key = f"password_reset:{email}"
+        stored_code = await redis_client.get(key)
+
+        if not stored_code:
+            raise HTTPException(status_code=400, detail="验证码已过期或不存在")
+
+        if stored_code.decode() != code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+
+        return {
+            "success": True,
+            "valid": True,
+            "message": "验证码验证成功",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"验证验证码时发生错误: {e}")
+        raise HTTPException(status_code=500, detail="验证码验证失败")
+
+
+@app.post("/auth/password/reset/confirm")
+async def confirm_password_reset(
+    req: PasswordResetConfirmRequest,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+):
+    """确认密码重置
+
+    验证验证码后更新用户密码。
+    """
+    email = req.email.lower().strip()
+
+    if db is None:
+        raise HTTPException(status_code=501, detail="数据库不可用，无法重置密码")
+
+    # 先验证验证码
+    try:
+        from services.common.redis_client import get_redis_client
+
+        redis_client = await get_redis_client()
+        key = f"password_reset:{email}"
+        stored_code = await redis_client.get(key)
+
+        if not stored_code:
+            raise HTTPException(status_code=400, detail="验证码已过期或不存在")
+
+        if stored_code.decode() != req.code:
+            raise HTTPException(status_code=400, detail="验证码错误")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"验证验证码时发生错误: {e}")
+        raise HTTPException(status_code=500, detail="验证码验证失败")
+
+    # 查找用户
+    result = await db.execute(select(UserORM).where(UserORM.email == email))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    # 更新密码
+    new_password_hash = _hash_password(req.new_password)
+    await db.execute(
+        update(UserORM)
+        .where(UserORM.email == email)
+        .values(
+            password_hash=new_password_hash,
+            password_changed_at=datetime.utcnow(),
+        )
+    )
+    await db.commit()
+
+    # 清除已使用的验证码
+    try:
+        redis_client = await get_redis_client()
+        await redis_client.delete(key)
+    except Exception:
+        pass  # 验证码会自动过期
+
+    return {
+        "success": True,
+        "message": "密码重置成功，请使用新密码登录",
+    }
 
 
 @app.get("/auth/permissions")
@@ -761,6 +1210,37 @@ async def security_check():
             "配置 META_SYNC_DATAHUB_WEBHOOK_SECRET",
             "启用 CONFIG_ENCRYPTION_KEY 加密配置中心敏感信息",
         ],
+    }
+
+
+@app.post("/shutdown")
+async def shutdown_service(request: Request):
+    """优雅关闭服务
+
+    用于紧急停止场景。调用后服务将在短暂延迟后退出。
+    """
+    import signal
+    import threading
+
+    logger = logging.getLogger(__name__)
+    client_host = request.client.host if request.client else "unknown"
+
+    logger.warning(f"服务关闭请求来自: {client_host}")
+
+    # 在后台线程中延迟关闭，给响应时间发送
+    def delayed_shutdown():
+        import time
+        time.sleep(0.5)  # 等待响应发送
+        logger.critical("服务正在关闭...")
+        os._exit(0)  # 立即退出
+
+    thread = threading.Thread(target=delayed_shutdown, daemon=True)
+    thread.start()
+
+    return {
+        "status": "shutting_down",
+        "message": "服务正在关闭",
+        "initiated_by": client_host,
     }
 
 
