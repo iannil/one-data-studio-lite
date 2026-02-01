@@ -1,6 +1,7 @@
 import client from './client';
 import type { ApiResponse } from './types';
 import { AuditEvent, AuditStats, PaginationParams } from '../types';
+import { unwrapApiResponse } from './utils';
 
 export interface AuditQueryParams extends PaginationParams {
   subsystem?: string;
@@ -11,19 +12,19 @@ export interface AuditQueryParams extends PaginationParams {
 // 查询审计日志
 export const getLogs = async (params: AuditQueryParams = {}): Promise<AuditEvent[]> => {
   const response = await client.get<ApiResponse<AuditEvent[]>>('/api/proxy/audit/v1/logs', { params });
-  return response.data.data || [];
+  return unwrapApiResponse(response);
 };
 
 // 获取单条日志
 export const getLog = async (logId: string): Promise<AuditEvent> => {
   const response = await client.get<ApiResponse<AuditEvent>>(`/api/proxy/audit/v1/logs/${logId}`);
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 // 获取审计统计
 export const getStats = async (): Promise<AuditStats> => {
   const response = await client.get<ApiResponse<AuditStats>>('/api/proxy/audit/v1/stats');
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 // 导出审计日志

@@ -30,13 +30,16 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    }}>
+    <div
+      data-testid="login-page"
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      }}
+    >
       <Card
         style={{
           width: 400,
@@ -45,10 +48,13 @@ const Login: React.FC = () => {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <h1 style={{ color: '#1890ff', marginBottom: 8 }}>ONE-DATA-STUDIO</h1>
+          <h1 data-testid="login-title" style={{ color: '#1890ff', marginBottom: 8 }}>
+            ONE-DATA-STUDIO
+          </h1>
           <p style={{ color: '#666' }}>智能大数据平台</p>
         </div>
         <Form
+          data-testid="login-form"
           form={form}
           name="login"
           onFinish={onFinish}
@@ -59,6 +65,7 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入用户名' }]}
           >
             <Input
+              data-testid="username-input"
               prefix={<UserOutlined />}
               placeholder="用户名"
             />
@@ -68,12 +75,14 @@ const Login: React.FC = () => {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
+              data-testid="password-input"
               prefix={<LockOutlined />}
               placeholder="密码"
             />
           </Form.Item>
           <Form.Item>
             <Button
+              data-testid="login-button"
               type="primary"
               htmlType="submit"
               loading={loading}

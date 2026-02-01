@@ -139,5 +139,5 @@ export { isSuccessResponse, getErrorMessage as apiGetErrorMessage };
 
 /** 获取错误信息（便捷别名） */
 export function getErrorMessage(response: ApiResponse): string {
-  return apiGetErrorMessage(response);
+  return apiGetErrorMessage(response.code);
 }

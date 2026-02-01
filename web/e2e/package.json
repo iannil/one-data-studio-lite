@@ -1,0 +1,23 @@
+{
+  "name": "one-data-studio-e2e",
+  "version": "1.0.0",
+  "description": "E2E tests for ONE-DATA-STUDIO-LITE platform",
+  "private": true,
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:headed": "playwright test --headed",
+    "e2e:report": "playwright show-report",
+    "e2e:p0": "playwright test --grep '@p0'",
+    "e2e:p1": "playwright test --grep '@p1'",
+    "e2e:sup": "playwright test --grep '@sup'",
+    "e2e:adm": "playwright test --grep '@adm'",
+    "e2e:sci": "playwright test --grep '@sci'",
+    "e2e:ana": "playwright test --grep '@ana'",
+    "e2e:vw": "playwright test --grep '@vw'",
+    "e2e:svc": "playwright test --grep '@svc'",
+    "e2e:smoke": "playwright test tests/common/smoke.spec.ts",
+    "e2e:auth": "playwright test tests/common/auth.spec.ts"
+  }
+}

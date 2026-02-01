@@ -189,6 +189,7 @@ const Sensitive: React.FC = () => {
           <Card size="small">
             <Space>
               <Input
+                data-testid="scan-table-input"
                 placeholder="请输入表名，如：user_info"
                 value={tableName}
                 onChange={(e) => setTableName(e.target.value)}
@@ -196,6 +197,7 @@ const Sensitive: React.FC = () => {
                 onPressEnter={handleScan}
               />
               <Button
+                data-testid="scan-button"
                 type="primary"
                 icon={<ScanOutlined />}
                 loading={scanning}
@@ -310,14 +312,14 @@ const Sensitive: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div data-testid="sensitive-data-page">
       <Title level={4} style={{ marginBottom: 16 }}>
         <SafetyOutlined /> 敏感数据检测
       </Title>
       <Tabs items={tabItems} />
 
       {/* 添加规则弹窗 */}
-      <Modal
+      <Modal data-testid="add-rule-modal"
         title="添加检测规则"
         open={addModalVisible}
         onCancel={() => setAddModalVisible(false)}

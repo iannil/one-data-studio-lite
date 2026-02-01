@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Input, Button, Table, Tag, Tabs, message, Typography, Space, Spin } from 'antd';
 import { ClearOutlined, BulbOutlined, SearchOutlined } from '@ant-design/icons';
-import { recommendRules, getCleaningRules } from '../../api/cleaning';
+import { recommendRulesV1, getCleaningRulesV1 } from '../../api/cleaning';
 
 const { Title } = Typography;
 
@@ -15,8 +15,12 @@ const CleaningRules: React.FC = () => {
   const fetchTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const data = await getCleaningRules();
-      setTemplates(Array.isArray(data) ? data : data?.rules || []);
+      const resp = await getCleaningRulesV1();
+      if (resp.success) {
+        setTemplates(resp.data || []);
+      } else {
+        message.error(resp.message || '获取规则模板失败');
+      }
     } catch {
       message.error('获取规则模板失败');
     } finally {
@@ -35,9 +39,13 @@ const CleaningRules: React.FC = () => {
     }
     setLoading(true);
     try {
-      const data = await recommendRules({ table_name: tableName });
-      setRecommendations(data?.recommendations || data?.rules || []);
-      message.success('AI 推荐完成');
+      const resp = await recommendRulesV1({ table_name: tableName });
+      if (resp.success) {
+        setRecommendations(resp.data?.recommended_rules || []);
+        message.success('AI 推荐完成');
+      } else {
+        message.error(resp.message || 'AI 推荐失败');
+      }
     } catch {
       message.error('AI 推荐失败');
     } finally {
@@ -84,6 +92,7 @@ const CleaningRules: React.FC = () => {
           <Card size="small">
             <Space>
               <Input
+                data-testid="table-name-input"
                 placeholder="输入表名获取 AI 清洗推荐"
                 value={tableName}
                 onChange={(e) => setTableName(e.target.value)}
@@ -91,7 +100,13 @@ const CleaningRules: React.FC = () => {
                 style={{ width: 300 }}
                 prefix={<SearchOutlined />}
               />
-              <Button type="primary" icon={<BulbOutlined />} loading={loading} onClick={handleRecommend}>
+              <Button
+                data-testid="ai-recommend-button"
+                type="primary"
+                icon={<BulbOutlined />}
+                loading={loading}
+                onClick={handleRecommend}
+              >
                 AI 推荐
               </Button>
             </Space>
@@ -130,11 +145,11 @@ const CleaningRules: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div data-testid="cleaning-rules-page">
       <Title level={4} style={{ marginBottom: 16 }}>
         <ClearOutlined /> 清洗规则配置
       </Title>
-      <Tabs items={tabItems} />
+      <Tabs data-testid="cleaning-tabs" items={tabItems} />
     </div>
   );
 };

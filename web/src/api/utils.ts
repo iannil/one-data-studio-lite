@@ -4,10 +4,42 @@
  * 提供统一的响应处理函数和错误处理逻辑
  */
 
-import type { ApiResponse, ErrorCode, ErrorResponse } from './types';
-import { isSuccessResponse } from './types';
+import type { ApiResponse, ErrorResponse } from './types';
+import { isSuccessResponse, ErrorCode } from './types';
 import { removeToken } from '../utils/token';
 import { message } from 'antd';
+
+/**
+ * Unwrap API response data safely
+ * @param response Axios response containing ApiResponse<T>
+ * @returns The unwrapped data (will throw for null/undefined in strict mode)
+ * @throws Error if response is invalid or data is null/undefined when T doesn't allow it
+ */
+export function unwrapApiResponse<T>(response: { data: ApiResponse<T> | T }): T {
+  const apiResponse = response.data;
+
+  // Check if it's an ApiResponse format
+  if (
+    apiResponse &&
+    typeof apiResponse === 'object' &&
+    'code' in apiResponse &&
+    'message' in apiResponse
+  ) {
+    const resp = apiResponse as ApiResponse<T>;
+    if (isSuccessResponse(resp)) {
+      // Explicitly check for null/undefined data in successful responses
+      if (resp.data === null || resp.data === undefined) {
+        throw new Error('API returned success but no data');
+      }
+      return resp.data as T;
+    }
+    throw new Error(resp.message || 'API request failed');
+  }
+
+  // Return as-is if not in ApiResponse format
+  // Note: This assumes non-ApiResponse data is already the correct type
+  return apiResponse as T;
+}
 
 /**
  * 处理 API 响应

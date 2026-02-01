@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Input, Button, message, Typography, Space, Spin, Table, Tag, Statistic, Row, Col } from 'antd';
 import { CheckCircleOutlined, SearchOutlined } from '@ant-design/icons';
-import { analyzeQuality } from '../../api/cleaning';
+import { analyzeQualityV1 } from '../../api/cleaning';
 
 const { Title } = Typography;
 
@@ -19,12 +19,17 @@ const QualityCheck: React.FC = () => {
     setLoading(true);
     setResult(null);
     try {
-      const data = await analyzeQuality({
+      const resp = await analyzeQualityV1({
         table_name: tableName,
         database: database || undefined,
+        sample_size: 1000,
       });
-      setResult(data);
-      message.success('质量分析完成');
+      if (resp.success && resp.data) {
+        setResult(resp.data);
+        message.success('质量分析完成');
+      } else {
+        message.error(resp.message || '分析失败');
+      }
     } catch {
       message.error('质量分析失败');
     } finally {

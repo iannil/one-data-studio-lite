@@ -8,7 +8,7 @@
 
 import client from './client';
 import type { ApiResponse } from './types';
-import { isSuccessResponse } from './utils';
+import { isSuccessResponse } from './types';
 
 // ============================================================
 // 类型定义

@@ -76,3 +76,7 @@ backup/
 *.swo
 *.bak
 *.backup
+
+**/playwright-report
+**/test-results
+**/visual-regression.spec.ts-snapshots

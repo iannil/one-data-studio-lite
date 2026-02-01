@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Input, Button, message, Typography, Space, Select, Tag } from 'antd';
 import { SettingOutlined, CopyOutlined } from '@ant-design/icons';
-import { generateConfig } from '../../api/cleaning';
+import { generateConfigV1 } from '../../api/cleaning';
 
 const { Title, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -34,10 +34,18 @@ const TransformConfig: React.FC = () => {
     }
     setLoading(true);
     try {
-      const data = await generateConfig({ table_name: tableName, rules: selectedRules });
-      const configStr = typeof data === 'string' ? data : JSON.stringify(data?.config || data, null, 2);
-      setConfig(configStr);
-      message.success('配置生成成功');
+      const resp = await generateConfigV1({
+        table_name: tableName,
+        rules: selectedRules,
+        output_format: 'seatunnel',
+      });
+      if (resp.success && resp.data) {
+        const configStr = resp.data.config;
+        setConfig(configStr);
+        message.success('配置生成成功');
+      } else {
+        message.error(resp.message || '配置生成失败');
+      }
     } catch {
       message.error('配置生成失败');
     } finally {

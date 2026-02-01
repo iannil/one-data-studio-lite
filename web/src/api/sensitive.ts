@@ -1,6 +1,7 @@
 import client from './client';
 import type { ApiResponse } from './types';
 import { SensitiveScanRequest, SensitiveScanReport, DetectionRule } from '../types';
+import { unwrapApiResponse } from './utils';
 
 // ============================================================
 // 类型定义
@@ -52,7 +53,7 @@ export const scan = async (request: SensitiveScanRequest): Promise<SensitiveScan
     '/api/proxy/sensitive/v1/scan',
     request
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -66,7 +67,7 @@ export const classify = async (
     '/api/proxy/sensitive/v1/classify',
     { data_samples: dataSamples, context }
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -76,7 +77,7 @@ export const getRules = async (): Promise<DetectionRule[]> => {
   const response = await client.get<ApiResponse<DetectionRule[]>>(
     '/api/proxy/sensitive/v1/rules'
   );
-  return response.data.data || [];
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -86,7 +87,7 @@ export const getRule = async (ruleId: string): Promise<DetectionRule> => {
   const response = await client.get<ApiResponse<DetectionRule>>(
     `/api/proxy/sensitive/v1/rules/${ruleId}`
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -97,7 +98,7 @@ export const addRule = async (rule: Omit<DetectionRule, 'id'>): Promise<Detectio
     '/api/proxy/sensitive/v1/rules',
     rule
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -107,7 +108,7 @@ export const deleteRule = async (ruleId: string): Promise<{ message: string }> =
   const response = await client.delete<ApiResponse<{ message: string }>>(
     `/api/proxy/sensitive/v1/rules/${ruleId}`
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -121,7 +122,7 @@ export const getReports = async (
     '/api/proxy/sensitive/v1/reports',
     { params: { page, page_size: pageSize } }
   );
-  return response.data.data || [];
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -131,7 +132,7 @@ export const getReport = async (reportId: string): Promise<SensitiveScanReport> 
   const response = await client.get<ApiResponse<SensitiveScanReport>>(
     `/api/proxy/sensitive/v1/reports/${reportId}`
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 /**
@@ -149,7 +150,7 @@ export const scanAndApply = async (
     '/api/proxy/sensitive/v1/scan-and-apply',
     request
   );
-  return response.data.data || response.data;
+  return unwrapApiResponse(response);
 };
 
 // ============================================================

@@ -135,7 +135,7 @@ const DataApiManage: React.FC = () => {
   ];
 
   return (
-    <div>
+    <div data-testid="data-api-page">
       <Title level={4} style={{ marginBottom: 16 }}>
         <ApiOutlined /> 数据 API 管理
       </Title>
@@ -143,18 +143,19 @@ const DataApiManage: React.FC = () => {
         <Card size="small">
           <Space>
             <Input
+              data-testid="dataset-id-input"
               placeholder="数据集 ID"
               value={datasetId}
               onChange={(e) => setDatasetId(e.target.value)}
               style={{ width: 300 }}
               prefix={<SearchOutlined />}
             />
-            <Button type="primary" onClick={fetchSchema}>获取 Schema</Button>
-            <Button onClick={handleSubscribe}>订阅</Button>
+            <Button data-testid="fetch-schema-button" type="primary" onClick={fetchSchema}>获取 Schema</Button>
+            <Button data-testid="subscribe-button" onClick={handleSubscribe}>订阅</Button>
           </Space>
         </Card>
         <Card size="small">
-          <Tabs items={tabItems} />
+          <Tabs data-testid="api-tabs" items={tabItems} />
         </Card>
       </Space>
     </div>
