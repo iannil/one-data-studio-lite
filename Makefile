@@ -1,5 +1,5 @@
 # ONE-DATA-STUDIO-LITE Makefile
-.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean
+.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean test-env-up test-env-down test-env-status test-env-logs test-env-clean
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -397,4 +397,27 @@ test-p1: ## 运行P1级别测试
 
 test-coverage: ## 生成测试覆盖率报告
 	cd web && npm run test:coverage
+
+# ========== 测试环境 ==========
+
+test-env-up: ## 启动精简测试环境
+	bash deploy/test-env.sh
+
+test-env-down: ## 停止测试环境
+	bash deploy/test-env-stop.sh
+
+test-env-clean: ## 停止并清理测试环境数据
+	bash deploy/test-env-stop.sh --clean
+
+test-env-status: ## 查看测试环境状态
+	docker compose -f deploy/test-env/docker-compose.yml ps
+
+test-env-logs: ## 查看测试环境日志
+	docker compose -f deploy/test-env/docker-compose.yml logs -f
+
+test-env-restart: ## 重启测试环境
+	bash deploy/test-env-stop.sh && bash deploy/test-env.sh
+
+test-env-pull: ## 拉取测试环境镜像
+	docker compose -f deploy/test-env/docker-compose.yml pull
 
