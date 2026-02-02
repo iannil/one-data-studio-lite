@@ -1,0 +1,26 @@
+# ONE-DATA-STUDIO-LITE - ShardingSphere Proxy 服务端配置
+# 参考: https://shardingsphere.apache.org/document/
+# 注意: 生产环境必须修改 authority 中的密码
+
+mode:
+  type: Standalone
+  repository:
+    type: JDBC
+
+# 警告: 以下密码仅用于开发环境，生产环境必须修改
+authority:
+  users:
+    - user: root@%
+      password: "${SHARDINGSPHERE_ROOT_PASSWORD:-changeme}"
+    - user: readonly@%
+      password: "${SHARDINGSPHERE_READONLY_PASSWORD:-changeme}"
+  privilege:
+    type: ALL_PERMITTED
+
+props:
+  proxy-frontend-database-protocol-type: MySQL
+  proxy-default-port: 3307
+  sql-show: true
+  max-connections-size-per-query: 1
+  kernel-executor-size: 16
+  check-table-metadata-enabled: false

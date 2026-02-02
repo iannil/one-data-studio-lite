@@ -1,0 +1,7 @@
+-Xms512m
+-Xmx2g
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=/opt/seatunnel/logs
+-XX:+UseG1GC
+-XX:G1HeapRegionSize=32M
+-XX:MaxGCPauseMillis=200

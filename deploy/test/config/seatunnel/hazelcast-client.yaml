@@ -1,0 +1,7 @@
+hazelcast-client:
+  cluster-name: seatunnel
+  network:
+    cluster-members:
+      - localhost:5802
+  properties:
+    hazelcast.logging.type: slf4j

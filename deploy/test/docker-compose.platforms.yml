@@ -1,0 +1,511 @@
+# ONE-DATA-STUDIO-LITE 测试环境 - 第三方平台层
+# 包含: Cube-Studio, Superset, DataHub, DolphinScheduler, Hop, SeaTunnel, ShardingSphere
+# 启动顺序: 2/3 (依赖基础设施层)
+
+services:
+  # ============================================================
+  # DataHub
+  # ============================================================
+  datahub-mysql-setup:
+    image: acryldata/datahub-mysql-setup:v0.13.2
+    container_name: ods-test-datahub-mysql-setup
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DATAHUB_DB_NAME: datahub
+    networks:
+      - ods-test-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  datahub-elasticsearch-setup:
+    image: acryldata/datahub-elasticsearch-setup:v0.13.2
+    container_name: ods-test-datahub-es-setup
+    environment:
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_PROTOCOL: http
+    networks:
+      - ods-test-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  datahub-kafka-setup:
+    image: acryldata/datahub-kafka-setup:v0.13.2
+    container_name: ods-test-datahub-kafka-setup
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      USE_CONFLUENT_SCHEMA_REGISTRY: "TRUE"
+    networks:
+      - ods-test-network
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  datahub-gms:
+    image: acryldata/datahub-gms:v0.13.2
+    container_name: ods-test-datahub-gms
+    restart: unless-stopped
+    ports:
+      - "${DATAHUB_GMS_PORT:-8081}:8080"
+    environment:
+      DATAHUB_SERVER_TYPE: quickstart
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      EBEAN_DATASOURCE_URL: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=false&useUnicode=yes&characterEncoding=UTF-8&allowPublicKeyRetrieval=true"
+      EBEAN_DATASOURCE_HOST: mysql:3306
+      EBEAN_DATASOURCE_USERNAME: root
+      EBEAN_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      GRAPH_SERVICE_IMPL: elasticsearch
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+      SKIP_NEO4J_CHECK: "true"
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      ELASTICSEARCH_INDEX_BUILDER_ENABLED: "true"
+      JAVA_OPTS: "${JAVA_OPTS:--Xms256m -Xmx512m}"
+    networks:
+      - ods-test-network
+    depends_on:
+      datahub-mysql-setup:
+        condition: service_completed_successfully
+      datahub-elasticsearch-setup:
+        condition: service_completed_successfully
+      datahub-kafka-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
+
+  datahub-frontend:
+    image: acryldata/datahub-frontend-react:v0.13.2
+    container_name: ods-test-datahub-frontend
+    restart: unless-stopped
+    ports:
+      - "${DATAHUB_WEB_PORT:-9002}:9002"
+    environment:
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      DATAHUB_GMS_URL: "http://datahub-gms:8080"
+      DATAHUB_SECRET: "YouKnowNothing"
+      DATAHUB_APP_VERSION: "1.0"
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+      ELASTIC_CLIENT_HOST: elasticsearch
+      ELASTIC_CLIENT_PORT: "9200"
+    networks:
+      - ods-test-network
+    depends_on:
+      - datahub-gms
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  datahub-actions:
+    image: acryldata/datahub-actions:v0.0.15
+    container_name: ods-test-datahub-actions
+    restart: unless-stopped
+    environment:
+      DATAHUB_GMS_URL: "http://datahub-gms:8080"
+      DATAHUB_GMS_TOKEN: ""
+      KAFKA_BOOTSTRAP_SERVER: kafka:9092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    networks:
+      - ods-test-network
+    depends_on:
+      - datahub-gms
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ============================================================
+  # Superset（使用共享 PostgreSQL 和 Redis）
+  # ============================================================
+  superset-init:
+    image: apache/superset:3.1.0
+    container_name: ods-test-superset-init
+    command: >
+      bash -c "
+        echo 'Initializing Superset...' &&
+        superset db upgrade &&
+        echo 'Creating admin user...' &&
+        superset fab create-admin \
+          --username ${SUPERSET_ADMIN_USER:-admin} \
+          --firstname Admin \
+          --lastname User \
+          --email ${SUPERSET_ADMIN_EMAIL:-admin@test.local} \
+          --password ${SUPERSET_ADMIN_PASSWORD:-admin123} || true &&
+        echo 'Initializing Superset...' &&
+        superset init &&
+        touch /app/superset_home/.initialized &&
+        echo 'Superset initialization complete!'
+      "
+    environment: &superset-env
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:-superset123}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-test-secret-key-change-in-production}
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_DB_PASSWORD:-superset123}@postgres:5432/superset
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      SUPERSET_LOAD_EXAMPLES: ${SUPERSET_LOAD_EXAMPLES:-no}
+      SUPERSET_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      - ods-test-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ods-test-superset-home:/app/superset_home
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  superset:
+    image: apache/superset:3.1.0
+    container_name: ods-test-superset
+    restart: unless-stopped
+    ports:
+      - "${SUPERSET_WEB_PORT:-8088}:8088"
+    environment: *superset-env
+    volumes:
+      - ods-test-superset-home:/app/superset_home
+    networks:
+      - ods-test-network
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8088/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # DolphinScheduler（使用共享 Zookeeper 和 PostgreSQL）
+  # ============================================================
+  dolphinscheduler-schema-init:
+    image: apache/dolphinscheduler-tools:3.2.1
+    container_name: ods-test-ds-schema-init
+    command: ["tools/bin/upgrade-schema.sh"]
+    environment:
+      DATABASE: postgresql
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/dolphinscheduler"
+      SPRING_DATASOURCE_USERNAME: dolphinscheduler
+      SPRING_DATASOURCE_PASSWORD: ${DOLPHINSCHEDULER_POSTGRES_PASSWORD:-ds2024}
+    networks:
+      - ods-test-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  dolphinscheduler-api:
+    image: apache/dolphinscheduler-api:3.2.1
+    container_name: ods-test-ds-api
+    restart: unless-stopped
+    ports:
+      - "${DS_API_PORT:-12345}:12345"
+    environment: &ds-env
+      DATABASE: postgresql
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/dolphinscheduler"
+      SPRING_DATASOURCE_USERNAME: dolphinscheduler
+      SPRING_DATASOURCE_PASSWORD: ${DOLPHINSCHEDULER_POSTGRES_PASSWORD:-ds2024}
+      REGISTRY_ZOOKEEPER_CONNECT_STRING: zookeeper:2181
+      JAVA_OPTS: "${JAVA_OPTS:--Xms256m -Xmx512m}"
+    volumes:
+      - ods-test-ds-logs:/opt/dolphinscheduler/logs
+      - ods-test-ds-resource:/opt/dolphinscheduler/resource
+    networks:
+      - ods-test-network
+    depends_on:
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
+      zookeeper:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  dolphinscheduler-master:
+    image: apache/dolphinscheduler-master:3.2.1
+    container_name: ods-test-ds-master
+    restart: unless-stopped
+    environment: *ds-env
+    volumes:
+      - ods-test-ds-logs:/opt/dolphinscheduler/logs
+    networks:
+      - ods-test-network
+    depends_on:
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  dolphinscheduler-worker:
+    image: apache/dolphinscheduler-worker:3.2.1
+    container_name: ods-test-ds-worker
+    restart: unless-stopped
+    environment:
+      <<: *ds-env
+      WORKER_GROUPS: "default,seatunnel,hop"
+    volumes:
+      - ods-test-ds-logs:/opt/dolphinscheduler/logs
+      - ods-test-ds-resource:/opt/dolphinscheduler/resource
+    networks:
+      - ods-test-network
+    depends_on:
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  dolphinscheduler-alert:
+    image: apache/dolphinscheduler-alert-server:3.2.1
+    container_name: ods-test-ds-alert
+    restart: unless-stopped
+    environment: *ds-env
+    volumes:
+      - ods-test-ds-logs:/opt/dolphinscheduler/logs
+    networks:
+      - ods-test-network
+    depends_on:
+      dolphinscheduler-schema-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ============================================================
+  # Apache Hop
+  # ============================================================
+  hop:
+    build:
+      context: ../../deploy/hop
+      dockerfile: Dockerfile
+    image: ods-test-hop:latest
+    container_name: ods-test-hop
+    restart: unless-stopped
+    ports:
+      - "${HOP_PORT:-8083}:8080"
+    environment:
+      HOP_LOG_LEVEL: Basic
+    volumes:
+      - ods-test-hop-projects:/home/hop/projects
+      - ods-test-hop-data:/home/hop/data
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # SeaTunnel
+  # ============================================================
+  seatunnel:
+    image: apache/seatunnel:2.3.8
+    container_name: ods-test-seatunnel
+    restart: unless-stopped
+    ports:
+      - "${SEATUNNEL_PORT:-5802}:5802"
+    environment:
+      SEATUNNEL_HOME: /opt/seatunnel
+      ST_DOCKER_MEMBER_LIST: "localhost"
+    volumes:
+      - ./config/seatunnel/seatunnel.yaml:/opt/seatunnel/config/seatunnel.yaml:ro
+      - ./config/seatunnel/hazelcast.yaml:/opt/seatunnel/config/hazelcast.yaml:ro
+      - ./config/seatunnel/hazelcast-client.yaml:/opt/seatunnel/config/hazelcast-client.yaml:ro
+      - ./config/seatunnel/jvm_options:/opt/seatunnel/config/jvm_options:ro
+      - ods-test-seatunnel-jobs:/opt/seatunnel/jobs
+      - ods-test-seatunnel-data:/opt/seatunnel/data
+    networks:
+      - ods-test-network
+    command: ["./bin/seatunnel-cluster.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5802/hazelcast/rest/cluster"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # ShardingSphere
+  # ============================================================
+  shardingsphere:
+    image: apache/shardingsphere-proxy:5.4.1
+    container_name: ods-test-shardingsphere
+    restart: unless-stopped
+    ports:
+      - "${SHARDINGSPHERE_PORT:-3309}:3307"
+    environment:
+      JVM_OPTS: "-Xmx256m -Xms128m"
+      MYSQL_HOST: "mysql"
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: "one_data_studio"
+      MYSQL_USERNAME: "root"
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./config/shardingsphere/server.yaml:/opt/shardingsphere-proxy/conf/server.yaml:ro
+      - ./config/shardingsphere/config-mask.yaml:/opt/shardingsphere-proxy/conf/config-mask.yaml:ro
+      - ods-test-shardingsphere-data:/opt/shardingsphere-proxy/data
+    networks:
+      - ods-test-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # Cube-Studio（使用共享 MySQL 和 Redis）
+  # ============================================================
+  cube-frontend:
+    image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend:2026.01.01
+    container_name: ods-test-cube-frontend
+    restart: unless-stopped
+    command: ['sh','-c','nginx -g "daemon off;"']
+    ports:
+      - "${CUBE_STUDIO_PORT:-30080}:80"
+    volumes:
+      - ./config/cube/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - ods-test-network
+    depends_on:
+      cube-myapp:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  cube-myapp:
+    image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard:2026.01.01
+    container_name: ods-test-cube-myapp
+    restart: unless-stopped
+    command: ['bash','-c','/entrypoint.sh']
+    environment:
+      STAGE: "dev"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MYSQL_SERVICE: "mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/cube?charset=utf8mb4"
+      ENVIRONMENT: TEST
+      JAVA_OPTS: "${JAVA_OPTS:--Xms256m -Xmx512m}"
+    volumes:
+      - ./config/cube/entrypoint.sh:/entrypoint.sh:ro
+      - ./config/cube/config.py:/home/myapp/myapp/config.py:ro
+      - ods-test-cube-data:/data/k8s/kubeflow
+    networks:
+      - ods-test-network
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
+
+volumes:
+  ods-test-superset-home:
+    driver: local
+    name: ods-test-superset-home
+  ods-test-ds-logs:
+    driver: local
+    name: ods-test-ds-logs
+  ods-test-ds-resource:
+    driver: local
+    name: ods-test-ds-resource
+  ods-test-hop-projects:
+    driver: local
+    name: ods-test-hop-projects
+  ods-test-hop-data:
+    driver: local
+    name: ods-test-hop-data
+  ods-test-seatunnel-jobs:
+    driver: local
+    name: ods-test-seatunnel-jobs
+  ods-test-seatunnel-data:
+    driver: local
+    name: ods-test-seatunnel-data
+  ods-test-shardingsphere-data:
+    driver: local
+    name: ods-test-shardingsphere-data
+  ods-test-cube-data:
+    driver: local
+    name: ods-test-cube-data
+
+networks:
+  ods-test-network:
+    name: ods-test-network
+    external: false

@@ -1,0 +1,179 @@
+# ONE-DATA-STUDIO-LITE 测试环境 - 二开服务层
+# 包含 7 个 FastAPI 微服务
+# 启动顺序: 3/3 (依赖基础设施层和平台层)
+
+x-service-common: &service-common
+  build:
+    context: ../..
+    dockerfile: services/Dockerfile
+  restart: unless-stopped
+  networks:
+    - ods-test-network
+  environment: &service-env
+    ENVIRONMENT: test
+    DATABASE_URL: mysql+aiomysql://root:test123456@mysql:3306/one_data_studio
+    JWT_SECRET: test-jwt-secret-change-in-production-32chars
+    LLM_BASE_URL: http://host.docker.internal:31434
+    LLM_MODEL: qwen2.5:7b
+    REDIS_URL: redis://:test123456@redis:6379/0
+    DATAHUB_GMS_URL: http://datahub-gms:8080
+    DATAHUB_TOKEN: test-datahub-token
+    SUPERSET_URL: http://superset:8088
+    CUBE_STUDIO_URL: http://cube-frontend:80
+    DOLPHINSCHEDULER_API_URL: http://dolphinscheduler-api:12345/dolphinscheduler
+    DOLPHINSCHEDULER_TOKEN: test-ds-token
+    SEATUNNEL_API_URL: http://seatunnel:5802
+    HOP_URL: http://hop:8080
+    DATAHUB_URL: http://datahub-frontend:9002
+    DATAHUB_WEBHOOK_SECRET: test-webhook-secret
+    META_SYNC_DATAHUB_WEBHOOK_SECRET: test-webhook-secret
+    ETCD_ENDPOINTS: http://etcd:2379
+    ENABLE_CONFIG_CENTER: "true"
+    LOG_LEVEL: INFO
+    ENABLE_TRACING: "false"
+    ENABLE_METRICS: "true"
+  deploy:
+    resources:
+      limits:
+        memory: 256M
+      reservations:
+        memory: 128M
+
+services:
+  # ============================================================
+  # Portal - 统一入口门户
+  # ============================================================
+  portal:
+    <<: *service-common
+    container_name: ods-test-portal
+    ports:
+      - "${PORTAL_PORT:-8010}:8010"
+    environment:
+      <<: *service-env
+      PORTAL_CUBE_STUDIO_URL: http://cube-frontend:80
+      PORTAL_SUPERSET_URL: http://superset:8088
+      PORTAL_DATAHUB_URL: http://datahub-frontend:9002
+      PORTAL_DATAHUB_GMS_URL: http://datahub-gms:8080
+      PORTAL_DOLPHINSCHEDULER_URL: http://dolphinscheduler-api:12345
+      PORTAL_DOLPHINSCHEDULER_TOKEN: test-ds-token
+      PORTAL_HOP_URL: http://hop:8080
+      PORTAL_SEATUNNEL_URL: http://seatunnel:5802
+      PORTAL_NL2SQL_URL: http://nl2sql:8011
+      PORTAL_AI_CLEANING_URL: http://ai-cleaning:8012
+      PORTAL_METADATA_SYNC_URL: http://metadata-sync:8013
+      PORTAL_DATA_API_URL: http://data-api:8014
+      PORTAL_SENSITIVE_DETECT_URL: http://sensitive-detect:8015
+      PORTAL_AUDIT_LOG_URL: http://audit-log:8016
+      PORTAL_SHARDINGSPHERE_URL: http://shardingsphere:3307
+      SUPERSET_ADMIN_USER: admin
+      SUPERSET_ADMIN_PASSWORD: admin123
+      USE_COOKIE_AUTH: "true"
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:8080
+    command: uvicorn services.portal.main:app --host 0.0.0.0 --port 8010 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ============================================================
+  # NL2SQL - 自然语言查询服务
+  # ============================================================
+  nl2sql:
+    <<: *service-common
+    container_name: ods-test-nl2sql
+    ports:
+      - "8011:8011"
+    command: uvicorn services.nl2sql.main:app --host 0.0.0.0 --port 8011 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # AI Cleaning - AI 清洗规则推荐服务
+  # ============================================================
+  ai-cleaning:
+    <<: *service-common
+    container_name: ods-test-ai-cleaning
+    ports:
+      - "8012:8012"
+    command: uvicorn services.ai_cleaning.main:app --host 0.0.0.0 --port 8012 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # Metadata Sync - 元数据同步服务
+  # ============================================================
+  metadata-sync:
+    <<: *service-common
+    container_name: ods-test-metadata-sync
+    ports:
+      - "8013:8013"
+    command: uvicorn services.metadata_sync.main:app --host 0.0.0.0 --port 8013 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # Data API - 数据资产 API 网关
+  # ============================================================
+  data-api:
+    <<: *service-common
+    container_name: ods-test-data-api
+    ports:
+      - "8014:8014"
+    command: uvicorn services.data_api.main:app --host 0.0.0.0 --port 8014 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # Sensitive Detect - 敏感数据检测服务
+  # ============================================================
+  sensitive-detect:
+    <<: *service-common
+    container_name: ods-test-sensitive-detect
+    ports:
+      - "8015:8015"
+    command: uvicorn services.sensitive_detect.main:app --host 0.0.0.0 --port 8015 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ============================================================
+  # Audit Log - 审计日志服务
+  # ============================================================
+  audit-log:
+    <<: *service-common
+    container_name: ods-test-audit-log
+    ports:
+      - "8016:8016"
+    command: uvicorn services.audit_log.main:app --host 0.0.0.0 --port 8016 --log-level info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  ods-test-network:
+    name: ods-test-network
+    external: false

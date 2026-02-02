@@ -1,0 +1,15 @@
+# ONE-DATA-STUDIO-LITE 测试环境主编排文件
+# 此文件引用其他编排文件，实现分层启动
+#
+# 使用方法:
+#   docker compose --env-file .env up -d
+#   或使用 ./start.sh 脚本
+
+# 包含基础设施层
+include:
+  - docker-compose.infra.yml
+  - docker-compose.platforms.yml
+  - docker-compose.services.yml
+
+# 测试环境名称
+name: ods-test

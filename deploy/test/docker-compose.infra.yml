@@ -1,0 +1,291 @@
+# ONE-DATA-STUDIO-LITE 测试环境 - 基础设施层
+# 包含: MySQL（多数据库）, etcd, Zookeeper（共享）, Redis（共享）, Elasticsearch
+# 启动顺序: 1/3
+
+services:
+  # ============================================================
+  # 统一网络创建
+  # ============================================================
+  # 网络已在此文件中定义，会被其他层共享
+
+  # ============================================================
+  # 共享 MySQL（多数据库）
+  # ============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: ods-test-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=1000
+      - --max_allowed_packet=256M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ods-test-mysql-data:/var/lib/mysql
+      - ./config/mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./config/mysql/databases.sql:/docker-entrypoint-initdb.d/02-databases.sql:ro
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u${MYSQL_ROOT_USER:-root}", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # 共享 Redis
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ods-test-redis
+    restart: unless-stopped
+    command: >
+      sh -c 'redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes'
+    ports:
+      - "6379:6379"
+    volumes:
+      - ods-test-redis-data:/data
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # ============================================================
+  # 共享 Zookeeper（DataHub + DolphinScheduler）
+  # ============================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: ods-test-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_CLIENT_PORT:-2181}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME:-2000}
+      ZOOKEEPER_4LW_COMMANDS_WHITELIST: "srvr,ruok,wchs,cons"
+    volumes:
+      - ods-test-zk-data:/var/lib/zookeeper/data
+      - ods-test-zk-logs:/var/lib/zookeeper/log
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'ruok' | nc localhost 2181 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # ============================================================
+  # Kafka（用于 DataHub）
+  # ============================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ods-test-kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9093:9093"
+    volumes:
+      - ods-test-kafka-data:/var/lib/kafka/data
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================
+  # Schema Registry（用于 DataHub）
+  # ============================================================
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: ods-test-schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - ods-test-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # ============================================================
+  # Elasticsearch（用于 DataHub）
+  # ============================================================
+  elasticsearch:
+    image: elasticsearch:7.17.18
+    container_name: ods-test-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "${ES_JAVA_OPTS:--Xms256m -Xmx512m}"
+      xpack.security.enabled: "false"
+      action.destructive_requires_name: "true"
+    ports:
+      - "9200:9200"
+    volumes:
+      - ods-test-es-data:/usr/share/elasticsearch/data
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 512M
+
+  # ============================================================
+  # PostgreSQL（用于 DolphinScheduler 和 Superset）
+  # ============================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ods-test-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - ods-test-postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # ============================================================
+  # etcd 配置中心
+  # ============================================================
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.12
+    container_name: ods-test-etcd
+    restart: unless-stopped
+    command:
+      - etcd
+      - --name=etcd0
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd:2380
+      - --initial-cluster=etcd0=http://etcd:2380
+      - --initial-cluster-token=etcd-cluster
+      - --initial-cluster-state=new
+      - --auto-compaction-mode=periodic
+      - --auto-compaction-retention=1h
+    ports:
+      - "2379:2379"
+    volumes:
+      - ods-test-etcd-data:/etcd-data
+    networks:
+      - ods-test-network
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+volumes:
+  ods-test-mysql-data:
+    driver: local
+    name: ods-test-mysql-data
+  ods-test-redis-data:
+    driver: local
+    name: ods-test-redis-data
+  ods-test-zk-data:
+    driver: local
+    name: ods-test-zk-data
+  ods-test-zk-logs:
+    driver: local
+    name: ods-test-zk-logs
+  ods-test-kafka-data:
+    driver: local
+    name: ods-test-kafka-data
+  ods-test-es-data:
+    driver: local
+    name: ods-test-es-data
+  ods-test-postgres-data:
+    driver: local
+    name: ods-test-postgres-data
+  ods-test-etcd-data:
+    driver: local
+    name: ods-test-etcd-data
+
+networks:
+  ods-test-network:
+    name: ods-test-network
+    driver: bridge
