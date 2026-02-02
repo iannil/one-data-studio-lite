@@ -8,14 +8,20 @@ import sys
 from datetime import timedelta
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 
 # 设置环境变量（测试环境配置）
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
 os.environ.setdefault("JWT_EXPIRE_HOURS", "24")
+# 禁用速率限制（测试环境）
+os.environ.setdefault("ENABLE_RATE_LIMIT", "false")
+# 添加 CORS 测试源
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:8080,http://127.0.0.1:3000,http://127.0.0.1:5173,http://example.com")
 # 使用当前目录的测试数据库
 test_db_path = os.path.join(os.path.dirname(__file__), "test_db.sqlite")
 os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{test_db_path}")
@@ -93,6 +99,12 @@ def viewer_token() -> str:
 
 
 @pytest.fixture
+def steward_token() -> str:
+    """生成数据治理员 token"""
+    return create_token(user_id="stw1", username="steward", role="steward")
+
+
+@pytest.fixture
 def service_account_token() -> str:
     """生成服务账户 token"""
     return create_token(user_id="svc1", username="data_sync_service", role="service_account")
@@ -151,6 +163,18 @@ def service_account_headers(service_account_token: str) -> dict:
     return {"Authorization": f"Bearer {service_account_token}"}
 
 
+@pytest.fixture
+def steward_headers(steward_token: str) -> dict:
+    """返回带有数据治理员认证的请求头"""
+    return {"Authorization": f"Bearer {steward_token}"}
+
+
+@pytest.fixture
+def engineer_headers(engineer_token: str) -> dict:
+    """返回带有数据工程师认证的请求头"""
+    return {"Authorization": f"Bearer {engineer_token}"}
+
+
 # ============ Mock Fixtures ============
 
 @pytest.fixture
@@ -201,6 +225,10 @@ async def init_test_database():
 
     # 使用全局引擎（指向测试数据库）
     engine = get_engine()
+
+    # 先删除所有表（确保干净状态）
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
     # 创建所有表
     async with engine.begin() as conn:
@@ -643,4 +671,395 @@ def sample_detection_rule() -> dict:
         "pattern": "^EMP\\d{6}$",
         "sensitivity_level": "medium",
         "description": "检测员工工号格式 EMP+6位数字",
+    }
+
+
+# ============ Lifecycle Test Fixtures ============
+
+@pytest.fixture
+async def lifecycle_init_data(portal_client: AsyncClient, super_admin_headers: dict):
+    """Complete initialization data for lifecycle tests
+
+    Ensures all required entities exist before running lifecycle tests.
+    """
+    from services.common.seed_data import seed_all_data
+
+    # Run seed data with business data included
+    import asyncio
+    await asyncio.create_task(seed_all_data(
+        environment="development",
+        skip_users=False,
+        include_business=True
+    ))
+
+    yield {
+        "users_initialized": True,
+        "business_data_initialized": True
+    }
+
+
+@pytest.fixture
+def business_domain_data() -> dict:
+    """Sample business domain data for testing"""
+    return {
+        "departments": [
+            {"id": 1, "name": "数据平台部", "code": "DP"},
+            {"id": 2, "name": "数据分析部", "code": "DA"},
+        ],
+        "projects": [
+            {"id": 1, "name": "用户画像平台", "code": "USER_PROFILE"},
+            {"id": 2, "name": "实时数据仓库", "code": "RT_DW"},
+        ],
+        "datasets": [
+            {"id": 1, "name": "用户基础信息表", "domain": "user", "format": "parquet"},
+            {"id": 2, "name": "订单明细表", "domain": "ecommerce", "format": "parquet"},
+        ],
+        "pipelines": [
+            {"id": 1, "name": "用户数据同步", "type": "sync", "source": "mysql", "target": "warehouse"},
+            {"id": 2, "name": "订单数据清洗", "type": "cleaning", "source": "mysql", "target": "parquet"},
+        ],
+        "quality_rules": [
+            {"id": 1, "name": "空值检测", "type": "null_check", "threshold": 0.0},
+            {"id": 2, "name": "唯一性检测", "type": "unique_check", "threshold": 1.0},
+        ],
+    }
+
+
+@pytest.fixture
+def integration_data() -> dict:
+    """External system integration test data"""
+    return {
+        "datahub": {
+            "url": "http://localhost:8080",
+            "username": "test_user",
+            "datasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,test_db.orders,PROD)",
+            ]
+        },
+        "seatunnel": {
+            "url": "http://localhost:5801",
+            "pipelines": [
+                {"name": "sync_users", "source": "mysql", "target": "hive"},
+                {"name": "sync_orders", "source": "mysql", "target": "hive"},
+            ]
+        },
+        "superset": {
+            "url": "http://localhost:8088",
+            "dashboards": [
+                {"id": 1, "name": "用户增长分析"},
+                {"id": 2, "name": "销售业绩看板"},
+            ]
+        },
+    }
+
+
+# ============ Database Helper Fixtures ============
+
+@pytest.fixture
+async def db_session():
+    """获取数据库会话用于直接数据库操作
+
+    用于测试时直接操作数据库，绕过API层。
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from services.common.database import get_database_url
+
+    database_url = get_database_url()
+    engine = create_async_engine(database_url, echo=False)
+    async_session_maker = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    async with async_session_maker() as session:
+        yield session
+
+    await engine.dispose()
+
+
+@pytest.fixture
+async def clean_test_data(db_session: AsyncSession):
+    """清理测试数据的fixture
+
+    在测试后自动清理创建的测试数据。
+    使用方法:
+        @pytest.mark.asyncio
+        async def test_something(clean_test_data):
+            # 创建测试数据
+            # 测试逻辑
+            # fixture会自动清理
+    """
+    from services.common.orm_models import UserORM, ServiceAccountORM
+
+    # 记录测试前的数据
+    user_result = await db_session.execute(select(UserORM))
+    initial_users = {u.username for u in user_result.scalars().all()}
+
+    sa_result = await db_session.execute(select(ServiceAccountORM))
+    initial_sas = {sa.name for sa in sa_result.scalars().all()}
+
+    yield
+
+    # 清理测试期间创建的数据
+    user_result = await db_session.execute(select(UserORM))
+    for user in user_result.scalars().all():
+        if user.username.startswith("test_") or user.username.startswith("e2e_"):
+            if user.username not in initial_users:
+                await db_session.delete(user)
+
+    sa_result = await db_session.execute(select(ServiceAccountORM))
+    for sa in sa_result.scalars().all():
+        if sa.name.startswith("test_") or sa.name.startswith("e2e_"):
+            if sa.name not in initial_sas:
+                await db_session.delete(sa)
+
+    await db_session.commit()
+
+
+# ============ HTTP Response Helper Fixtures ============
+
+@pytest.fixture
+def assert_api_response():
+    """API响应断言helper
+
+    提供统一的API响应断言逻辑。
+    """
+    def _assert(response, expected_code=200, expect_data=True):
+        """断言API响应
+
+        Args:
+            response: HTTPX响应对象
+            expected_code: 期望的HTTP状态码
+            expect_data: 是否期望返回数据
+        """
+        assert response.status_code == expected_code, f"Expected {expected_code}, got {response.status_code}: {response.text}"
+        data = response.json()
+        if expect_data:
+            # ApiResponse格式: {code, message, data, timestamp}
+            if "code" in data:
+                assert data.get("code") == 20000, f"API error: {data.get('message')}"
+                assert "data" in data or "timestamp" in data
+        return data
+    return _assert
+
+
+@pytest.fixture
+def extract_response_data():
+    """从API响应中提取数据的helper"""
+    def _extract(response):
+        """提取响应数据
+
+        处理两种响应格式:
+        1. ApiResponse格式: {code, message, data, timestamp}
+        2. 直接数据格式
+        """
+        data = response.json()
+        if "data" in data and "code" in data:
+            return data["data"]
+        return data
+    return _extract
+
+
+# ============ Extended Test Data Fixtures ============
+
+@pytest.fixture
+def sample_dataset_schemas() -> list:
+    """示例数据集Schema定义"""
+    return [
+        {
+            "dataset_id": 1,
+            "schema_name": "marketing",
+            "column_name": "users",
+            "columns": [
+                {"name": "id", "type": "BIGINT", "nullable": False, "description": "用户ID"},
+                {"name": "username", "type": "VARCHAR(50)", "nullable": False, "description": "用户名"},
+                {"name": "email", "type": "VARCHAR(100)", "nullable": True, "description": "邮箱"},
+                {"name": "phone", "type": "VARCHAR(20)", "nullable": True, "description": "手机号"},
+                {"name": "created_at", "type": "TIMESTAMP", "nullable": False, "description": "创建时间"},
+            ]
+        },
+        {
+            "dataset_id": 2,
+            "schema_name": "ecommerce",
+            "column_name": "orders",
+            "columns": [
+                {"name": "id", "type": "BIGINT", "nullable": False, "description": "订单ID"},
+                {"name": "user_id", "type": "BIGINT", "nullable": False, "description": "用户ID"},
+                {"name": "total_amount", "type": "DECIMAL(10,2)", "nullable": False, "description": "订单金额"},
+                {"name": "status", "type": "VARCHAR(20)", "nullable": False, "description": "订单状态"},
+                {"name": "created_at", "type": "TIMESTAMP", "nullable": False, "description": "创建时间"},
+            ]
+        },
+    ]
+
+
+@pytest.fixture
+def sample_pipeline_configs() -> list:
+    """示例数据管道配置"""
+    return [
+        {
+            "name": "用户数据同步",
+            "type": "sync",
+            "source": {"type": "mysql", "host": "localhost", "port": 3306, "database": "marketing", "table": "users"},
+            "target": {"type": "parquet", "path": "/data/warehouse/users"},
+            "schedule": "0 2 * * *",
+            "transformations": [
+                {"type": "rename", "from": "user_name", "to": "username"},
+                {"type": "mask", "column": "phone", "algorithm": "MASK_FIRST_LAST"},
+            ]
+        },
+        {
+            "name": "订单数据清洗",
+            "type": "cleaning",
+            "source": {"type": "mysql", "host": "localhost", "port": 3306, "database": "ecommerce", "table": "orders"},
+            "target": {"type": "parquet", "path": "/data/warehouse/orders_clean"},
+            "schedule": "0 3 * * *",
+            "rules": [
+                {"type": "filter", "condition": "total_amount >= 0"},
+                {"type": "deduplicate", "keys": ["id"]},
+            ]
+        },
+    ]
+
+
+@pytest.fixture
+def sample_quality_checks() -> list:
+    """示例数据质量检查规则"""
+    return [
+        {
+            "rule_id": "qc_001",
+            "name": "用户ID非空检查",
+            "dataset": "users",
+            "column": "id",
+            "rule_type": "null_check",
+            "threshold": 0.0,
+            "severity": "error",
+        },
+        {
+            "rule_id": "qc_002",
+            "name": "邮箱格式检查",
+            "dataset": "users",
+            "column": "email",
+            "rule_type": "format_check",
+            "threshold": 0.95,
+            "severity": "warning",
+        },
+        {
+            "rule_id": "qc_003",
+            "name": "订单金额范围检查",
+            "dataset": "orders",
+            "column": "total_amount",
+            "rule_type": "range_check",
+            "threshold": 0.0,
+            "severity": "error",
+        },
+    ]
+
+
+@pytest.fixture
+def sample_metadata_entities() -> list:
+    """示例元数据实体（DataHub格式）"""
+    return [
+        {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,marketing.users,PROD)",
+            "type": "dataset",
+            "name": "users",
+            "description": "用户基础信息表",
+            "platform": "mysql",
+            "schema": "marketing",
+        },
+        {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,ecommerce.orders,PROD)",
+            "type": "dataset",
+            "name": "orders",
+            "description": "订单明细表",
+            "platform": "mysql",
+            "schema": "ecommerce",
+        },
+        {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,daily_sync,PROD),daily_user_sync)",
+            "type": "dataJob",
+            "name": "daily_user_sync",
+            "description": "每日用户数据同步任务",
+        },
+    ]
+
+
+@pytest.fixture
+def sample_dashboard_configs() -> dict:
+    """示例仪表板配置（Superset格式）"""
+    return {
+        "user_growth": {
+            "name": "用户增长分析",
+            "charts": [
+                {"id": "ch_1", "name": "DAU趋势", "type": "line", "datasource": "user_events"},
+                {"id": "ch_2", "name": "新增用户", "type": "bar", "datasource": "users"},
+                {"id": "ch_3", "name": "留存漏斗", "type": "funnel", "datasource": "user_events"},
+            ],
+            "filters": {"time_range": "last_30_days"},
+        },
+        "sales_performance": {
+            "name": "销售业绩看板",
+            "charts": [
+                {"id": "ch_4", "name": "GMV趋势", "type": "line", "datasource": "orders"},
+                {"id": "ch_5", "name": "品类占比", "type": "pie", "datasource": "order_items"},
+            ],
+            "filters": {"time_range": "last_7_days"},
+        },
+    }
+
+
+@pytest.fixture
+def mock_external_services_data() -> dict:
+    """Mock外部服务返回的示例数据"""
+    return {
+        "datahub": {
+            "datasets": [
+                {"urn": "urn:li:dataset:(mysql,users,PROD)", "name": "users", "platform": "mysql"},
+                {"urn": "urn:li:dataset:(mysql,orders,PROD)", "name": "orders", "platform": "mysql"},
+            ],
+            "health": {"status": "healthy", "version": "0.10.0"},
+        },
+        "seatunnel": {
+            "pipelines": [
+                {"id": "sync_users", "status": "running", "last_run": "2024-01-10T02:00:00Z"},
+                {"id": "sync_orders", "status": "success", "last_run": "2024-01-10T03:00:00Z"},
+            ],
+            "health": {"status": "healthy", "version": "2.3.0"},
+        },
+        "superset": {
+            "dashboards": [
+                {"id": 1, "name": "用户增长分析", "url": "/dashboard/1"},
+                {"id": 2, "name": "销售业绩看板", "url": "/dashboard/2"},
+            ],
+            "health": {"status": "healthy", "version": "3.0.0"},
+        },
+    }
+
+
+# ============ Test Environment Helper Fixtures ============
+
+@pytest.fixture
+def test_timestamp():
+    """生成测试用时间戳"""
+    from datetime import datetime
+    return datetime(2024, 1, 1, 12, 0, 0)
+
+
+@pytest.fixture
+def test_user_prefix():
+    """生成测试用户名前缀（避免冲突）"""
+    import time
+    return f"test_{int(time.time())}"
+
+
+@pytest.fixture
+def unique_test_data():
+    """生成唯一测试数据"""
+    import time
+    import uuid
+    return {
+        "timestamp": int(time.time()),
+        "uuid": str(uuid.uuid4()),
+        "prefix": f"test_{int(time.time())}",
     }

@@ -100,9 +100,24 @@ class BaseServiceConfig(BaseSettings):
     DATAHUB_URL: str = os.environ.get("DATAHUB_URL", "http://localhost:9002")
     DATAHUB_GMS_URL: str = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8081")
     DATAHUB_TOKEN: str = os.environ.get("DATAHUB_TOKEN", "")
+    DATAHUB_WEBHOOK_SECRET: str = os.environ.get("DATAHUB_WEBHOOK_SECRET", "")
     SUPERSET_URL: str = os.environ.get("SUPERSET_URL", "http://localhost:8088")
     DOLPHINSCHEDULER_URL: str = os.environ.get("DOLPHINSCHEDULER_URL", "http://localhost:12345")
+    DOLPHINSCHEDULER_API_URL: str = os.environ.get("DOLPHINSCHEDULER_API_URL", "http://localhost:12345/dolphinscheduler")
     DOLPHINSCHEDULER_TOKEN: str = os.environ.get("DOLPHINSCHEDULER_TOKEN", "")
+    HOP_URL: str = os.environ.get("HOP_URL", "http://localhost:8083")
+    SEATUNNEL_URL: str = os.environ.get("SEATUNNEL_URL", "http://localhost:5801")
+    SEATUNNEL_API_URL: str = os.environ.get("SEATUNNEL_API_URL", "http://localhost:5801")
+    CUBE_STUDIO_URL: str = os.environ.get("CUBE_STUDIO_URL", "http://localhost:30080")
+    HOP_API_URL: str = os.environ.get("HOP_API_URL", "http://localhost:8083")
+
+    # 内部微服务地址
+    NL2SQL_URL: str = os.environ.get("NL2SQL_URL", "http://localhost:8011")
+    AI_CLEANING_URL: str = os.environ.get("AI_CLEANING_URL", "http://localhost:8012")
+    METADATA_SYNC_URL: str = os.environ.get("METADATA_SYNC_URL", "http://localhost:8013")
+    DATA_API_URL: str = os.environ.get("DATA_API_URL", "http://localhost:8014")
+    SENSITIVE_DETECT_URL: str = os.environ.get("SENSITIVE_DETECT_URL", "http://localhost:8015")
+    AUDIT_LOG_URL: str = os.environ.get("AUDIT_LOG_URL", "http://localhost:8016")
 
     model_config = {"env_prefix": "", "case_sensitive": False, "extra": "ignore"}
 
@@ -171,6 +186,9 @@ class PortalConfig(BaseServiceConfig):
     SUPERSET_ADMIN_USER: str = os.environ.get("SUPERSET_ADMIN_USER", "admin")
     SUPERSET_ADMIN_PASSWORD: str = os.environ.get("SUPERSET_ADMIN_PASSWORD", "admin123")
 
+    # 外部子系统 API 密钥
+    SEA_TUNNEL_API_KEY: str = os.environ.get("SEA_TUNNEL_API_KEY", "")
+
     model_config = {"env_prefix": "PORTAL_", "case_sensitive": False, "extra": "ignore"}
 
 
@@ -181,25 +199,8 @@ class ServiceConfig(BaseServiceConfig):
     """
 
     # ============================================================
-    # 内部服务间通信
+    # 外部子系统扩展配置
     # ============================================================
-    PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost:8010")
-
-    # 内部微服务地址
-    NL2SQL_URL: str = os.environ.get("NL2SQL_URL", "http://localhost:8011")
-    AI_CLEANING_URL: str = os.environ.get("AI_CLEANING_URL", "http://localhost:8012")
-    METADATA_SYNC_URL: str = os.environ.get("METADATA_SYNC_URL", "http://localhost:8013")
-    DATA_API_URL: str = os.environ.get("DATA_API_URL", "http://localhost:8014")
-    SENSITIVE_DETECT_URL: str = os.environ.get("SENSITIVE_DETECT_URL", "http://localhost:8015")
-    AUDIT_LOG_URL: str = os.environ.get("AUDIT_LOG_URL", "http://localhost:8016")
-
-    # ============================================================
-    # 外部子系统地址
-    # ============================================================
-    CUBE_STUDIO_URL: str = os.environ.get("CUBE_STUDIO_URL", "http://localhost:30080")
-    HOP_URL: str = os.environ.get("HOP_URL", "http://localhost:8083")
-    SEATUNNEL_URL: str = os.environ.get("SEATUNNEL_URL", "http://localhost:5801")
-    SEATUNNEL_API_URL: str = os.environ.get("SEATUNNEL_API_URL", "http://localhost:5801")
     SEA_TUNNEL_API_KEY: str = os.environ.get("SEA_TUNNEL_API_KEY", "")
 
     # ============================================================

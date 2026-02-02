@@ -272,11 +272,11 @@ def handle_proxy_error(service_name: str, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=504, content=response.model_dump())
     elif isinstance(exc, httpx.ConnectError):
         return ProxyErrorHandler.connection_failed(service_name)
-    elif isinstance(exc, httpx.HTTPStatusError) as e:
+    elif isinstance(exc, httpx.HTTPStatusError):
         response = error(
-            message=f"{service_name} 返回错误: {e.response.status_code}",
+            message=f"{service_name} 返回错误: {exc.response.status_code}",
             code=ErrorCode.EXTERNAL_SERVICE_ERROR
         )
-        return JSONResponse(status_code=e.response.status_code, content=response.model_dump())
+        return JSONResponse(status_code=exc.response.status_code, content=response.model_dump())
     else:
         return ProxyErrorHandler.service_error(service_name, str(exc))

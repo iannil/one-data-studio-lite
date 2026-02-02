@@ -50,6 +50,7 @@ class AuditEventORM(Base):
     details = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
 
+    # 复合索引使用 __table_args__，单列索引使用 inline index=True
     __table_args__ = (
         Index("ix_audit_events_composite", "subsystem", "event_type", "created_at"),
     )
@@ -237,18 +238,17 @@ class ServiceAccountORM(Base):
     name = Column(String(100), nullable=False, unique=True, index=True)
     display_name = Column(String(100), nullable=False)
     description = Column(Text, nullable=True, default="")
-    secret_hash = Column(String(255), nullable=False)  # 哈希后的密钥
+    secret_hash = Column(String(255), nullable=False)  # 哈希后的密钥（bcrypt）
     role_code = Column(String(50), ForeignKey("roles.role_code"), nullable=False, index=True)
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
     last_used_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     created_by = Column(String(100), nullable=True)
     expires_at = Column(DateTime, nullable=True)
 
-    __table_args__ = (
-        Index("ix_service_accounts_active", "is_active"),
-    )
+    # 单列索引已在字段定义中使用 inline index=True
+    # 如需复合索引，在此添加 __table_args__
 
 
 class UserApiKeyORM(Base):
@@ -264,17 +264,15 @@ class UserApiKeyORM(Base):
     api_key = Column(String(100), nullable=False, unique=True, index=True)
     api_secret = Column(String(200), nullable=False)
     scopes = Column(JSON, nullable=True)  # 权限范围列表
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
     last_used_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     created_by = Column(String(100), nullable=True)
 
-    __table_args__ = (
-        Index("ix_user_api_keys_user_id", "user_id"),
-        Index("ix_user_api_keys_active", "is_active"),
-    )
+    # 单列索引已在字段定义中使用 inline index=True
+    # 如需复合索引，在此添加 __table_args__
 
 
 class SystemConfigORM(Base):

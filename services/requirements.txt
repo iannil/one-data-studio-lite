@@ -12,6 +12,10 @@ tenacity>=8.2.0
 cachetools>=5.3.0
 cryptography>=41.0.0
 
+# 密码哈希和日期解析
+bcrypt>=4.0.0
+python-dateutil>=2.8.0
+
 # OpenTelemetry (可选，用于分布式追踪)
 opentelemetry-api>=1.20.0
 opentelemetry-sdk>=1.20.0

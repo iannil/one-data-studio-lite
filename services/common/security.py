@@ -16,8 +16,8 @@ from typing import Optional
 
 
 # ============================================================
-// 密码生成
-// ============================================================
+# 密码生成
+# ============================================================
 
 def generate_password(
     length: int = 16,
@@ -134,8 +134,8 @@ def generate_internal_token() -> str:
 
 
 # ============================================================
-// 密码强度验证
-// ============================================================
+# 密码强度验证
+# ============================================================
 
 class PasswordStrength:
     """密码强度等级"""
@@ -255,8 +255,8 @@ def is_strong_password(password: str, min_length: int = 12) -> bool:
 
 
 # ============================================================
-// 敏感信息掩码
-// ============================================================
+# 敏感信息掩码
+# ============================================================
 
 def mask_token(token: str, visible_chars: int = 4, mask_char: str = "*") -> str:
     """掩码 Token，只显示部分字符
@@ -321,8 +321,8 @@ def mask_string(s: str, visible_start: int = 2, visible_end: int = 2, mask_char:
 
 
 # ============================================================
-// 环境变量安全获取
-// ============================================================
+# 环境变量安全获取
+# ============================================================
 
 def get_env_secret(
     key: str,
@@ -396,8 +396,8 @@ def validate_env_config() -> list[str]:
 
 
 # ============================================================
-// 安全中间件
-// ============================================================
+# 安全中间件
+# ============================================================
 
 from typing import Callable
 from fastapi import Request, Response
@@ -567,8 +567,8 @@ def sanitize_sql(sql: str, default_limit: int = 1000) -> str:
 
 
 # ============================================================
-// 速率限制
-// ============================================================
+# 速率限制
+# ============================================================
 
 import time
 from collections import defaultdict
@@ -687,49 +687,95 @@ class RateLimitMiddleware:
     """速率限制中间件
 
     自动检查请求是否超过速率限制。
+    如需禁用，设置 enabled=False，并在基础设施层（nginx/kubernetes）实现速率限制。
     """
 
     def __init__(self, app, limiter: RateLimiter | None = None, enabled: bool = True):
-        super().__init__(app)
+        self.app = app
         self._limiter = limiter or RateLimiter()
         self._enabled = enabled
 
-    async def dispatch(self, request: Request, call_next):
-        """处理请求"""
-        if not self._enabled:
-            return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        """ASGI 接口"""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        # 跳过健康检查端点
-        if request.url.path in ["/health", "/metrics", "/readiness", "/liveness"]:
-            return await call_next(request)
+        if not self._enabled:
+            await self.app(scope, receive, send)
+            return
+
+        # 解析请求信息
+        headers = dict(scope.get("headers", []))
+        path = scope.get("path", "")
+
+        # 获取客户端 IP
+        client_ip = scope.get("client", ("", ""))[0]
+        if x_forwarded_for := headers.get(b"x-forwarded-for"):
+            client_ip = x_forwarded_for.split(b",")[0].strip().decode()
 
         # 检查速率限制
-        allowed, info = self._limiter.check_rate_limit(request)
+        endpoint_key = self._get_endpoint_key(path)
+        rate_limit = self._limiter._limits.get(endpoint_key, 60)
 
-        # 添加速率限制响应头
-        response = await call_next(request)
-        response.headers["X-RateLimit-Limit"] = str(info["limit"])
-        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+        # 构造临时 request 对象用于检查
+        class TempRequest:
+            def __init__(self, path: str, client_ip: str):
+                self.url = type("obj", (object,), {"path": path})()
+                self.client = type("obj", (object,), {"host": client_ip})()
+                self.headers = {"X-Forwarded-For": client_ip}
 
-        if not allowed:
-            response.headers["Retry-After"] = str(info["retry_after"])
-            raise HTTPException(
-                status_code=429,
-                detail={
-                    "error": "Rate limit exceeded",
-                    "limit": info["limit"],
-                    "retry_after": info["retry_after"],
-                },
-                headers={
-                    "Retry-After": str(info["retry_after"]),
-                    "X-RateLimit-Limit": str(info["limit"]),
-                    "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(info["reset"]),
-                }
-            )
+        temp_req = TempRequest(path, client_ip)
 
-        return response
+        # 清理过期记录
+        import time
+        current_time = time.time()
+        key = (client_ip, endpoint_key)
+        self._limiter._clean_old_requests(key, current_time)
+
+        # 检查是否超限
+        requests = self._limiter._requests[key]
+        request_count = len(requests)
+
+        if request_count >= rate_limit:
+            # 计算重试时间
+            if requests:
+                reset_time = int(requests[0] + 60)
+            else:
+                reset_time = int(current_time + 60)
+            retry_after = max(1, int(reset_time - current_time) + 1)
+
+            # 发送 429 响应
+            await send({
+                "type": "http.response.start",
+                "status": 429,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"retry-after", str(retry_after).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b'{"detail": "Rate limit exceeded"}',
+            })
+            return
+
+        # 记录本次请求
+        self._limiter._requests[key].append(current_time)
+
+        await self.app(scope, receive, send)
+
+    def _get_endpoint_key(self, path: str) -> str:
+        """从请求路径获取速率限制键"""
+        limits = self._limiter._limits
+        # 精确匹配优先
+        if path in limits:
+            return path
+        # 前缀匹配
+        for key in limits:
+            if key != "default" and path.startswith(key):
+                return key
+        return "default"
 
 
 # 全局限速限制器实例

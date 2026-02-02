@@ -4,12 +4,13 @@
 """
 
 import secrets
-import hashlib
+import bcrypt
 from datetime import datetime
+from dateutil import parser as date_parser
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, insert, select, update, func, and_, or_
+from sqlalchemy import delete, insert, select, update, func, and_, or_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.auth import get_current_user, TokenPayload
@@ -47,8 +48,9 @@ async def _generate_secret() -> str:
 
 
 async def _hash_secret(secret: str) -> str:
-    """对密钥进行哈希处理"""
-    return hashlib.sha256(secret.encode()).hexdigest()
+    """对密钥进行哈希处理（使用 bcrypt）"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(secret.encode(), salt).decode()
 
 
 def _orm_to_response(sa: ServiceAccountORM) -> dict:
@@ -309,13 +311,13 @@ async def enable_service_account(
 @router.get("/{name}/call-history", response_model=ServiceAccountCallHistoryResponse)
 async def get_service_account_call_history(
     name: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[TokenPayload, Depends(get_current_user)],
     start_date: str | None = Query(None, description="开始日期 (ISO 8601)"),
     end_date: str | None = Query(None, description="结束日期 (ISO 8601)"),
     subsystem: str | None = Query(None, description="过滤子系统"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
-    db: Annotated[AsyncSession, Depends(get_db)],
-    current_user: Annotated[TokenPayload, Depends(get_current_user)],
 ):
     """获取服务账户调用历史
 
@@ -336,25 +338,25 @@ async def get_service_account_call_history(
     # 构建查询条件
     conditions = [AuditEventORM.user == name]
 
-    # 日期过滤
+    # 日期过滤 - 使用 dateutil 支持更广泛的 ISO 8601 格式
     if start_date:
         try:
-            start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            start_dt = date_parser.isoparse(start_date)
             conditions.append(AuditEventORM.created_at >= start_dt)
-        except ValueError:
+        except (ValueError, TypeError) as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="开始日期格式错误，请使用 ISO 8601 格式"
+                detail=f"开始日期格式错误: {str(e)}. 请使用 ISO 8601 格式"
             )
 
     if end_date:
         try:
-            end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            end_dt = date_parser.isoparse(end_date)
             conditions.append(AuditEventORM.created_at <= end_dt)
-        except ValueError:
+        except (ValueError, TypeError) as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="结束日期格式错误，请使用 ISO 8601 格式"
+                detail=f"结束日期格式错误: {str(e)}. 请使用 ISO 8601 格式"
             )
 
     # 子系统过滤
@@ -370,7 +372,7 @@ async def get_service_account_call_history(
     stats_query = select(
         func.count().label('total_calls'),
         func.sum(
-            func.case(
+                case(
                 (AuditEventORM.status_code < 400, 1),
                 else_=0
             )
@@ -459,7 +461,7 @@ async def get_service_account_call_stats(
     stats_query = select(
         func.count().label('total_calls'),
         func.sum(
-            func.case(
+                case(
                 (AuditEventORM.status_code < 400, 1),
                 else_=0
             )

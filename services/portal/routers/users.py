@@ -234,7 +234,7 @@ async def get_user(
         )
 
     return ApiResponse(
-        data=_orm_to_response(user).model_dump()
+        data=_orm_to_response(user)
     )
 
 

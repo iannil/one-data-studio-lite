@@ -98,13 +98,13 @@ async def analyze_table(
     user: TokenPayload = Depends(get_current_user),
 ):
     """分析表的数据质量"""
-    # 验证表名安全性
+    # 验证表名安全性（通过 validate_table_exists 函数进行 SQL 注入防护）
     try:
         safe_table = await validate_table_exists(db, req.table_name)
     except ValueError as e:
         raise AppException(str(e), code=400)
 
-    # 获取表总行数
+    # 获取表总行数（safe_table 已通过验证，可以安全使用）
     count_result = await db.execute(text(f"SELECT COUNT(*) FROM {safe_table}"))
     total_rows = count_result.scalar() or 0
 
