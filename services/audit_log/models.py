@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -35,27 +35,27 @@ class Subsystem(str, Enum):
 
 class AuditEvent(BaseModel):
     """审计事件"""
-    id: Optional[str] = None
+    id: str | None = None
     subsystem: str
     event_type: str = "api_call"
     user: str = "anonymous"
     action: str
-    resource: Optional[str] = None
-    status_code: Optional[int] = None
-    duration_ms: Optional[float] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    details: Optional[dict[str, Any]] = None
-    created_at: Optional[datetime] = None
+    resource: str | None = None
+    status_code: int | None = None
+    duration_ms: float | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    details: dict[str, Any] | None = None
+    created_at: datetime | None = None
 
 
 class AuditQuery(BaseModel):
     """审计日志查询"""
-    subsystem: Optional[str] = None
-    event_type: Optional[str] = None
-    user: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    subsystem: str | None = None
+    event_type: str | None = None
+    user: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     page: int = 1
     page_size: int = 50
 
@@ -66,8 +66,8 @@ class AuditStats(BaseModel):
     events_by_subsystem: dict[str, int]
     events_by_type: dict[str, int]
     events_by_user: dict[str, int]
-    time_range_start: Optional[datetime] = None
-    time_range_end: Optional[datetime] = None
+    time_range_start: datetime | None = None
+    time_range_end: datetime | None = None
 
 
 class ExportRequest(BaseModel):

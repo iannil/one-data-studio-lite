@@ -7,14 +7,14 @@
 import logging
 import time
 import traceback
-from typing import Any, Callable
+from collections.abc import Callable
 
-from fastapi import Request, Response, status
+from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from services.common.api_response import ApiResponse, ErrorCode, error, get_http_status
+from services.common.api_response import ErrorCode, error, get_http_status
 
 logger = logging.getLogger(__name__)
 

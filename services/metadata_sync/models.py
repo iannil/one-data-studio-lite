@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -15,13 +15,13 @@ class ChangeType(str, Enum):
 
 class MetadataChangeEvent(BaseModel):
     """DataHub 元数据变更事件"""
-    event_id: Optional[str] = None
+    event_id: str | None = None
     entity_type: str        # dataset, dataFlow, dashboard 等
     entity_urn: str         # DataHub URN
     change_type: ChangeType
     aspect_name: str        # schemaMetadata, ownership 等
     changed_fields: list[str] = []
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
 
 class ETLMapping(BaseModel):
@@ -41,4 +41,4 @@ class SyncResult(BaseModel):
     success: bool
     message: str
     affected_tasks: list[str] = []
-    details: Optional[dict[str, Any]] = None
+    details: dict[str, Any] | None = None

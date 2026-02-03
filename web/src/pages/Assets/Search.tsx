@@ -28,7 +28,7 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 type AssetType = 'table' | 'view' | 'dashboard' | 'pipeline' | 'api';
-type DataSource = 'mysql' | 'postgresql' | 'hive' | 'kafka' | 'elasticsearch';
+type DataSource = 'mysql' | 'postgresql' | 'hive' | 'kafka' | 'elasticsearch' | 'superset' | 'dolphinscheduler' | 'data_api';
 
 interface Asset {
   id: string;
@@ -465,14 +465,13 @@ const CheckableTag: React.FC<{
   onChange: (checked: boolean) => void;
 }> = ({ children, checked, onChange }) => {
   return (
-    <Tag
-      checkable
+    <Tag.CheckableTag
       checked={checked}
       onChange={onChange}
       style={{ cursor: 'pointer' }}
     >
       {children}
-    </Tag>
+    </Tag.CheckableTag>
   );
 };
 

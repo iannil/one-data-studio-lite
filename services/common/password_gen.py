@@ -5,7 +5,6 @@
 
 import secrets
 import string
-from typing import Optional
 
 
 def generate_password(
@@ -14,7 +13,7 @@ def generate_password(
     use_lowercase: bool = True,
     use_digits: bool = True,
     use_special: bool = True,
-    special_chars: Optional[str] = None,
+    special_chars: str | None = None,
 ) -> str:
     """生成安全的随机密码
 

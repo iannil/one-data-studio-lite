@@ -22,7 +22,7 @@ const DataApiManage: React.FC = () => {
     setLoadingSchema(true);
     try {
       const resp = await getDatasetSchemaV1(datasetId);
-      setSchema(resp?.data);
+      setSchema(resp?.data ?? null);
     } catch {
       message.error('获取 Schema 失败');
     } finally {
@@ -38,7 +38,7 @@ const DataApiManage: React.FC = () => {
     setQuerying(true);
     try {
       const resp = await queryDatasetV1(datasetId, { sql: sql || undefined, limit: 100 });
-      setQueryResult(resp?.data);
+      setQueryResult(resp?.data ?? null);
     } catch {
       message.error('查询失败');
     } finally {
@@ -74,14 +74,11 @@ const DataApiManage: React.FC = () => {
   })) || [];
 
   const resultData = queryResult?.rows?.map((row, i: number) => {
-    if (Array.isArray(row)) {
-      const record: Record<string, string | number | boolean | null> = { key: i };
-      queryResult.columns.forEach((col: string, idx: number) => {
-        record[col] = row[idx];
-      });
-      return record;
-    }
-    return { ...row, key: i };
+    const record: Record<string, string | number | boolean | null> = { key: i };
+    queryResult.columns.forEach((col: string, idx: number) => {
+      record[col] = row[idx];
+    });
+    return record;
   }) || [];
 
   const tabItems = [

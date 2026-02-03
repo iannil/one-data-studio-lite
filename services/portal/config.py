@@ -12,8 +12,6 @@
 
 import json
 import os
-import secrets
-from typing import Optional
 
 from services.common.base_config import PortalConfig
 

@@ -1,26 +1,24 @@
 """数据资产服务API网关 - FastAPI 应用"""
 
-from typing import Any, Optional
 
-from fastapi import FastAPI, Depends, Query
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db, validate_table_exists, validate_identifier
-from services.common.exceptions import register_exception_handlers, NotFoundError, AppException
+from services.common.auth import TokenPayload, get_current_user
+from services.common.database import get_db, validate_table_exists
+from services.common.exceptions import AppException, NotFoundError, register_exception_handlers
 from services.common.http_client import ServiceClient
-from services.common.middleware import RequestLoggingMiddleware
 from services.common.metrics import setup_metrics
-from services.common.security import get_allowed_origins, SecurityHeadersMiddleware
+from services.common.middleware import RequestLoggingMiddleware
+from services.common.security import SecurityHeadersMiddleware, get_allowed_origins
 from services.data_api.config import settings
 from services.data_api.models import (
+    AssetInfo,
+    ColumnSchema,
     DatasetQuery,
     DatasetSchema,
-    ColumnSchema,
-    AssetInfo,
-    SearchRequest,
     SearchResult,
     Subscription,
 )
@@ -79,7 +77,7 @@ async def query_dataset(
         total = count_result.scalar() or 0
     except ValueError:
         raise NotFoundError("数据集", dataset_id)
-    except Exception as e:
+    except Exception:
         raise NotFoundError("数据集", dataset_id)
 
     return {"dataset_id": dataset_id, "total": total, "page": page, "data": rows}
@@ -191,7 +189,7 @@ async def custom_query(
 
         try:
             result = await db.execute(text(req.sql))
-        except Exception as e:
+        except Exception:
             # 如果查询失败，返回 404
             raise NotFoundError("数据集", dataset_id)
     else:
@@ -208,7 +206,7 @@ async def custom_query(
 @app.get("/api/assets/search", response_model=SearchResult)
 async def search_assets(
     query: str = Query(..., min_length=1),
-    asset_type: Optional[str] = None,
+    asset_type: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     user: TokenPayload = Depends(get_current_user),

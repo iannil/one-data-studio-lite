@@ -39,7 +39,7 @@
 
 import time
 from enum import IntEnum
-from typing import Any, Generic, TypeVar, Optional
+from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -126,7 +126,7 @@ class ApiResponse(BaseModel, Generic[T]):
 
     code: int = Field(default=ErrorCode.SUCCESS, description="业务状态码")
     message: str = Field(default="success", description="提示信息")
-    data: Optional[T] = Field(default=None, description="业务数据")
+    data: T | None = Field(default=None, description="业务数据")
     timestamp: int = Field(
         default_factory=lambda: int(time.time()),
         description="响应时间戳"

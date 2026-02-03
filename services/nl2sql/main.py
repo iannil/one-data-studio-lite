@@ -1,36 +1,34 @@
 """NL2SQL 服务 - FastAPI 应用"""
 
 import time
-import uuid
-from typing import Optional
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.exceptions import register_exception_handlers, AppException
-from services.common.llm_client import call_llm, LLMError
+from services.common.exceptions import AppException, register_exception_handlers
+from services.common.llm_client import LLMError, call_llm
 from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
-from services.common.security import get_allowed_origins, SecurityHeadersMiddleware, validate_sql
+from services.common.security import SecurityHeadersMiddleware, get_allowed_origins, validate_sql
 from services.nl2sql.config import settings
 from services.nl2sql.models import (
+    ColumnInfo,
     NL2SQLRequest,
     NL2SQLResponse,
-    SQLExplanationRequest,
     SQLExplanation,
+    SQLExplanationRequest,
     TableInfo,
-    ColumnInfo,
 )
 from services.nl2sql.prompts import (
-    SYSTEM_PROMPT,
-    SCHEMA_TEMPLATE,
-    QUERY_TEMPLATE,
     EXPLAIN_TEMPLATE,
     FEW_SHOT_EXAMPLES,
+    QUERY_TEMPLATE,
+    SCHEMA_TEMPLATE,
+    SYSTEM_PROMPT,
 )
 
 app = FastAPI(
@@ -63,7 +61,7 @@ async def _call_llm_service(prompt: str, system: str = SYSTEM_PROMPT) -> str:
         raise AppException(f"LLM 调用失败: {e}", code=e.code)
 
 
-async def _get_schema_info(db: AsyncSession, database: Optional[str] = None) -> str:
+async def _get_schema_info(db: AsyncSession, database: str | None = None) -> str:
     """获取数据库表结构信息"""
     schema_parts = []
 

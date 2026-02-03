@@ -8,7 +8,6 @@ Cube-Studio 是腾讯音乐开源的 AI 平台，提供：
 - 监控告警：Prometheus + Grafana
 """
 
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -27,32 +26,32 @@ router = APIRouter(prefix="/api/proxy/cubestudio", tags=["Cube-Studio"])
 # ============================================================
 
 class PipelineRunRequest(BaseModel):
-    run_configuration: Optional[str] = "local"
-    parameters: Optional[dict] = None
-    variables: Optional[dict] = None
+    run_configuration: str | None = "local"
+    parameters: dict | None = None
+    variables: dict | None = None
 
 
 class ModelInferenceRequest(BaseModel):
     model_name: str
     prompt: str
-    max_tokens: Optional[int] = 2048
-    temperature: Optional[float] = 0.1
-    top_p: Optional[float] = 0.9
-    stream: Optional[bool] = False
+    max_tokens: int | None = 2048
+    temperature: float | None = 0.1
+    top_p: float | None = 0.9
+    stream: bool | None = False
 
 
 class NotebookCreateRequest(BaseModel):
     name: str
-    description: Optional[str] = None
-    kernel_type: Optional[str] = "python3"
-    parent_folder: Optional[str] = "/"
+    description: str | None = None
+    kernel_type: str | None = "python3"
+    parent_folder: str | None = "/"
 
 
 class DataSourceRequest(BaseModel):
     name: str
     type: str  # mysql, postgres, hive, kafka, etc.
     connection_params: dict
-    description: Optional[str] = None
+    description: str | None = None
 
 
 # ============================================================

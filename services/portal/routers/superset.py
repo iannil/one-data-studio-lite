@@ -6,7 +6,6 @@
 import asyncio
 import re
 import time
-from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -26,13 +25,13 @@ class SupersetSessionManager:
     """
 
     def __init__(self):
-        self._cookies: Optional[dict] = None
-        self._csrf_token: Optional[str] = None
+        self._cookies: dict | None = None
+        self._csrf_token: str | None = None
         self._session_expire: float = 0
         self._lock = asyncio.Lock()
         self._refresh_lock = asyncio.Lock()
 
-    async def get_session(self) -> Optional[tuple[dict, str]]:
+    async def get_session(self) -> tuple[dict, str] | None:
         """获取有效的会话 Cookie 和 CSRF Token
 
         Returns:
@@ -59,7 +58,7 @@ class SupersetSessionManager:
             and time.time() < self._session_expire - 300  # 5 min buffer
         )
 
-    async def _create_session(self) -> Optional[tuple[dict, str]]:
+    async def _create_session(self) -> tuple[dict, str] | None:
         """创建新的 Superset 会话"""
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
@@ -116,7 +115,7 @@ class SupersetSessionManager:
             logging.warning(f"Superset 会话创建失败: {e}")
         return None, None
 
-    def _extract_csrf_token(self, html: str) -> Optional[str]:
+    def _extract_csrf_token(self, html: str) -> str | None:
         """从 HTML 中提取 CSRF token"""
         patterns = [
             r'name="csrf_token"\s+type="hidden"\s+value="([^"]+)"',
@@ -140,7 +139,7 @@ class SupersetSessionManager:
 _session_manager = SupersetSessionManager()
 
 
-async def _get_superset_session() -> Optional[tuple[dict, str]]:
+async def _get_superset_session() -> tuple[dict, str] | None:
     """获取 Superset 会话 Cookie 和 CSRF Token"""
     return await _session_manager.get_session()
 
@@ -148,8 +147,8 @@ async def _get_superset_session() -> Optional[tuple[dict, str]]:
 async def _superset_request(
     path: str,
     method: str = "GET",
-    json_data: Optional[dict] = None,
-    params: Optional[dict] = None,
+    json_data: dict | None = None,
+    params: dict | None = None,
 ) -> ApiResponse:
     """发起 Superset 请求并返回统一格式响应"""
     session_cookies, csrf_token = await _get_superset_session()

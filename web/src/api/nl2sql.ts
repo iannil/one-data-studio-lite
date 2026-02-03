@@ -24,19 +24,29 @@ export interface NL2SQLQueryRequest {
 
 export interface NL2SQLQueryResponse {
   sql: string;
+  generated_sql?: string;
   explanation?: string;
   confidence?: number;
   tables?: string[];
+  columns?: string[];
+  rows?: Array<Array<string | number | boolean | null>>;
+  row_count?: number;
+  execution_time_ms?: number;
+  success?: boolean;
 }
 
 export interface TableInfo {
   name: string;
+  table_name?: string;
   schema?: string;
   database?: string;
+  comment?: string;
   columns?: Array<{
     name: string;
     type: string;
+    data_type?: string;
     description?: string;
+    comment?: string;
   }>;
 }
 

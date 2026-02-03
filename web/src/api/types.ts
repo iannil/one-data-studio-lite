@@ -10,6 +10,12 @@ export interface ApiResponse<T = unknown> {
   message: string;
   data?: T;
   timestamp: number;
+  /** @deprecated Use isSuccessResponse() or check code === ErrorCode.SUCCESS */
+  success?: boolean;
+  /** Error detail for debugging */
+  detail?: string;
+  /** Request ID for tracing */
+  request_id?: string;
 }
 
 /** 分页数据结构 */
@@ -27,12 +33,14 @@ export interface PaginatedResponse<T = unknown> extends ApiResponse {
 }
 
 /** 错误响应 */
-export interface ErrorResponse extends ApiResponse {
+export interface ErrorResponse {
   code: number;
   message: string;
   data: null;
   timestamp: number;
-  detail?: unknown;
+  detail?: string;
+  success?: boolean;
+  request_id?: string;
 }
 
 /** 业务状态码 */
@@ -155,7 +163,7 @@ export function createSuccessResponse<T>(data: T, message: string = "success"): 
 export function createErrorResponse(
   code: number,
   message?: string,
-  detail?: unknown,
+  detail?: string,
 ): ErrorResponse {
   return {
     code,

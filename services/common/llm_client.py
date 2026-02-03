@@ -6,19 +6,17 @@
 import hashlib
 import logging
 import os
-from typing import Any, Optional
-from functools import lru_cache
 
 import httpx
+from cachetools import TTLCache
 from pydantic import BaseModel
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
 )
-from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +73,7 @@ class LLMClient:
         response = await client.generate_with_cache("解释 SQL: SELECT * FROM users")
     """
 
-    def __init__(self, config: Optional[LLMConfig] = None):
+    def __init__(self, config: LLMConfig | None = None):
         self.config = config or LLMConfig()
         self._cache: TTLCache = TTLCache(
             maxsize=self.config.cache_maxsize,
@@ -104,9 +102,9 @@ class LLMClient:
         self,
         prompt: str,
         system: str = "",
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         """调用 Ollama API（内部方法）"""
         url = f"{self.config.base_url}/api/generate"
@@ -150,9 +148,9 @@ class LLMClient:
         self,
         prompt: str,
         system: str = "",
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         """生成 LLM 响应（带重试）
 
@@ -198,9 +196,9 @@ class LLMClient:
         self,
         prompt: str,
         system: str = "",
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> LLMResponse:
         """生成 LLM 响应（带缓存和重试）
 
@@ -263,7 +261,7 @@ class LLMClient:
 
 
 # 全局默认客户端（惰性初始化）
-_default_client: Optional[LLMClient] = None
+_default_client: LLMClient | None = None
 
 
 def get_llm_client() -> LLMClient:
@@ -277,7 +275,7 @@ def get_llm_client() -> LLMClient:
 async def call_llm(
     prompt: str,
     system: str = "",
-    model: Optional[str] = None,
+    model: str | None = None,
     use_cache: bool = False,
 ) -> str:
     """便捷函数：调用 LLM

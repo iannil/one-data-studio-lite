@@ -16,9 +16,8 @@ API 规范:
 认证: 需要 Bearer Token（通过 get_current_user 依赖）
 """
 
-import os
 import logging
-from typing import Optional
+import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -32,9 +31,8 @@ from services.common.api_response import (
 )
 from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.shardingsphere_client import ShardingSphereClient, MaskAlgorithms
 from services.common.repositories.mask_repository import MaskRuleRepository
-from services.common.orm_models import MaskRuleORM
+from services.common.shardingsphere_client import MaskAlgorithms, ShardingSphereClient
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +52,7 @@ class MaskRuleItem(BaseModel):
     table_name: str
     column_name: str
     algorithm_type: str
-    algorithm_props: Optional[dict] = None
+    algorithm_props: dict | None = None
     enabled: bool = True
 
 
@@ -63,7 +61,7 @@ class MaskRuleRequest(BaseModel):
     table_name: str
     column_name: str
     algorithm_type: str
-    algorithm_props: Optional[dict] = None
+    algorithm_props: dict | None = None
 
 
 class BatchMaskRequest(BaseModel):

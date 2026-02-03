@@ -17,12 +17,10 @@
 import asyncio
 import json
 import logging
-import os
 import secrets
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -33,19 +31,19 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from services.common.database import get_database_url
 from services.common.orm_models import (
-    UserORM,
-    RoleORM,
+    AuditEventORM,
+    DetectionRuleORM,
+    ETLMappingORM,
+    MaskRuleORM,
     PermissionORM,
+    RoleORM,
     RolePermissionORM,
+    ScanReportORM,
+    SensitiveFieldORM,
     ServiceAccountORM,
     SystemConfigORM,
     UserApiKeyORM,
-    DetectionRuleORM,
-    ScanReportORM,
-    SensitiveFieldORM,
-    ETLMappingORM,
-    MaskRuleORM,
-    AuditEventORM,
+    UserORM,
 )
 
 logger = logging.getLogger(__name__)
@@ -937,7 +935,7 @@ async def seed_business_tables(session: AsyncSession) -> int:
     """))
 
     await session.commit()
-    logger.info(f"业务表插入完成")
+    logger.info("业务表插入完成")
     return 1  # 返回批次数
 
 
@@ -1252,7 +1250,7 @@ async def seed_metadata_entities(session: AsyncSession) -> dict:
             "properties": json.dumps({
                 "customProperties": {
                     "type": "department",
-                    "parent": null
+                    "parent": None
                 },
                 "members": ["admin", "engineer", "steward"]
             }),

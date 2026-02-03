@@ -63,9 +63,9 @@ const DEMO_QUICK_ACTIONS: QuickAction[] = WORKSPACE_CONFIG.DEMO_QUICK_ACTIONS.ma
     ),
 }));
 
-const DEMO_TODOS: TodoItem[] = WORKSPACE_CONFIG.DEMO_TODOS;
-const DEMO_RECENTS: RecentItem[] = WORKSPACE_CONFIG.DEMO_RECENTS;
-const DEMO_FAVORITES: RecentItem[] = WORKSPACE_CONFIG.DEMO_FAVORITES;
+const DEMO_TODOS: TodoItem[] = [...WORKSPACE_CONFIG.DEMO_TODOS];
+const DEMO_RECENTS: RecentItem[] = [...WORKSPACE_CONFIG.DEMO_RECENTS];
+const DEMO_FAVORITES: RecentItem[] = [...WORKSPACE_CONFIG.DEMO_FAVORITES];
 
 const Workspace: React.FC = () => {
   const [todos, setTodos] = useState<TodoItem[]>(DEMO_TODOS);

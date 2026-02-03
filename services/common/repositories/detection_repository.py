@@ -3,10 +3,9 @@
 提供检测规则和扫描报告的数据访问接口。
 """
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
-from sqlalchemy import select, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import desc, select
 
 from services.common.orm_models import (
     DetectionRuleORM,
@@ -24,7 +23,7 @@ class DetectionRuleRepository(BaseRepository[DetectionRuleORM]):
 
     model = DetectionRuleORM
 
-    async def get_by_name(self, name: str) -> Optional[DetectionRuleORM]:
+    async def get_by_name(self, name: str) -> DetectionRuleORM | None:
         """根据名称获取规则
 
         Args:
@@ -49,7 +48,7 @@ class DetectionRuleRepository(BaseRepository[DetectionRuleORM]):
         )
         return result.scalars().all()
 
-    async def toggle_enabled(self, id: str, enabled: bool) -> Optional[DetectionRuleORM]:
+    async def toggle_enabled(self, id: str, enabled: bool) -> DetectionRuleORM | None:
         """切换规则启用状态
 
         Args:

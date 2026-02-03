@@ -1,7 +1,6 @@
 """通用代理函数 - 转发前端请求到后端子系统"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import HTTPException, Request, Response
@@ -28,7 +27,7 @@ async def proxy_request(
     request: Request,
     target_base_url: str,
     target_path: str,
-    extra_headers: Optional[dict] = None,
+    extra_headers: dict | None = None,
     timeout: float = 30.0,
 ) -> Response:
     """

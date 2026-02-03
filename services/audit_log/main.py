@@ -7,27 +7,25 @@ import csv
 import io
 import json
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from fastapi import FastAPI, Depends, Query
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db
-from services.common.exceptions import register_exception_handlers, NotFoundError
-from services.common.metrics import setup_metrics
-from services.common.orm_models import AuditEventORM
-from services.common.repositories.audit_repository import AuditRepository
 from services.audit_log.config import settings
 from services.audit_log.models import (
     AuditEvent,
-    AuditQuery,
     AuditStats,
     ExportRequest,
 )
+from services.common.auth import TokenPayload, get_current_user
+from services.common.database import get_db
+from services.common.exceptions import NotFoundError, register_exception_handlers
+from services.common.metrics import setup_metrics
+from services.common.orm_models import AuditEventORM
+from services.common.repositories.audit_repository import AuditRepository
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -78,7 +76,7 @@ def _pydantic_to_orm(event: AuditEvent) -> AuditEventORM:
         ip_address=event.ip_address,
         user_agent=event.user_agent,
         details=event.details,
-        created_at=event.created_at or datetime.now(timezone.utc),
+        created_at=event.created_at or datetime.now(UTC),
     )
 
 
@@ -89,7 +87,7 @@ async def record_event(
 ):
     """记录审计事件（不需要认证，供内部服务调用）"""
     event.id = str(uuid.uuid4())
-    event.created_at = datetime.now(timezone.utc)
+    event.created_at = datetime.now(UTC)
 
     repo = AuditRepository(db)
     orm_event = _pydantic_to_orm(event)
@@ -100,9 +98,9 @@ async def record_event(
 
 @app.get("/api/audit/logs", response_model=list[AuditEvent])
 async def query_logs(
-    subsystem: Optional[str] = None,
-    event_type: Optional[str] = None,
-    user: Optional[str] = None,
+    subsystem: str | None = None,
+    event_type: str | None = None,
+    user: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),

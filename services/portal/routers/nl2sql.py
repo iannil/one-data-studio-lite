@@ -1,7 +1,6 @@
 """NL2SQL 代理路由 - 自然语言查询"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -24,13 +23,13 @@ router = APIRouter(prefix="/api/proxy/nl2sql", tags=["NL2SQL"])
 
 class QueryRequest(BaseModel):
     query: str
-    database: Optional[str] = None
-    context: Optional[str] = None
+    database: str | None = None
+    context: str | None = None
 
 
 class ExplainRequest(BaseModel):
     sql: str
-    database: Optional[str] = None
+    database: str | None = None
 
 
 # ============================================================

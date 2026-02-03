@@ -49,7 +49,7 @@ interface LoginHistory {
   id: string;
   userId: string;
   username: string;
-  method: 'sso' | 'password';
+  method: 'sso' | 'password' | 'ldap';
   provider?: string;
   loginTime: string;
   ip: string;
@@ -466,11 +466,16 @@ const Sso: React.FC = () => {
         width={700}
         destroyOnClose
       >
-        <Steps current={currentStep} size="small" style={{ marginBottom: 24 }}>
-          <Steps.Step title="基本信息" />
-          <Steps.Step title="连接配置" />
-          <Steps.Step title="用户映射" />
-        </Steps>
+        <Steps
+          current={currentStep}
+          size="small"
+          style={{ marginBottom: 24 }}
+          items={[
+            { title: "基本信息" },
+            { title: "连接配置" },
+            { title: "用户映射" },
+          ]}
+        />
 
         <Form form={form} layout="vertical" preserve={false}>
           {steps[currentStep].content}

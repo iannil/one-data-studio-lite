@@ -3,11 +3,10 @@
 提供审计事件的数据访问接口。
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional, Sequence
 
-from sqlalchemy import select, func, desc
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import desc, func, select
 
 from services.common.orm_models import AuditEventORM
 from services.common.repositories.base import BaseRepository
@@ -23,11 +22,11 @@ class AuditRepository(BaseRepository[AuditEventORM]):
 
     async def query(
         self,
-        subsystem: Optional[str] = None,
-        event_type: Optional[str] = None,
-        user: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        subsystem: str | None = None,
+        event_type: str | None = None,
+        user: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         page: int = 1,
         page_size: int = 50,
     ) -> Sequence[AuditEventORM]:
@@ -66,8 +65,8 @@ class AuditRepository(BaseRepository[AuditEventORM]):
 
     async def get_stats(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> dict:
         """获取审计统计
 
@@ -149,10 +148,10 @@ class AuditRepository(BaseRepository[AuditEventORM]):
 
     async def export(
         self,
-        subsystem: Optional[str] = None,
-        user: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        subsystem: str | None = None,
+        user: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> Sequence[AuditEventORM]:
         """导出审计日志
 

@@ -9,11 +9,9 @@
 
 import os
 import random
-import string
-import secrets
 import re
-from typing import Optional
-
+import secrets
+import string
 
 # ============================================================
 # 密码生成
@@ -326,10 +324,10 @@ def mask_string(s: str, visible_start: int = 2, visible_end: int = 2, mask_char:
 
 def get_env_secret(
     key: str,
-    default: Optional[str] = None,
+    default: str | None = None,
     required: bool = False,
     min_length: int = 8,
-) -> Optional[str]:
+) -> str | None:
     """安全地获取环境变量中的密钥/密码
 
     Args:
@@ -399,7 +397,8 @@ def validate_env_config() -> list[str]:
 # 安全中间件
 # ============================================================
 
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -572,7 +571,8 @@ def sanitize_sql(sql: str, default_limit: int = 1000) -> str:
 
 import time
 from collections import defaultdict
-from fastapi import Request, HTTPException
+
+from fastapi import Request
 
 
 class RateLimiter:

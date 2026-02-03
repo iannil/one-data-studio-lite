@@ -6,27 +6,26 @@
 import json
 import logging
 import uuid
-from typing import Optional
 
-from fastapi import FastAPI, Depends, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.exceptions import register_exception_handlers, NotFoundError
+from services.common.exceptions import NotFoundError, register_exception_handlers
 from services.common.http_client import ServiceClient
-from services.common.middleware import RequestLoggingMiddleware
 from services.common.metrics import setup_metrics
+from services.common.middleware import RequestLoggingMiddleware
 from services.common.orm_models import ETLMappingORM
 from services.common.repositories.mapping_repository import ETLMappingRepository
 from services.common.webhook_security import create_webhook_verifier
 from services.metadata_sync.config import settings
 from services.metadata_sync.models import (
-    MetadataChangeEvent,
-    ETLMapping,
-    SyncResult,
     ChangeType,
+    ETLMapping,
+    MetadataChangeEvent,
+    SyncResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,7 +74,7 @@ def _orm_to_pydantic(orm: ETLMappingORM) -> ETLMapping:
     )
 
 
-def _pydantic_to_orm(mapping: ETLMapping, created_by: Optional[str] = None) -> ETLMappingORM:
+def _pydantic_to_orm(mapping: ETLMapping, created_by: str | None = None) -> ETLMappingORM:
     """Pydantic 转 ORM"""
     return ETLMappingORM(
         id=mapping.id,
@@ -247,7 +246,7 @@ async def delete_mapping(
 
 async def _trigger_dolphinscheduler(task_id: str):
     """触发 DolphinScheduler 任务"""
-    await ds_client.post(f"/projects/1/executors/start-process-instance", data={
+    await ds_client.post("/projects/1/executors/start-process-instance", data={
         "processDefinitionId": int(task_id),
         "failureStrategy": "CONTINUE",
         "warningType": "NONE",
@@ -256,7 +255,7 @@ async def _trigger_dolphinscheduler(task_id: str):
 
 async def _trigger_seatunnel(task_id: str):
     """触发 SeaTunnel 任务"""
-    await seatunnel_client.post(f"/hazelcast/rest/maps/submit-job", data={
+    await seatunnel_client.post("/hazelcast/rest/maps/submit-job", data={
         "job_id": task_id,
     })
 

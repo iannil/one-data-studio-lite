@@ -4,28 +4,33 @@ import json
 import logging
 import uuid
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db, validate_table_exists, validate_identifier, get_table_columns
-from services.common.exceptions import register_exception_handlers, AppException
-from services.common.llm_client import call_llm, LLMError
-from services.common.middleware import RequestLoggingMiddleware
-from services.common.metrics import setup_metrics
 from services.ai_cleaning.config import settings
 from services.ai_cleaning.models import (
     AnalyzeRequest,
+    CleaningRecommendation,
+    CleaningRule,
     DataQualityReport,
+    GenerateConfigRequest,
     QualityIssue,
     QualityIssueType,
-    CleaningRule,
-    CleaningRecommendation,
-    GenerateConfigRequest,
     SeaTunnelTransformConfig,
 )
+from services.common.auth import TokenPayload, get_current_user
+from services.common.database import (
+    get_db,
+    get_table_columns,
+    validate_identifier,
+    validate_table_exists,
+)
+from services.common.exceptions import AppException, register_exception_handlers
+from services.common.llm_client import LLMError, call_llm
+from services.common.metrics import setup_metrics
+from services.common.middleware import RequestLoggingMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +219,7 @@ async def recommend_rules(
 
     # 如果解析失败，提供默认规则建议
     if not rules_data and report.issues:
-        logger.info(f"LLM 返回解析失败，使用默认规则建议")
+        logger.info("LLM 返回解析失败，使用默认规则建议")
         # 根据检测到的问题生成默认规则
         for issue in report.issues:
             if issue.issue_type == QualityIssueType.NULL_VALUES:

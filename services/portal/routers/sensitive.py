@@ -1,7 +1,6 @@
 """Sensitive Detect 代理路由 - 敏感数据检测"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -24,26 +23,26 @@ router = APIRouter(prefix="/api/proxy/sensitive", tags=["Sensitive Detect"])
 
 class ScanRequest(BaseModel):
     table_name: str
-    database: Optional[str] = None
-    sample_size: Optional[int] = 100
+    database: str | None = None
+    sample_size: int | None = 100
 
 
 class ClassifyRequest(BaseModel):
     data_samples: list
-    context: Optional[str] = None
+    context: str | None = None
 
 
 class DetectionRuleBase(BaseModel):
     name: str
     pattern: str
-    description: Optional[str] = None
+    description: str | None = None
     sensitive_type: str
 
 
 class ScanAndApplyRequest(BaseModel):
     table_name: str
-    database: Optional[str] = None
-    sample_size: Optional[int] = 100
+    database: str | None = None
+    sample_size: int | None = 100
     auto_apply: bool = False
 
 

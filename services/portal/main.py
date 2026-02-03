@@ -11,32 +11,31 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import create_token, refresh_token, get_current_user, TokenPayload
+from services.common.auth import TokenPayload, create_token, get_current_user, refresh_token
 from services.common.database import get_db
 from services.common.exceptions import register_exception_handlers
 from services.common.metrics import setup_metrics
 from services.common.middleware import RequestLoggingMiddleware
-from services.portal.config import settings, init_config_center
+from services.common.orm_models import UserORM
+from services.portal.config import _get_dev_users, init_config_center, settings
 from services.portal.models import (
+    ChangePasswordRequest,
     LoginRequest,
     LoginResponse,
+    PasswordResetCodeRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetVerifyRequest,
     PortalInfo,
     RefreshTokenResponse,
+    RegisterRequest,
     SubsystemStatus,
     UserInfo,
-    ChangePasswordRequest,
-    RegisterRequest,
-    ApiResponse,
-    PasswordResetCodeRequest,
-    PasswordResetVerifyRequest,
-    PasswordResetConfirmRequest,
 )
-from services.common.orm_models import UserORM
 from services.portal.routers import (
     audit,
     cleaning,
@@ -47,13 +46,15 @@ from services.portal.routers import (
     hop,
     metadata_sync,
     nl2sql,
+    roles,  # 新增
     seatunnel,
     sensitive,
+    service_accounts,  # 新增
     shardingsphere,
     superset,
     users,  # 新增
-    roles,  # 新增
-    service_accounts,  # 新增
+)
+from services.portal.routers import (
     system as system_router,  # 新增
 )
 
@@ -231,7 +232,8 @@ app.add_middleware(
 )
 
 # 添加安全响应头中间件
-from services.common.security import SecurityHeadersMiddleware, RateLimitMiddleware
+from services.common.security import RateLimitMiddleware, SecurityHeadersMiddleware
+
 app.add_middleware(SecurityHeadersMiddleware)
 
 # 添加速率限制中间件
@@ -457,7 +459,6 @@ async def validate_token(
             "expires_at": 1706739200
         }
     """
-    from services.common.api_response import success, error
     from services.common.auth import verify_token
 
     auth_header = request.headers.get("Authorization")
@@ -1065,8 +1066,9 @@ async def _check_subsystems() -> list[SubsystemStatus]:
 
 async def _check_internal_services() -> list[dict]:
     """检查所有内部微服务状态"""
-    import httpx
     import asyncio
+
+    import httpx
 
     async def check_one(svc: dict) -> dict:
         is_healthy = False
@@ -1219,7 +1221,6 @@ async def shutdown_service(request: Request):
 
     用于紧急停止场景。调用后服务将在短暂延迟后退出。
     """
-    import signal
     import threading
 
     logger = logging.getLogger(__name__)

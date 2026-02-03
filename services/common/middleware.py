@@ -1,8 +1,7 @@
 """请求日志中间件 - 将操作日志发送到审计日志服务"""
 
-import time
 import logging
-from typing import Optional
+import time
 
 import httpx
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,7 +16,7 @@ AUDIT_LOG_URL = "http://localhost:8016/api/audit/log"
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """请求日志中间件 - 记录所有 API 调用到审计日志"""
 
-    def __init__(self, app, service_name: str, audit_url: Optional[str] = None):
+    def __init__(self, app, service_name: str, audit_url: str | None = None):
         super().__init__(app)
         self.service_name = service_name
         self.audit_url = audit_url or AUDIT_LOG_URL

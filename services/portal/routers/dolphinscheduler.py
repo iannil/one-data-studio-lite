@@ -1,6 +1,5 @@
 """DolphinScheduler 代理路由 - 任务调度"""
 
-from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -16,8 +15,8 @@ router = APIRouter(prefix="/api/proxy/dolphinscheduler", tags=["DolphinScheduler
 async def _ds_request(
     path: str,
     method: str = "GET",
-    json_data: Optional[dict] = None,
-    params: Optional[dict] = None,
+    json_data: dict | None = None,
+    params: dict | None = None,
 ) -> ApiResponse:
     """发起 DolphinScheduler 请求并返回统一格式响应
 
@@ -100,7 +99,7 @@ async def get_process_definitions_v1(
 @router.get("/v1/projects/{project_code}/schedules", response_model=ApiResponse)
 async def get_schedules_v1(
     project_code: str,
-    processDefinitionCode: Optional[int] = None,
+    processDefinitionCode: int | None = None,
     user: TokenPayload = Depends(get_current_user),
 ) -> ApiResponse:
     """获取调度列表（v1 API）"""

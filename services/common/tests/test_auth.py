@@ -1,17 +1,16 @@
 """认证模块单元测试"""
 
-import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
 
 from services.common.auth import (
-    create_token,
-    verify_token,
-    can_refresh_token,
-    refresh_token,
     TokenPayload,
+    can_refresh_token,
+    create_token,
+    refresh_token,
+    verify_token,
 )
 
 
@@ -44,7 +43,7 @@ class TestCreateToken:
         )
         payload = verify_token(token)
         # 验证过期时间约为 1 小时后
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         assert payload.exp > now + timedelta(minutes=59)
         assert payload.exp < now + timedelta(minutes=61)
 
@@ -115,10 +114,11 @@ class TestRefreshToken:
     def test_refresh_expired_token_too_old(self):
         """测试过期太久的 Token 不能刷新"""
         import jwt
-        from services.common.auth import JWT_SECRET, JWT_ALGORITHM
+
+        from services.common.auth import JWT_ALGORITHM, JWT_SECRET
 
         # 创建超过 30 分钟前过期的 Token
-        exp_time = datetime.now(timezone.utc) - timedelta(minutes=31)
+        exp_time = datetime.now(UTC) - timedelta(minutes=31)
         payload = {
             "sub": "user123",
             "username": "testuser",
@@ -136,7 +136,7 @@ class TestTokenPayload:
 
     def test_token_payload_creation(self):
         """测试创建 TokenPayload"""
-        exp = datetime.now(timezone.utc) + timedelta(hours=1)
+        exp = datetime.now(UTC) + timedelta(hours=1)
         payload = TokenPayload(
             sub="user123",
             username="testuser",

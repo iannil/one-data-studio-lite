@@ -1,7 +1,6 @@
 """Metadata Sync 代理路由 - 元数据同步"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -28,7 +27,7 @@ class ETLMappingBase(BaseModel):
     target_task_id: str
     trigger_on: list[str]  # CREATE, UPDATE, DELETE, SCHEMA_CHANGE
     auto_update_config: bool = True
-    description: Optional[str] = None
+    description: str | None = None
     enabled: bool = True
 
 
@@ -37,19 +36,19 @@ class ETLMappingCreate(ETLMappingBase):
 
 
 class ETLMappingUpdate(BaseModel):
-    target_task_type: Optional[str] = None
-    target_task_id: Optional[str] = None
-    trigger_on: Optional[list[str]] = None
-    auto_update_config: Optional[bool] = None
-    description: Optional[str] = None
-    enabled: Optional[bool] = None
+    target_task_type: str | None = None
+    target_task_id: str | None = None
+    trigger_on: list[str] | None = None
+    auto_update_config: bool | None = None
+    description: str | None = None
+    enabled: bool | None = None
 
 
 class MetadataChangeEvent(BaseModel):
     entity_urn: str
     change_type: str  # CREATE, UPDATE, DELETE, SCHEMA_CHANGE
-    changed_fields: Optional[list[str]] = None
-    new_schema: Optional[dict] = None
+    changed_fields: list[str] | None = None
+    new_schema: dict | None = None
 
 
 # ============================================================

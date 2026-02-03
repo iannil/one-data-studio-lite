@@ -23,12 +23,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from services.common.database import Base, get_database_url
 from services.common.orm_models import (
-    UserORM,
-    RoleORM,
     PermissionORM,
+    RoleORM,
     RolePermissionORM,
-    ServiceAccountORM,
     SystemConfigORM,
+    UserORM,
 )
 
 logger = logging.getLogger(__name__)

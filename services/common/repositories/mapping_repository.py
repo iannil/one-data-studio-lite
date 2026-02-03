@@ -3,10 +3,9 @@
 提供元数据到 ETL 任务映射规则的数据访问接口。
 """
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.orm_models import ETLMappingORM
 from services.common.repositories.base import BaseRepository
@@ -49,7 +48,7 @@ class ETLMappingRepository(BaseRepository[ETLMappingORM]):
         self,
         task_type: str,
         task_id: str,
-    ) -> Optional[ETLMappingORM]:
+    ) -> ETLMappingORM | None:
         """根据目标任务获取映射规则
 
         Args:
@@ -93,7 +92,7 @@ class ETLMappingRepository(BaseRepository[ETLMappingORM]):
         # 过滤 trigger_on 包含该变更类型的规则
         return [m for m in mappings if change_type in m.trigger_on]
 
-    async def toggle_enabled(self, id: str, enabled: bool) -> Optional[ETLMappingORM]:
+    async def toggle_enabled(self, id: str, enabled: bool) -> ETLMappingORM | None:
         """切换映射规则启用状态
 
         Args:

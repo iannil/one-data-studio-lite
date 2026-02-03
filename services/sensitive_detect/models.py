@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ class SensitivityLevel(str, Enum):
 class ScanRequest(BaseModel):
     """扫描请求"""
     table_name: str
-    database: Optional[str] = None
+    database: str | None = None
     sample_size: int = 100
 
 
@@ -44,7 +44,7 @@ class ScanReport(BaseModel):
 
 class DetectionRule(BaseModel):
     """自定义检测规则"""
-    id: Optional[str] = None
+    id: str | None = None
     name: str
     pattern: str                    # 正则表达式
     sensitivity_level: SensitivityLevel
@@ -55,4 +55,4 @@ class DetectionRule(BaseModel):
 class ClassifyRequest(BaseModel):
     """数据分类请求"""
     data_samples: list[dict[str, Any]]
-    context: Optional[str] = None   # 额外上下文信息
+    context: str | None = None   # 额外上下文信息

@@ -6,9 +6,8 @@
 import hashlib
 import hmac
 import logging
-from typing import Optional
 
-from fastapi import Header, HTTPException, Request
+from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +96,7 @@ class WebhookSignatureVerifier:
         if not self.secret:
             if self.allow_unsigned:
                 logger.warning(
-                    f"Webhook 签名验证已禁用（未配置密钥），请在生产环境配置 Webhook Secret"
+                    "Webhook 签名验证已禁用（未配置密钥），请在生产环境配置 Webhook Secret"
                 )
                 return body
             else:
@@ -112,7 +111,7 @@ class WebhookSignatureVerifier:
 
         if not signature:
             if self.allow_unsigned:
-                logger.warning(f"收到无签名的 Webhook 请求（开发模式允许）")
+                logger.warning("收到无签名的 Webhook 请求（开发模式允许）")
                 return body
             else:
                 logger.warning(f"Webhook 请求缺少签名头 {self.header_name}")

@@ -1,7 +1,7 @@
 """AI清洗服务 - 数据模型"""
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class QualityIssueType(str, Enum):
 class AnalyzeRequest(BaseModel):
     """数据质量分析请求"""
     table_name: str
-    database: Optional[str] = None
+    database: str | None = None
     sample_size: int = 1000
 
 
@@ -70,4 +70,4 @@ class GenerateConfigRequest(BaseModel):
     """生成 SeaTunnel 配置请求"""
     table_name: str
     rules: list[CleaningRule]
-    output_table: Optional[str] = None
+    output_table: str | None = None

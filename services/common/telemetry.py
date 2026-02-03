@@ -5,24 +5,24 @@
 
 import contextvars
 import logging
-import os
-from typing import Optional
 
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.trace.resources import Resource
-from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_LANGUAGE
-from opentelemetry import metrics
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicMetricsReader, ConsoleMetricReader
-from opentelemetry.sdk.metrics.view import ConsoleMetricExporter
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPxClientInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import ConsoleMetricReader, PeriodicMetricsReader
+from opentelemetry.sdk.metrics.view import ConsoleMetricExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_LANGUAGE
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+)
+from opentelemetry.sdk.trace.resources import Resource
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class TraceContext:
     用于在异步调用间传递追踪信息。
     """
 
-    def __init__(self, trace_id: str, span_id: str, parent_span_id: Optional[str] = None):
+    def __init__(self, trace_id: str, span_id: str, parent_span_id: str | None = None):
         self.trace_id = trace_id
         self.span_id = span_id
         self.parent_span_id = parent_span_id
@@ -44,7 +44,7 @@ class TraceContext:
 
 def setup_telemetry(
     service_name: str,
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
     environment: str = "development",
 ) -> tuple[TracerProvider, MeterProvider]:
     """设置 OpenTelemetry 追踪和指标
@@ -80,7 +80,7 @@ def setup_telemetry(
     else:
         # 开发环境使用控制台导出
         span_exporter = ConsoleSpanExporter()
-        span_processor = SimpleSpanExporter(span_exporter)
+        span_processor = SimpleSpanProcessor(span_exporter)
 
     tracer_provider = TracerProvider(resource=resource)
     tracer_provider.add_span_processor(span_processor)
@@ -118,7 +118,7 @@ def setup_telemetry(
 def setup_fastapi_instrumentation(
     app,
     service_name: str,
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
 ):
     """为 FastAPI 应用添加自动埋点
 
@@ -247,7 +247,7 @@ class SpanHelper:
     def start_span(
         self,
         name: str,
-        attributes: Optional[dict] = None,
+        attributes: dict | None = None,
     ):
         """开始一个 Span
 
@@ -263,7 +263,7 @@ class SpanHelper:
             attributes=attributes or {},
         )
 
-    def add_event(self, name: str, attributes: Optional[dict] = None):
+    def add_event(self, name: str, attributes: dict | None = None):
         """添加事件到当前 Span
 
         Args:
@@ -306,7 +306,7 @@ class SpanHelper:
 span_helper = SpanHelper()
 
 
-def get_trace_id() -> Optional[str]:
+def get_trace_id() -> str | None:
     """获取当前追踪 ID
 
     Returns:

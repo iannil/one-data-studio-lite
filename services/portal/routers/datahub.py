@@ -1,6 +1,5 @@
 """DataHub 代理路由 - 元数据管理"""
 
-from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -16,8 +15,8 @@ router = APIRouter(prefix="/api/proxy/datahub", tags=["DataHub"])
 async def _datahub_request(
     path: str,
     method: str = "GET",
-    json_data: Optional[dict] = None,
-    params: Optional[dict] = None,
+    json_data: dict | None = None,
+    params: dict | None = None,
 ) -> ApiResponse:
     """发起 DataHub 请求并返回统一格式响应
 

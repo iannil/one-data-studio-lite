@@ -15,7 +15,6 @@ API 规范:
     - SeaTunnel 侧: 可选配置 API Key (SEA_TUNNEL_API_KEY)
 """
 
-from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -43,7 +42,7 @@ HAZELCAST_CLUSTER = "/hazelcast/rest/cluster"
 async def fetch_seatunnel(
     path: str,
     method: str = "GET",
-    json_data: Optional[dict] = None,
+    json_data: dict | None = None,
 ) -> httpx.Response:
     """向 SeaTunnel Hazelcast REST API 发送请求
 
@@ -127,7 +126,7 @@ def _normalize_job(job: dict, status: str) -> dict:
     description="获取所有运行中和已完成的 SeaTunnel 任务"
 )
 async def list_jobs(
-    status: Optional[str] = None,
+    status: str | None = None,
     user: TokenPayload = Depends(get_current_user),
 ) -> ApiResponse:
     """获取任务列表

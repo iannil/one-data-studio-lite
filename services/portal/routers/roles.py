@@ -3,22 +3,20 @@
 提供角色 CRUD 操作、权限管理等功能。
 """
 
-from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, insert, select, update
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.orm_models import RoleORM, PermissionORM, RolePermissionORM
+from services.common.orm_models import PermissionORM, RoleORM, RolePermissionORM
 from services.portal.models import (
-    RoleCreate,
-    RoleUpdate,
-    RoleResponse,
-    RoleListResponse,
     ApiResponse,
+    RoleCreate,
+    RoleListResponse,
+    RoleUpdate,
 )
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])

@@ -1,7 +1,6 @@
 """AI Cleaning 代理路由 - AI 清洗推荐"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -24,19 +23,19 @@ router = APIRouter(prefix="/api/proxy/cleaning", tags=["AI Cleaning"])
 
 class AnalyzeRequest(BaseModel):
     table_name: str
-    database: Optional[str] = None
-    sample_size: Optional[int] = 100
+    database: str | None = None
+    sample_size: int | None = 100
 
 
 class RecommendRequest(BaseModel):
     table_name: str
-    database: Optional[str] = None
+    database: str | None = None
 
 
 class GenerateConfigRequest(BaseModel):
     table_name: str
     rules: list[str]
-    output_format: Optional[str] = "seatunnel"
+    output_format: str | None = "seatunnel"
 
 
 # ============================================================

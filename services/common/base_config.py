@@ -4,7 +4,6 @@
 """
 
 import os
-from typing import Optional, Any
 from pathlib import Path as StdPath
 
 try:
@@ -316,6 +315,7 @@ def check_service_connectivity(timeout: int = 3) -> dict[str, bool]:
         {服务名称: 是否可达}
     """
     import asyncio
+
     import httpx
 
     async def check_one(name: str, url: str) -> tuple[str, bool]:
@@ -395,7 +395,7 @@ def load_env_file(env_file: str = ".env") -> dict[str, str]:
     if not env_path.exists():
         return env_vars
 
-    with open(env_path, "r") as f:
+    with open(env_path) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):

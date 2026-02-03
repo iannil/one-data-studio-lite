@@ -8,7 +8,6 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 
@@ -54,7 +53,7 @@ async def stop_service_via_http(service: ServiceInfo, timeout: int = 5) -> tuple
                 return True, f"{service.name} 已停止"
             else:
                 return False, f"{service.name} 停止失败: HTTP {response.status_code}"
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return False, f"{service.name} 停止超时"
     except Exception as e:
         return False, f"{service.name} 停止异常: {e}"
@@ -318,7 +317,7 @@ def get_container_info() -> dict:
 
     # 检查容器 ID
     try:
-        with open("/proc/self/cgroup", "r") as f:
+        with open("/proc/self/cgroup") as f:
             content = f.read()
             if "docker" in content or "kubepods" in content:
                 info["in_container"] = True

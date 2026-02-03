@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Tag, message, Typography, Space, Spin, Modal, Form, Input, Select } from 'antd';
 import { SwapOutlined, PlusOutlined, ReloadOutlined, SyncOutlined } from '@ant-design/icons';
-import { getMappings, updateMapping, triggerSync, type ETLMapping } from '../../api/metadata-sync';
+import { getMappings, updateMapping, createMapping, triggerSync, type ETLMapping } from '../../api/metadata-sync';
 
 const { Title } = Typography;
 
@@ -16,7 +16,7 @@ const MetadataSync: React.FC = () => {
     setLoading(true);
     try {
       const data = await getMappings();
-      setMappings(data?.mappings || data || []);
+      setMappings(data || []);
     } catch {
       message.error('获取映射规则失败');
     } finally {
@@ -40,9 +40,13 @@ const MetadataSync: React.FC = () => {
     }
   };
 
-  const handleSaveMapping = async (values: any) => {
+  const handleSaveMapping = async (values: ETLMapping) => {
     try {
-      await updateMapping(values);
+      if (values.id) {
+        await updateMapping(values.id, values);
+      } else {
+        await createMapping(values);
+      }
       message.success('映射规则已保存');
       setModalVisible(false);
       form.resetFields();

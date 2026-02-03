@@ -8,15 +8,15 @@
 便于 Loki 聚合分析和 Grafana 可视化。
 """
 
+import json
 import logging
 import sys
-import json
-import traceback
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Dict
-from contextlib import contextmanager
-import time
+from typing import Any
+
 
 # JSON 日期编码器
 def json_serial(obj: Any) -> str:
@@ -61,7 +61,7 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         # 基础日志数据
-        log_data: Dict[str, Any] = {
+        log_data: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
             "service": self.service,
@@ -170,7 +170,7 @@ def setup_logging(
     service: str,
     level: str = "INFO",
     environment: str = "production",
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     json_format: bool = True
 ) -> logging.Logger:
     """
@@ -286,7 +286,7 @@ class LogHelper:
     提供便捷的日志方法，自动添加常用字段。
     """
 
-    def __init__(self, service: str, logger: Optional[logging.Logger] = None):
+    def __init__(self, service: str, logger: logging.Logger | None = None):
         self.service = service
         self.logger = logger or logging.getLogger(service)
 
@@ -365,7 +365,7 @@ class LogHelper:
 
 
 # 创建服务日志器的工厂函数
-_service_loggers: Dict[str, LogHelper] = {}
+_service_loggers: dict[str, LogHelper] = {}
 
 
 def get_service_logger(service: str) -> LogHelper:

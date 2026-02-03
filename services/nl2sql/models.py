@@ -1,7 +1,7 @@
 """NL2SQL 服务 - 数据模型"""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class NL2SQLRequest(BaseModel):
     """自然语言查询请求"""
     question: str           # 自然语言问题
-    database: Optional[str] = None  # 指定数据库
+    database: str | None = None  # 指定数据库
     max_rows: int = 100     # 最大返回行数
 
 
@@ -28,7 +28,7 @@ class NL2SQLResponse(BaseModel):
 class SQLExplanationRequest(BaseModel):
     """SQL 解释请求"""
     sql: str
-    database: Optional[str] = None
+    database: str | None = None
 
 
 class SQLExplanation(BaseModel):
@@ -41,7 +41,7 @@ class TableInfo(BaseModel):
     """表信息"""
     database: str
     table_name: str
-    comment: Optional[str] = None
+    comment: str | None = None
     columns: list["ColumnInfo"] = []
 
 
@@ -49,7 +49,7 @@ class ColumnInfo(BaseModel):
     """字段信息"""
     name: str
     data_type: str
-    comment: Optional[str] = None
+    comment: str | None = None
     is_primary_key: bool = False
     is_nullable: bool = True
 

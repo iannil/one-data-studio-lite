@@ -5,22 +5,26 @@
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 import httpx
-from pydantic import BaseModel
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
-from services.common.database import get_db, validate_table_exists, validate_identifier, get_table_columns
-from services.common.exceptions import register_exception_handlers, AppException, NotFoundError
-from services.common.llm_client import call_llm, LLMError
-from services.common.middleware import RequestLoggingMiddleware
+from services.common.auth import TokenPayload, get_current_user
+from services.common.database import (
+    get_db,
+    get_table_columns,
+    validate_identifier,
+    validate_table_exists,
+)
+from services.common.exceptions import AppException, NotFoundError, register_exception_handlers
+from services.common.llm_client import LLMError, call_llm
 from services.common.metrics import setup_metrics
+from services.common.middleware import RequestLoggingMiddleware
 from services.common.orm_models import DetectionRuleORM, ScanReportORM, SensitiveFieldORM
 from services.common.repositories.detection_repository import (
     DetectionRuleRepository,
@@ -28,14 +32,14 @@ from services.common.repositories.detection_repository import (
 )
 from services.sensitive_detect.config import settings
 from services.sensitive_detect.models import (
-    ScanRequest,
+    ClassifyRequest,
+    DetectionRule,
     ScanReport,
+    ScanRequest,
     SensitiveField,
     SensitivityLevel,
-    DetectionRule,
-    ClassifyRequest,
 )
-from services.sensitive_detect.patterns import detect_by_pattern, detect_by_field_name
+from services.sensitive_detect.patterns import detect_by_field_name, detect_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +220,7 @@ async def scan_table(
         id=report_id,
         table_name=req.table_name,
         database_name=req.database,
-        scan_time=datetime.now(timezone.utc),
+        scan_time=datetime.now(UTC),
         total_columns=len(columns),
         sensitive_columns=len(sensitive_fields),
         risk_level=risk_level.value,
@@ -361,7 +365,7 @@ async def get_report(
 class ScanAndApplyRequest(BaseModel):
     """扫描并应用脱敏规则请求"""
     table_name: str
-    database: Optional[str] = None
+    database: str | None = None
     sample_size: int = 100
     auto_apply: bool = True
 
@@ -473,7 +477,7 @@ async def scan_and_apply(
         id=report_id,
         table_name=req.table_name,
         database_name=req.database,
-        scan_time=datetime.now(timezone.utc),
+        scan_time=datetime.now(UTC),
         total_columns=len(columns),
         sensitive_columns=len(sensitive_fields),
         risk_level=risk_level.value,

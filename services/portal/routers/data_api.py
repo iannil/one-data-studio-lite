@@ -1,7 +1,6 @@
 """Data API 代理路由 - 数据资产 API 网关"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -23,8 +22,8 @@ router = APIRouter(prefix="/api/proxy/data-api", tags=["Data API"])
 # ============================================================
 
 class QueryDatasetRequest(BaseModel):
-    sql: Optional[str] = None
-    limit: Optional[int] = 100
+    sql: str | None = None
+    limit: int | None = 100
 
 
 # ============================================================

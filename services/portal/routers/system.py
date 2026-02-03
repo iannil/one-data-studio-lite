@@ -3,32 +3,27 @@
 提供系统配置、指标查询、紧急操作等功能。
 """
 
-import os
-import psutil
 from datetime import datetime
 from typing import Annotated
 
+import psutil
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.orm_models import SystemConfigORM, RoleORM, PermissionORM, RolePermissionORM
+from services.common.orm_models import PermissionORM, RoleORM, RolePermissionORM, SystemConfigORM
 from services.common.token_blacklist import get_blacklist
 from services.portal.models import (
-    SystemConfigResponse,
-    SystemConfigUpdate,
-    SystemConfigSet,
-    SystemInitRequest,
-    SystemMetricsResponse,
+    ApiResponse,
     EmergencyStopRequest,
     RevokeAllTokensRequest,
-    ApiResponse,
+    SystemConfigUpdate,
+    SystemInitRequest,
+    SystemMetricsResponse,
 )
-from services.portal.config import settings
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
@@ -386,9 +381,9 @@ async def emergency_stop(
         )
 
     # 执行紧急停止
-    from services.common.service_control import emergency_stop_all
-
     import logging
+
+    from services.common.service_control import emergency_stop_all
     logger = logging.getLogger(__name__)
 
     logger.warning(f"紧急停止触发 by {current_user.user_id}: {req.reason}")
@@ -483,8 +478,8 @@ async def transfer_admin(
         )
 
     # 验证当前密码
-    from services.portal.routers.users import _verify_password
     from services.common.orm_models import UserORM
+    from services.portal.routers.users import _verify_password
 
     # 获取当前用户信息
     current_user_result = await db.execute(
@@ -519,6 +514,7 @@ async def transfer_admin(
 
     # 修改目标用户角色为超级管理员
     from sqlalchemy import update
+
     from services.common.orm_models import UserORM
 
     await db.execute(

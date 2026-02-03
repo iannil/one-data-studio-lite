@@ -1,8 +1,7 @@
 """统一入口门户 - 数据模型"""
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,7 +32,7 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     """登录响应"""
     success: bool
-    token: Optional[str] = None
+    token: str | None = None
     user: Optional["UserInfo"] = None
     message: str = ""
 
@@ -41,7 +40,7 @@ class LoginResponse(BaseModel):
 class RefreshTokenResponse(BaseModel):
     """Token刷新响应"""
     success: bool
-    token: Optional[str] = None
+    token: str | None = None
     message: str = ""
 
 
@@ -54,7 +53,7 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """验证新密码强度"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         # 跳过默认开发密码的检查（仅在修改时）
         if v in ["admin123", "password", "12345678"]:
@@ -78,13 +77,13 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8)
     role: str = "user"
     display_name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[EmailStr] = None
+    email: EmailStr | None = None
 
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """验证密码强度"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         strength, issues = check_password_strength(v)
 
@@ -110,8 +109,8 @@ class UserInfo(BaseModel):
     user_id: str
     username: str
     role: str
-    display_name: Optional[str] = None
-    email: Optional[str] = None
+    display_name: str | None = None
+    email: str | None = None
     permissions: list[str] = []
 
 
@@ -125,14 +124,14 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8)
     role: str
     display_name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
+    email: EmailStr | None = None
+    phone: str | None = None
 
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """验证密码强度"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         strength, issues = check_password_strength(v)
 
@@ -147,10 +146,10 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     """更新用户请求"""
-    display_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    role: Optional[str] = None
+    display_name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    role: str | None = None
 
 
 class UserResponse(BaseModel):
@@ -159,13 +158,13 @@ class UserResponse(BaseModel):
     username: str
     role: str  # API 使用 role 而非 role_code
     display_name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    email: str | None = None
+    phone: str | None = None
     is_active: bool
     is_locked: bool
-    last_login_at: Optional[str] = None  # ISO format string
+    last_login_at: str | None = None  # ISO format string
     created_at: str  # ISO format string
-    created_by: Optional[str] = None
+    created_by: str | None = None
 
 
 class UserListResponse(BaseModel):
@@ -190,7 +189,7 @@ class ResetPasswordRequest(BaseModel):
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """验证密码强度"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         strength, issues = check_password_strength(v)
 
@@ -229,7 +228,7 @@ class PasswordResetConfirmRequest(BaseModel):
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """验证密码强度"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         strength, issues = check_password_strength(v)
 
@@ -256,8 +255,8 @@ class RoleCreate(BaseModel):
 
 class RoleUpdate(BaseModel):
     """更新角色请求"""
-    role_name: Optional[str] = None
-    description: Optional[str] = None
+    role_name: str | None = None
+    description: str | None = None
     add_permissions: list[str] = []
     remove_permissions: list[str] = []
 
@@ -271,7 +270,7 @@ class RoleResponse(BaseModel):
     is_system: bool
     permissions: list[str]
     created_at: datetime
-    created_by: Optional[str] = None
+    created_by: str | None = None
 
 
 class RoleListResponse(BaseModel):
@@ -300,10 +299,10 @@ class ServiceAccountResponse(BaseModel):
     description: str
     role: str
     is_active: bool
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
     created_at: datetime
-    created_by: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    created_by: str | None = None
+    expires_at: datetime | None = None
     # 注意: secret 只在创建时返回一次
 
 
@@ -333,7 +332,7 @@ class SystemConfigResponse(BaseModel):
     description: str
     category: str
     updated_at: datetime
-    updated_by: Optional[str] = None
+    updated_by: str | None = None
 
 
 class SystemConfigUpdate(BaseModel):
@@ -387,7 +386,7 @@ class SubsystemStatus(BaseModel):
     display_name: str
     url: str
     status: str  # "online" | "offline" | "unknown"
-    version: Optional[str] = None
+    version: str | None = None
 
 
 class PortalInfo(BaseModel):
@@ -406,18 +405,18 @@ class ServiceAccountCallHistory(BaseModel):
     id: str
     subsystem: str
     action: str
-    resource: Optional[str] = None
-    status_code: Optional[int] = None
-    duration_ms: Optional[float] = None
-    ip_address: Optional[str] = None
+    resource: str | None = None
+    status_code: int | None = None
+    duration_ms: float | None = None
+    ip_address: str | None = None
     created_at: str  # ISO format string
 
 
 class ServiceAccountCallHistoryQuery(BaseModel):
     """服务账户调用历史查询参数"""
-    start_date: Optional[str] = None  # ISO format date string
-    end_date: Optional[str] = None
-    subsystem: Optional[str] = None
+    start_date: str | None = None  # ISO format date string
+    end_date: str | None = None
+    subsystem: str | None = None
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=50, ge=1, le=500)
 
@@ -440,7 +439,7 @@ class ApiResponse(BaseModel):
     """通用API响应"""
     code: int = 20000
     message: str = "success"
-    data: Optional[Any] = None
+    data: Any | None = None
     timestamp: int = 0
 
 
@@ -448,5 +447,5 @@ class ErrorResponse(BaseModel):
     """错误响应"""
     code: int
     message: str
-    detail: Optional[str] = None
+    detail: str | None = None
     timestamp: int = 0

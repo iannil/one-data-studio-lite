@@ -3,8 +3,10 @@
 提供通用的 CRUD 操作模板。
 """
 
-from typing import Generic, TypeVar, Optional, Sequence
-from sqlalchemy import select, delete, func
+from collections.abc import Sequence
+from typing import Generic, TypeVar
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 T = TypeVar("T")
@@ -30,7 +32,7 @@ class BaseRepository(Generic[T]):
         """
         self.session = session
 
-    async def get_by_id(self, id: str | int) -> Optional[T]:
+    async def get_by_id(self, id: str | int) -> T | None:
         """根据 ID 获取单条记录
 
         Args:

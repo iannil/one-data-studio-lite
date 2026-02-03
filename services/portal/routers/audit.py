@@ -1,7 +1,6 @@
 """Audit Log 代理路由 - 审计日志"""
 
 import os
-from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response

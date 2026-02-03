@@ -8,13 +8,13 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Optional
 
 import jwt
 from redis import Redis
 
-from services.common.auth import JWT_SECRET, JWT_ALGORITHM
+from services.common.auth import JWT_ALGORITHM, JWT_SECRET
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class TokenBlacklist:
         Args:
             redis_url: Redis 连接 URL
         """
-        self._redis: Optional[Redis] = None
+        self._redis: Redis | None = None
         self._redis_url = redis_url
         _test_connection = False
 
@@ -63,7 +63,7 @@ class TokenBlacklist:
             logger.debug(f"Redis 不可用: {e}")
             return False
 
-    def get_token_jti(self, token: str) -> Optional[str]:
+    def get_token_jti(self, token: str) -> str | None:
         """从 Token 中提取 JTI (JWT ID)
 
         如果 Token 没有 jti，使用 token hash 作为唯一标识
@@ -88,7 +88,7 @@ class TokenBlacklist:
         import hashlib
         return hashlib.sha256(token.encode()).hexdigest()[:32]
 
-    def revoke(self, token: str, ttl: Optional[int] = None) -> bool:
+    def revoke(self, token: str, ttl: int | None = None) -> bool:
         """将 Token 加入黑名单
 
         Args:
@@ -117,7 +117,7 @@ class TokenBlacklist:
 
         key = f"token:blacklist:{jti}"
         value = json.dumps({
-            "revoked_at": datetime.now(timezone.utc).isoformat(),
+            "revoked_at": datetime.now(UTC).isoformat(),
             "jti": jti,
         })
 
@@ -138,8 +138,8 @@ class TokenBlacklist:
             )
             exp = payload.get("exp")
             if exp:
-                exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
-                remaining = exp_dt - datetime.now(timezone.utc)
+                exp_dt = datetime.fromtimestamp(exp, tz=UTC)
+                remaining = exp_dt - datetime.now(UTC)
                 return max(0, int(remaining.total_seconds()))
         except jwt.InvalidTokenError:
             pass
@@ -161,7 +161,7 @@ class TokenBlacklist:
             logger.error(f"检查黑名单失败: {e}")
             return False
 
-    def revoke_user_tokens(self, user_id: str, except_token: Optional[str] = None) -> int:
+    def revoke_user_tokens(self, user_id: str, except_token: str | None = None) -> int:
         """撤销用户所有 Token
 
         通过在 Redis 中设置用户撤销标记，
@@ -180,7 +180,7 @@ class TokenBlacklist:
         key = f"user:revoked:{user_id}"
         # 设置 24 小时过期
         value = json.dumps({
-            "revoked_at": datetime.now(timezone.utc).isoformat(),
+            "revoked_at": datetime.now(UTC).isoformat(),
             "except_token_jti": self.get_token_jti(except_token) if except_token else None,
         })
 
@@ -217,7 +217,7 @@ class TokenBlacklist:
             logger.error(f"检查用户撤销状态失败: {e}")
             return False
 
-    def get_revoked_info(self, token: str) -> Optional[dict]:
+    def get_revoked_info(self, token: str) -> dict | None:
         """获取 Token 撤销信息"""
         if not self.is_available():
             return None
@@ -281,7 +281,7 @@ class TokenBlacklist:
                     if current:
                         import json
                         data = json.loads(current)
-                        data["revoked_at"] = datetime.now(timezone.utc).isoformat()
+                        data["revoked_at"] = datetime.now(UTC).isoformat()
                         data["bulk_revoke"] = True
                         self.redis.setex(key, 86400, json.dumps(data))
                     count += 1

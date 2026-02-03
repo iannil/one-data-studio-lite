@@ -4,27 +4,23 @@
 与 Pydantic 模型分离，ORM 模型专门用于数据库操作。
 """
 
-from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
-    Boolean,
-    DateTime,
-    Text,
     JSON,
-    Enum as SQLEnum,
-    Index,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
     ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
 )
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from services.common.database import Base
-
 
 # ============================================================
 # 审计日志模型

@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Optional, Any
 from contextlib import asynccontextmanager
 
 import aiomysql
@@ -45,7 +44,7 @@ class ShardingSphereClient:
         self.user = user
         self.password = password
         self.database = database
-        self._pool: Optional[aiomysql.Pool] = None
+        self._pool: aiomysql.Pool | None = None
 
     async def connect(self):
         """创建连接池"""
@@ -84,7 +83,7 @@ class ShardingSphereClient:
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 yield cursor
 
-    async def execute(self, sql: str, args: Optional[tuple] = None) -> list[dict]:
+    async def execute(self, sql: str, args: tuple | None = None) -> list[dict]:
         """执行 SQL 并返回结果
 
         Args:
@@ -136,7 +135,7 @@ class ShardingSphereClient:
         table_name: str,
         column_name: str,
         algorithm_type: str,
-        algorithm_props: Optional[dict] = None,
+        algorithm_props: dict | None = None,
     ) -> bool:
         """添加脱敏规则
 
@@ -170,7 +169,7 @@ class ShardingSphereClient:
         table_name: str,
         column_name: str,
         algorithm_type: str,
-        algorithm_props: Optional[dict] = None,
+        algorithm_props: dict | None = None,
     ) -> bool:
         """修改脱敏规则
 
@@ -204,7 +203,7 @@ class ShardingSphereClient:
         table_name: str,
         column_name: str,
         algorithm_type: str,
-        algorithm_props: Optional[dict] = None,
+        algorithm_props: dict | None = None,
     ) -> bool:
         """添加或更新脱敏规则
 
@@ -247,7 +246,7 @@ class ShardingSphereClient:
             logger.error(f"删除脱敏规则失败: {e}")
             return False
 
-    def _format_props(self, props: Optional[dict]) -> str:
+    def _format_props(self, props: dict | None) -> str:
         """格式化算法参数
 
         Args:

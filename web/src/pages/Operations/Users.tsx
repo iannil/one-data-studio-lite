@@ -19,6 +19,7 @@ import {
   Row,
   Col,
 } from 'antd';
+import type { DataNode } from 'antd/es/tree';
 import {
   UserOutlined,
   PlusOutlined,
@@ -521,7 +522,7 @@ const Users: React.FC = () => {
     },
   ];
 
-  const renderOrgTree = (data: Organization[]): React.ReactNode => {
+  const renderOrgTree = (data: Organization[]): DataNode[] => {
     return data.map((org) => ({
       title: (
         <Space>

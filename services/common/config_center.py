@@ -37,14 +37,12 @@ import os
 import threading
 import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from copy import deepcopy
-from cryptography.fernet import Fernet
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
+from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +56,7 @@ ETCD_ENDPOINTS = os.environ.get(
 CONFIG_PREFIX = "/one-data-studio/"
 
 # 加密密钥（从环境变量或文件读取）
-_ENCRYPTION_KEY: Optional[bytes] = None
+_ENCRYPTION_KEY: bytes | None = None
 _ENCRYPTION_LOCK = threading.Lock()
 
 
@@ -195,16 +193,16 @@ class EtcdConfigCenter:
         self._watcher_lock = threading.Lock()
 
         # HTTP 客户端
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self._client_lock = threading.Lock()
 
         # Watch 线程
-        self._watch_thread: Optional[threading.Thread] = None
+        self._watch_thread: threading.Thread | None = None
         self._watch_running = False
         self._watch_index = 0  # etcd 修订版本
 
         # 初始化时检查连接
-        self._available: Optional[bool] = None
+        self._available: bool | None = None
         self._last_check = 0.0
 
         logger.info(f"配置中心初始化: endpoints={endpoints}, prefix={prefix}")
@@ -243,7 +241,7 @@ class EtcdConfigCenter:
         self._last_check = now
         return self._available
 
-    def _get_from_cache(self, key: str) -> Optional[Any]:
+    def _get_from_cache(self, key: str) -> Any | None:
         """从缓存获取配置"""
         if not self.enable_cache:
             return None
@@ -266,7 +264,7 @@ class EtcdConfigCenter:
             expire = time.time() + self.cache_ttl
             self._cache[key] = (value, expire)
 
-    def _clear_cache(self, prefix: Optional[str] = None) -> None:
+    def _clear_cache(self, prefix: str | None = None) -> None:
         """清除缓存
 
         Args:
@@ -412,7 +410,7 @@ class EtcdConfigCenter:
         key: str,
         value: Any,
         encrypt: bool = False,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """设置配置值
 
@@ -502,7 +500,7 @@ class EtcdConfigCenter:
             logger.error(f"删除配置异常: {e}")
             return False
 
-    async def list_keys(self, prefix: Optional[str] = None) -> list[str]:
+    async def list_keys(self, prefix: str | None = None) -> list[str]:
         """列出配置键
 
         Args:
@@ -665,7 +663,7 @@ class EtcdConfigCenter:
 
 
 # 全局单例
-_config_center: Optional[EtcdConfigCenter] = None
+_config_center: EtcdConfigCenter | None = None
 _config_lock = threading.Lock()
 
 

@@ -10,9 +10,9 @@ from contextvars import ContextVar
 from datetime import datetime
 from enum import Enum
 from functools import wraps
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)

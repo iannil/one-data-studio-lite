@@ -1,11 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Input, message, Typography, Space, Spin, Alert, Table } from 'antd';
+import { Card, Button, Input, message, Typography, Space, Spin, Alert, Table, Select } from 'antd';
 import { LockOutlined, ReloadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getMaskRulesV1, createMaskRuleV1, deleteMaskRulesV1 } from '../../api/shardingsphere';
-import type { MaskRule } from '../../api/shardingsphere';
+import type { MaskRule, MaskAlgorithmType } from '../../api/shardingsphere';
 
 const { Title } = Typography;
-const { TextArea } = Input;
+
+const ALGORITHM_OPTIONS: { label: string; value: MaskAlgorithmType }[] = [
+  { label: 'KEEP_FIRST_N_LAST_M', value: 'KEEP_FIRST_N_LAST_M' },
+  { label: 'KEEP_FROM_X_TO_Y', value: 'KEEP_FROM_X_TO_Y' },
+  { label: 'MASK_FIRST_N_LAST_M', value: 'MASK_FIRST_N_LAST_M' },
+  { label: 'MASK_FROM_X_TO_Y', value: 'MASK_FROM_X_TO_Y' },
+  { label: 'MASK_BEFORE_SPECIAL_CHARS', value: 'MASK_BEFORE_SPECIAL_CHARS' },
+  { label: 'MASK_AFTER_SPECIAL_CHARS', value: 'MASK_AFTER_SPECIAL_CHARS' },
+  { label: 'GENERIC_TABLE_RANDOM_REPLACE', value: 'GENERIC_TABLE_RANDOM_REPLACE' },
+  { label: 'MD5', value: 'MD5' },
+];
 
 const MaskRules: React.FC = () => {
   const [rules, setRules] = useState<MaskRule[]>([]);
@@ -13,7 +23,7 @@ const MaskRules: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [newTableName, setNewTableName] = useState('');
   const [newColumnName, setNewColumnName] = useState('');
-  const [newAlgorithm, setNewAlgorithm] = useState('KEEP_FIRST_N_LAST_M');
+  const [newAlgorithm, setNewAlgorithm] = useState<MaskAlgorithmType>('KEEP_FIRST_N_LAST_M');
   const [adding, setAdding] = useState(false);
 
   const fetchRules = async () => {
@@ -21,7 +31,7 @@ const MaskRules: React.FC = () => {
     setError(null);
     try {
       const resp = await getMaskRulesV1();
-      setRules(resp.data?.rules || []);
+      setRules(resp.data || []);
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.detail || '获取脱敏规则失败');
     } finally {
@@ -128,10 +138,11 @@ const MaskRules: React.FC = () => {
             onChange={(e) => setNewColumnName(e.target.value)}
             style={{ width: 150 }}
           />
-          <Input
+          <Select
             placeholder="算法类型"
             value={newAlgorithm}
-            onChange={(e) => setNewAlgorithm(e.target.value)}
+            onChange={(value) => setNewAlgorithm(value)}
+            options={ALGORITHM_OPTIONS}
             style={{ width: 200 }}
           />
           <Button type="primary" icon={<PlusOutlined />} loading={adding} onClick={handleAdd}>

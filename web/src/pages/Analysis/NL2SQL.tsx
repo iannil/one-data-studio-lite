@@ -19,8 +19,8 @@ import {
   TableOutlined,
   DatabaseOutlined,
 } from '@ant-design/icons';
-import { queryV1, getTablesV1 } from '../../api/nl2sql';
-import { TableInfo, NL2SQLQueryResponse } from '../../types';
+import { queryV1, getTablesV1, TableInfo, NL2SQLQueryResponse } from '../../api/nl2sql';
+import { isSuccessResponse } from '../../api/types';
 
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
@@ -54,8 +54,8 @@ const NL2SQL: React.FC = () => {
     setQuerying(true);
     setResult(null);
     try {
-      const resp = await queryV1({ question });
-      if (resp?.success && resp?.data) {
+      const resp = await queryV1({ query: question });
+      if (isSuccessResponse(resp) && resp.data) {
         setResult(resp.data);
       } else {
         message.error(resp?.message || '查询失败');
@@ -68,30 +68,33 @@ const NL2SQL: React.FC = () => {
   };
 
   // 构建表树形数据
-  const treeData = tables.map((table) => ({
-    title: (
-      <span>
-        <TableOutlined style={{ marginRight: 4 }} />
-        {table.table_name}
-        {table.comment && <Text type="secondary"> ({table.comment})</Text>}
-      </span>
-    ),
-    key: `${table.database}.${table.table_name}`,
-    children: table.columns.map((col) => ({
+  const treeData = tables.map((table) => {
+    const tableName = table.table_name || table.name;
+    return {
       title: (
         <span>
-          {col.name}
-          <Text type="secondary"> ({col.data_type})</Text>
-          {col.comment && <Text type="secondary"> - {col.comment}</Text>}
+          <TableOutlined style={{ marginRight: 4 }} />
+          {tableName}
+          {table.comment && <Text type="secondary"> ({table.comment})</Text>}
         </span>
       ),
-      key: `${table.database}.${table.table_name}.${col.name}`,
-      isLeaf: true,
-    })),
-  }));
+      key: `${table.database}.${tableName}`,
+      children: (table.columns || []).map((col) => ({
+        title: (
+          <span>
+            {col.name}
+            <Text type="secondary"> ({col.data_type || col.type})</Text>
+            {col.comment && <Text type="secondary"> - {col.comment}</Text>}
+          </span>
+        ),
+        key: `${table.database}.${tableName}.${col.name}`,
+        isLeaf: true,
+      })),
+    };
+  });
 
   // 结果表格列
-  const columns = result?.columns.map((col) => ({
+  const columns = result?.columns?.map((col) => ({
     title: col,
     dataIndex: col,
     key: col,
@@ -99,9 +102,9 @@ const NL2SQL: React.FC = () => {
   })) || [];
 
   // 结果数据
-  const dataSource = result?.rows.map((row, index) => {
+  const dataSource = result?.rows?.map((row, index) => {
     const record: Record<string, any> = { key: index };
-    result.columns.forEach((col, colIndex) => {
+    result?.columns?.forEach((col, colIndex) => {
       record[col] = row[colIndex];
     });
     return record;

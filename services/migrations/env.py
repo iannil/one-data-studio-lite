@@ -8,25 +8,14 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import pool
-from sqlalchemy.engine import Connection
-from sqlalchemy import create_engine
-
 from alembic import context
+from sqlalchemy import create_engine, pool
 
 # 添加 services 目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入 ORM 模型和 Base
 from common.database import Base
-from common.orm_models import (
-    AuditEventORM,
-    DetectionRuleORM,
-    SensitiveFieldORM,
-    ScanReportORM,
-    ETLMappingORM,
-    MaskRuleORM,
-)
 
 # Alembic Config 对象
 config = context.config

@@ -1,8 +1,7 @@
 """JWT 认证工具"""
 
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
@@ -27,7 +26,7 @@ class TokenPayload(BaseModel):
     username: str
     role: str = "user"
     exp: datetime
-    iat: Optional[datetime] = None  # 签发时间（可选）
+    iat: datetime | None = None  # 签发时间（可选）
 
     @property
     def user_id(self) -> str:
@@ -39,10 +38,10 @@ def create_token(
     user_id: str,
     username: str,
     role: str = "user",
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """创建 JWT 令牌"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(hours=JWT_EXPIRE_HOURS))
     payload = {
         "sub": user_id,
@@ -109,7 +108,7 @@ def verify_token(token: str) -> TokenPayload:
 
 async def get_current_user(
     request: Request = None,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> TokenPayload:
     """FastAPI 依赖注入 - 获取当前用户
 
@@ -126,7 +125,7 @@ async def get_current_user(
                 sub="internal-service",
                 username="service",
                 role="service",
-                exp=datetime.now(timezone.utc) + timedelta(hours=24),
+                exp=datetime.now(UTC) + timedelta(hours=24),
             )
 
     if credentials is None:
@@ -138,8 +137,8 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[TokenPayload]:
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> TokenPayload | None:
     """FastAPI 依赖注入 - 可选获取当前用户"""
     if credentials is None:
         return None
@@ -157,8 +156,8 @@ def can_refresh_token(token: str) -> bool:
             token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
             options={"verify_exp": False}
         )
-        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        now = datetime.now(timezone.utc)
+        exp = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        now = datetime.now(UTC)
         threshold = timedelta(minutes=JWT_REFRESH_THRESHOLD_MINUTES)
         # Token已过期或在阈值时间内即将过期，都可以刷新
         return (exp - now) <= threshold
@@ -166,7 +165,7 @@ def can_refresh_token(token: str) -> bool:
         return False
 
 
-def refresh_token(token: str) -> Optional[str]:
+def refresh_token(token: str) -> str | None:
     """刷新Token，返回新Token或None（如果无法刷新）"""
     try:
         # 允许已过期的Token刷新，但必须在合理时间内（比如过期后30分钟内）
@@ -174,8 +173,8 @@ def refresh_token(token: str) -> Optional[str]:
             token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
             options={"verify_exp": False}
         )
-        exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        now = datetime.now(timezone.utc)
+        exp = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        now = datetime.now(UTC)
 
         # 如果Token过期超过30分钟，不允许刷新
         if (now - exp) > timedelta(minutes=30):

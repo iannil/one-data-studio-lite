@@ -65,13 +65,19 @@ export interface ListParams {
   q?: string;
 }
 
+/** Superset list response wrapper */
+export interface SupersetListResponse<T> {
+  result: T[];
+  count?: number;
+}
+
 // ============================================================
 // v1 版本 API（推荐使用，统一响应格式）
 // ============================================================
 
 /** 获取仪表板列表 */
-export async function getDashboardsV1(params?: ListParams): Promise<ApiResponse<Dashboard[]>> {
-  const resp = await client.get<ApiResponse<Dashboard[]>>('/api/proxy/superset/v1/dashboards', { params });
+export async function getDashboardsV1(params?: ListParams): Promise<ApiResponse<SupersetListResponse<Dashboard>>> {
+  const resp = await client.get<ApiResponse<SupersetListResponse<Dashboard>>>('/api/proxy/superset/v1/dashboards', { params });
   return resp.data;
 }
 
@@ -82,8 +88,8 @@ export async function getDashboardV1(id: number): Promise<ApiResponse<Dashboard>
 }
 
 /** 获取图表列表 */
-export async function getChartsV1(params?: ListParams): Promise<ApiResponse<Chart[]>> {
-  const resp = await client.get<ApiResponse<Chart[]>>('/api/proxy/superset/v1/charts', { params });
+export async function getChartsV1(params?: ListParams): Promise<ApiResponse<SupersetListResponse<Chart>>> {
+  const resp = await client.get<ApiResponse<SupersetListResponse<Chart>>>('/api/proxy/superset/v1/charts', { params });
   return resp.data;
 }
 
@@ -94,8 +100,8 @@ export async function getChartV1(id: number): Promise<ApiResponse<Chart>> {
 }
 
 /** 获取数据集列表 */
-export async function getDatasetsV1(params?: Pick<ListParams, 'page' | 'page_size'>): Promise<ApiResponse<Dataset[]>> {
-  const resp = await client.get<ApiResponse<Dataset[]>>('/api/proxy/superset/v1/datasets', { params });
+export async function getDatasetsV1(params?: Pick<ListParams, 'page' | 'page_size'>): Promise<ApiResponse<SupersetListResponse<Dataset>>> {
+  const resp = await client.get<ApiResponse<SupersetListResponse<Dataset>>>('/api/proxy/superset/v1/datasets', { params });
   return resp.data;
 }
 

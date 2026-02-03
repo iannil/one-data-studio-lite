@@ -89,7 +89,7 @@ export async function handleResponse<T>(
     }
 
     if (throwOnError) {
-      const error: Error & { code?: number; data?: unknown } = new Error(errorMsg);
+      const error: Error & { code?: number; data?: unknown; detail?: string } = new Error(errorMsg);
       error.code = resp.code;
       error.data = resp.data;
       error.detail = (resp as ErrorResponse).detail;

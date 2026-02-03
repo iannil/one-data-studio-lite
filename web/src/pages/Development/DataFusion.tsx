@@ -380,11 +380,16 @@ const DataFusion: React.FC = () => {
         onOk={handleModalOk}
         width={700}
       >
-        <Steps current={currentStep} size="small" style={{ marginBottom: 24 }}>
-          <Steps.Step title="基本信息" />
-          <Steps.Step title="配置规则" />
-          <Steps.Step title="预览确认" />
-        </Steps>
+        <Steps
+          current={currentStep}
+          size="small"
+          style={{ marginBottom: 24 }}
+          items={[
+            { title: "基本信息" },
+            { title: "配置规则" },
+            { title: "预览确认" },
+          ]}
+        />
 
         <Form form={form} layout="vertical">
           <Form.Item

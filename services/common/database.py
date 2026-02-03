@@ -1,12 +1,11 @@
 """数据库连接管理 - SQLAlchemy 异步引擎"""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
 
 # 默认数据库 URL - 生产环境必须通过环境变量配置
 # 警告: 仅用于开发环境，生产环境请设置 DATABASE_URL 环境变量

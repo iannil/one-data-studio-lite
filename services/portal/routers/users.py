@@ -3,27 +3,25 @@
 提供用户 CRUD 操作、禁用/启用、密码重置等功能。
 """
 
-import secrets
 import hashlib
+import secrets
 from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.orm_models import UserORM, RoleORM, PermissionORM, RolePermissionORM
+from services.common.orm_models import RoleORM, UserORM
 from services.portal.models import (
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-    UserListResponse,
+    ApiResponse,
     DisableUserRequest,
     ResetPasswordRequest,
-    ApiResponse,
+    UserCreate,
+    UserListResponse,
+    UserUpdate,
 )
 
 router = APIRouter(prefix="/api/users", tags=["users"])

@@ -4,26 +4,25 @@
 """
 
 import secrets
-import bcrypt
 from datetime import datetime
-from dateutil import parser as date_parser
 from typing import Annotated
 
+import bcrypt
+from dateutil import parser as date_parser
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, insert, select, update, func, and_, or_, case
+from sqlalchemy import and_, case, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.common.auth import get_current_user, TokenPayload
+from services.common.auth import TokenPayload, get_current_user
 from services.common.database import get_db
-from services.common.orm_models import ServiceAccountORM, RoleORM, AuditEventORM
+from services.common.orm_models import AuditEventORM, RoleORM, ServiceAccountORM
 from services.portal.models import (
-    ServiceAccountCreate,
-    ServiceAccountResponse,
-    ServiceAccountCreateResponse,
-    ServiceAccountListResponse,
     ApiResponse,
     ServiceAccountCallHistory,
     ServiceAccountCallHistoryResponse,
+    ServiceAccountCreate,
+    ServiceAccountCreateResponse,
+    ServiceAccountListResponse,
 )
 
 router = APIRouter(prefix="/api/service-accounts", tags=["service-accounts"])

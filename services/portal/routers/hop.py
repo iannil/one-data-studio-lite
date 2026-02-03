@@ -21,10 +21,9 @@ API 规范:
 """
 
 import logging
-from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from services.common.api_response import (
@@ -44,22 +43,22 @@ router = APIRouter(prefix="/api/proxy/hop", tags=["ApacheHop"])
 class RunRequest(BaseModel):
     """执行请求"""
     run_configuration: str = "local"
-    parameters: Optional[dict] = None
-    variables: Optional[dict] = None
+    parameters: dict | None = None
+    variables: dict | None = None
 
 
 class PipelineRequest(BaseModel):
     """管道执行请求"""
     name: str
     run_configuration: str = "local"
-    parameters: Optional[dict] = None
+    parameters: dict | None = None
 
 
 async def fetch_hop(
     path: str,
     method: str = "GET",
-    data: Optional[dict] = None,
-    params: Optional[dict] = None,
+    data: dict | None = None,
+    params: dict | None = None,
 ) -> httpx.Response:
     """向 Hop Server REST API 发请求
 

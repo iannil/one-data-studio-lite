@@ -3,10 +3,9 @@
 提供 ShardingSphere 脱敏规则的数据访问接口。
 """
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.orm_models import MaskRuleORM
 from services.common.repositories.base import BaseRepository
@@ -38,7 +37,7 @@ class MaskRuleRepository(BaseRepository[MaskRuleORM]):
         self,
         table_name: str,
         column_name: str,
-    ) -> Optional[MaskRuleORM]:
+    ) -> MaskRuleORM | None:
         """获取特定表列的脱敏规则
 
         Args:
@@ -79,7 +78,7 @@ class MaskRuleRepository(BaseRepository[MaskRuleORM]):
         )
         return result.scalars().all()
 
-    async def mark_synced(self, rule_id: int) -> Optional[MaskRuleORM]:
+    async def mark_synced(self, rule_id: int) -> MaskRuleORM | None:
         """标记规则已同步
 
         Args:
@@ -99,7 +98,7 @@ class MaskRuleRepository(BaseRepository[MaskRuleORM]):
         table_name: str,
         column_name: str,
         algorithm_type: str,
-        algorithm_props: Optional[dict] = None,
+        algorithm_props: dict | None = None,
     ) -> MaskRuleORM:
         """插入或更新脱敏规则
 
