@@ -77,12 +77,6 @@ class Settings(PortalConfig):
     SUPERSET_ADMIN_USER: str = os.environ.get("SUPERSET_ADMIN_USER", "admin")
     SUPERSET_ADMIN_PASSWORD: str = os.environ.get("SUPERSET_ADMIN_PASSWORD", "admin123")
 
-    # ShardingSphere 配置文件路径
-    SHARDINGSPHERE_CONFIG_PATH: str = os.environ.get(
-        "SHARDINGSPHERE_CONFIG_PATH",
-        "deploy/shardingsphere/config/config-mask.yaml"
-    )
-
     # 邮件服务配置
     SMTP_ENABLED: bool = os.environ.get("SMTP_ENABLED", "false").lower() == "true"
     SMTP_HOST: str = os.environ.get("SMTP_HOST", "localhost")

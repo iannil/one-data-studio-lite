@@ -50,7 +50,6 @@ from services.portal.routers import (
     seatunnel,
     sensitive,
     service_accounts,  # 新增
-    shardingsphere,
     superset,
     users,  # 新增
 )
@@ -126,7 +125,6 @@ app = FastAPI(
     - DolphinScheduler (任务调度)
     - Apache Hop (ETL 引擎)
     - SeaTunnel (数据同步)
-    - ShardingSphere (数据脱敏)
 
     ## 内部服务
 
@@ -150,10 +148,6 @@ app = FastAPI(
         {
             "name": "SeaTunnel",
             "description": "SeaTunnel 数据同步 API"
-        },
-        {
-            "name": "ShardingSphere",
-            "description": "ShardingSphere 数据脱敏 API"
         },
         {
             "name": "Hop",
@@ -249,7 +243,6 @@ app.include_router(superset.router)
 app.include_router(dolphinscheduler.router)
 app.include_router(seatunnel.router)
 app.include_router(hop.router)
-app.include_router(shardingsphere.router)
 app.include_router(nl2sql.router)
 app.include_router(cleaning.router)
 app.include_router(metadata_sync.router)

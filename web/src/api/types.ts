@@ -86,9 +86,8 @@ export enum ErrorCode {
   DATAHUB_ERROR = 42101,
   DOLPHINSCHEDULER_ERROR = 42102,
   SUPERSET_ERROR = 42103,
-  SHARDINGSPHERE_ERROR = 42104,
-  HOP_ERROR = 42105,
-  CUBE_STUDIO_ERROR = 42106,
+  HOP_ERROR = 42104,
+  CUBE_STUDIO_ERROR = 42105,
 
   // 系统错误 (5xxxx)
   INTERNAL_ERROR = 50000,
@@ -126,7 +125,6 @@ const ERROR_MESSAGES: Record<number, string> = {
   [ErrorCode.DATAHUB_ERROR]: "DataHub 服务错误",
   [ErrorCode.DOLPHINSCHEDULER_ERROR]: "DolphinScheduler 服务错误",
   [ErrorCode.SUPERSET_ERROR]: "Superset 服务错误",
-  [ErrorCode.SHARDINGSPHERE_ERROR]: "ShardingSphere 服务错误",
   [ErrorCode.HOP_ERROR]: "Hop 服务错误",
   [ErrorCode.CUBE_STUDIO_ERROR]: "Cube-Studio 服务错误",
   [ErrorCode.INTERNAL_ERROR]: "内部服务错误",

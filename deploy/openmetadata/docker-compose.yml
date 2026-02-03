@@ -44,6 +44,38 @@ services:
       timeout: 5s
       retries: 10
 
+  # ========== 数据库迁移服务 ==========
+  openmetadata-migrate:
+    image: docker.getcollate.io/openmetadata/server:1.4.4
+    container_name: ods-openmetadata-migrate
+    restart: "no"
+    environment:
+      # 数据库配置
+      DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      DB_SCHEME: mysql
+      DB_HOST: openmetadata-mysql
+      DB_PORT: "3306"
+      OM_DATABASE: openmetadata
+      DB_USER: root
+      DB_USER_PASSWORD: ${OPENMETADATA_MYSQL_PASSWORD:-openmetadata2024}
+      # Elasticsearch 配置
+      SEARCH_TYPE: elasticsearch
+      ELASTICSEARCH_HOST: openmetadata-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
+      # 服务器配置
+      SERVER_HOST: localhost
+      SERVER_PORT: "8585"
+      SERVER_ADMIN_PORT: "8586"
+    command: ["./bootstrap/openmetadata-ops.sh", "migrate"]
+    networks:
+      - ods-network
+    depends_on:
+      openmetadata-mysql:
+        condition: service_healthy
+      openmetadata-elasticsearch:
+        condition: service_healthy
+
   # ========== OpenMetadata 服务 ==========
   openmetadata-server:
     image: docker.getcollate.io/openmetadata/server:1.4.4
@@ -104,6 +136,8 @@ services:
         condition: service_healthy
       openmetadata-elasticsearch:
         condition: service_healthy
+      openmetadata-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8585/api/v1/system/version"]
       interval: 30s

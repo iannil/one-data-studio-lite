@@ -53,7 +53,7 @@ services:
     command: uvicorn services.portal.main:app --host 0.0.0.0 --port 8010
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8010/health\", timeout=5)'"]
 
   nl2sql:
     <<: *service-common
@@ -63,7 +63,7 @@ services:
     command: uvicorn services.nl2sql.main:app --host 0.0.0.0 --port 8011
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8011/health\", timeout=5)'"]
 
   ai-cleaning:
     <<: *service-common
@@ -73,7 +73,7 @@ services:
     command: uvicorn services.ai_cleaning.main:app --host 0.0.0.0 --port 8012
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8012/health\", timeout=5)'"]
 
   metadata-sync:
     <<: *service-common
@@ -83,7 +83,7 @@ services:
     command: uvicorn services.metadata_sync.main:app --host 0.0.0.0 --port 8013
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8013/health\", timeout=5)'"]
 
   data-api:
     <<: *service-common
@@ -93,7 +93,7 @@ services:
     command: uvicorn services.data_api.main:app --host 0.0.0.0 --port 8014
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8014/health\", timeout=5)'"]
 
   sensitive-detect:
     <<: *service-common
@@ -103,7 +103,7 @@ services:
     command: uvicorn services.sensitive_detect.main:app --host 0.0.0.0 --port 8015
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8015/health\", timeout=5)'"]
 
   audit-log:
     <<: *service-common
@@ -113,7 +113,7 @@ services:
     command: uvicorn services.audit_log.main:app --host 0.0.0.0 --port 8016
     healthcheck:
       <<: *healthcheck-common
-      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8016/health\", timeout=5)'"]
 
 networks:
   ods-network:

@@ -395,35 +395,6 @@ services:
           memory: 256M
 
   # ============================================================
-  # ShardingSphere
-  # ============================================================
-  shardingsphere:
-    image: apache/shardingsphere-proxy:5.4.1
-    container_name: ods-test-shardingsphere
-    restart: unless-stopped
-    ports:
-      - "${SHARDINGSPHERE_PORT:-3309}:3307"
-    environment:
-      JVM_OPTS: "-Xmx256m -Xms128m"
-      MYSQL_HOST: "mysql"
-      MYSQL_PORT: "3306"
-      MYSQL_DATABASE: "one_data_studio"
-      MYSQL_USERNAME: "root"
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - ./config/shardingsphere/server.yaml:/opt/shardingsphere-proxy/conf/server.yaml:ro
-      - ./config/shardingsphere/config-mask.yaml:/opt/shardingsphere-proxy/conf/config-mask.yaml:ro
-      - ods-test-shardingsphere-data:/opt/shardingsphere-proxy/data
-    networks:
-      - ods-test-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-
-  # ============================================================
   # Cube-Studio（使用共享 MySQL 和 Redis）
   # ============================================================
   cube-frontend:
@@ -498,9 +469,6 @@ volumes:
   ods-test-seatunnel-data:
     driver: local
     name: ods-test-seatunnel-data
-  ods-test-shardingsphere-data:
-    driver: local
-    name: ods-test-shardingsphere-data
   ods-test-cube-data:
     driver: local
     name: ods-test-cube-data

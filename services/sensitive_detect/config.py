@@ -15,7 +15,6 @@ class Settings(ServiceConfig):
     APP_PORT: int = 8015
 
     # Sensitive Detect 特有配置
-    SHARDINGSPHERE_URL: str = ""  # 由环境变量覆盖
     CONFIDENCE_THRESHOLD: float = 0.7
     ENABLE_LLM_ANALYSIS: bool = True
 

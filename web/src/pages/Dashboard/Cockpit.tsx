@@ -6,7 +6,6 @@ import {
   QuestionCircleOutlined,
   DatabaseOutlined,
   BarChartOutlined,
-  SafetyOutlined,
   ApiOutlined,
   RobotOutlined,
   ScheduleOutlined,
@@ -23,7 +22,6 @@ const iconMap: Record<string, React.ReactNode> = {
   'dolphinscheduler': <ScheduleOutlined style={{ fontSize: 32 }} />,
   'hop': <ApiOutlined style={{ fontSize: 32 }} />,
   'seatunnel': <ApiOutlined style={{ fontSize: 32 }} />,
-  'shardingsphere': <SafetyOutlined style={{ fontSize: 32 }} />,
 };
 
 const statusConfig = {

@@ -10,27 +10,56 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # 微服务配置
 SERVICES_COMPOSE="${SERVICES_DIR}/docker-compose.yml"
 
-# 服务列表
-declare -A SERVICES=(
-    ["portal"]="8010:统一门户"
-    ["nl2sql"]="8011:NL2SQL"
-    ["ai-cleaning"]="8012:AI清洗"
-    ["metadata-sync"]="8013:元数据同步"
-    ["data-api"]="8014:数据API网关"
-    ["sensitive-detect"]="8015:敏感检测"
-    ["audit-log"]="8016:审计日志"
-)
+# 服务配置函数 (替代关联数组，兼容 bash 3.x)
+get_service_port() {
+    case "$1" in
+        portal) echo "8010" ;;
+        nl2sql) echo "8011" ;;
+        ai-cleaning) echo "8012" ;;
+        metadata-sync) echo "8013" ;;
+        data-api) echo "8014" ;;
+        sensitive-detect) echo "8015" ;;
+        audit-log) echo "8016" ;;
+        *) echo "" ;;
+    esac
+}
 
-# 容器名映射
-declare -A CONTAINER_NAMES=(
-    ["portal"]="ods-portal"
-    ["nl2sql"]="ods-nl2sql"
-    ["ai-cleaning"]="ods-ai-cleaning"
-    ["metadata-sync"]="ods-metadata-sync"
-    ["data-api"]="ods-data-api"
-    ["sensitive-detect"]="ods-sensitive-detect"
-    ["audit-log"]="ods-audit-log"
-)
+get_service_desc() {
+    case "$1" in
+        portal) echo "统一门户" ;;
+        nl2sql) echo "NL2SQL" ;;
+        ai-cleaning) echo "AI清洗" ;;
+        metadata-sync) echo "元数据同步" ;;
+        data-api) echo "数据API网关" ;;
+        sensitive-detect) echo "敏感检测" ;;
+        audit-log) echo "审计日志" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_container_name() {
+    case "$1" in
+        portal) echo "ods-portal" ;;
+        nl2sql) echo "ods-nl2sql" ;;
+        ai-cleaning) echo "ods-ai-cleaning" ;;
+        metadata-sync) echo "ods-metadata-sync" ;;
+        data-api) echo "ods-data-api" ;;
+        sensitive-detect) echo "ods-sensitive-detect" ;;
+        audit-log) echo "ods-audit-log" ;;
+        *) echo "" ;;
+    esac
+}
+
+is_valid_service() {
+    case "$1" in
+        portal|nl2sql|ai-cleaning|metadata-sync|data-api|sensitive-detect|audit-log)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
 # ============================================================
 # 启动微服务
@@ -52,7 +81,7 @@ start_services() {
                 ;;
             *)
                 # 检查是否是有效的服务名
-                if [[ -n "${SERVICES[$arg]:-}" ]]; then
+                if is_valid_service "$arg"; then
                     specific_service="$arg"
                 fi
                 ;;
@@ -77,7 +106,7 @@ start_services() {
 
         if [[ "$no_wait" != "true" ]]; then
             local port
-            port=$(echo "${SERVICES[$specific_service]}" | cut -d: -f1)
+            port=$(get_service_port "$specific_service")
             wait_for_http "http://localhost:${port}/health" 60 || log_warn "${specific_service} 未完全就绪"
         fi
     else
@@ -110,7 +139,7 @@ stop_services() {
                 remove_volumes="true"
                 ;;
             *)
-                if [[ -n "${SERVICES[$arg]:-}" ]]; then
+                if is_valid_service "$arg"; then
                     specific_service="$arg"
                 fi
                 ;;
@@ -146,7 +175,7 @@ restart_services() {
     local specific_service=""
 
     for arg in "$@"; do
-        if [[ -n "${SERVICES[$arg]:-}" ]]; then
+        if is_valid_service "$arg"; then
             specific_service="$arg"
         fi
     done
@@ -173,10 +202,8 @@ show_services_status_detail() {
     printf "%s\n" "--------------------------------------------------------------"
 
     for name in portal nl2sql ai-cleaning metadata-sync data-api sensitive-detect audit-log; do
-        local container="${CONTAINER_NAMES[$name]}"
-        local port_info="${SERVICES[$name]}"
-        local port
-        port=$(echo "$port_info" | cut -d: -f1)
+        local container="$(get_container_name "$name")"
+        local port="$(get_service_port "$name")"
 
         local status
         status=$(get_container_status "$container")
@@ -218,17 +245,17 @@ show_logs() {
 
     if [[ -z "$service" ]]; then
         log_error "请指定服务名"
-        echo "可用服务: ${!SERVICES[*]}"
+        echo "可用服务: portal nl2sql ai-cleaning metadata-sync data-api sensitive-detect audit-log"
         return 1
     fi
 
-    if [[ -z "${SERVICES[$service]:-}" ]]; then
+    if ! is_valid_service "$service"; then
         log_error "未知服务: $service"
-        echo "可用服务: ${!SERVICES[*]}"
+        echo "可用服务: portal nl2sql ai-cleaning metadata-sync data-api sensitive-detect audit-log"
         return 1
     fi
 
-    local container="${CONTAINER_NAMES[$service]}"
+    local container="$(get_container_name "$service")"
 
     if [[ "$follow" == "true" ]]; then
         docker logs -f "$container"

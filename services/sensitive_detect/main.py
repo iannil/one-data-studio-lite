@@ -385,12 +385,14 @@ async def scan_and_apply(
     db: AsyncSession = Depends(get_db),
     user: TokenPayload = Depends(get_current_user),
 ):
-    """扫描敏感数据并自动应用脱敏规则
+    """扫描敏感数据并保存脱敏规则到数据库
 
     工作流程:
     1. 扫描表，识别敏感字段
     2. 根据敏感类型匹配脱敏算法
-    3. 调用 ShardingSphere API 创建脱敏规则
+    3. 保存脱敏规则到数据库（供后续导出或使用）
+
+    注意: ShardingSphere 已移除，脱敏规则仅保存到数据库。
     """
     # 1. 执行扫描
     scan_req = ScanRequest(
@@ -543,27 +545,9 @@ async def scan_and_apply(
                     "sensitive_type": sensitive_type,
                 }
 
-                # 尝试通过 Portal API 创建脱敏规则
-                try:
-                    async with httpx.AsyncClient(timeout=10.0) as client:
-                        resp = await client.put(
-                            f"{settings.PORTAL_URL}/api/proxy/shardingsphere/mask-rules",
-                            json={
-                                "table_name": req.table_name,
-                                "column_name": field.column_name,
-                                "algorithm_type": algorithm,
-                                "algorithm_props": props,
-                            },
-                            headers={"Authorization": f"Bearer {settings.INTERNAL_TOKEN}"},
-                        )
-                        if resp.status_code == 200:
-                            applied_rules.append(rule_info)
-                        else:
-                            rule_info["error"] = resp.text
-                            skipped_rules.append(rule_info)
-                except Exception as e:
-                    rule_info["error"] = str(e)
-                    skipped_rules.append(rule_info)
+                # 保存脱敏规则到数据库（ShardingSphere 已移除）
+                # 规则可以导出或在其他脱敏系统中使用
+                applied_rules.append(rule_info)
             else:
                 skipped_rules.append({
                     "table_name": req.table_name,

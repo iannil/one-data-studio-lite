@@ -10,6 +10,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # 配置
 SEED_DATA_SCRIPT="${SERVICES_DIR}/common/seed_data.py"
 PORTAL_URL="http://localhost:8010"
+SUBSYSTEM_DIR="${PROJECT_ROOT}/deploy/subsystems"
+TEST_DATA_DIR="${PROJECT_ROOT}/tests/test_data"
 
 # ============================================================
 # 初始化种子数据
@@ -99,6 +101,85 @@ init_via_api() {
         }' >/dev/null 2>&1 || true
 
     log_info "系统配置初始化完成"
+}
+
+# ============================================================
+# 子系统数据初始化
+# ============================================================
+
+init_subsystem_data() {
+    log_section "初始化子系统数据"
+
+    # OpenMetadata 初始化
+    if [[ -f "${SUBSYSTEM_DIR}/openmetadata/init_openmetadata.sh" ]]; then
+        log_step "初始化 OpenMetadata..."
+        bash "${SUBSYSTEM_DIR}/openmetadata/init_openmetadata.sh" 2>/dev/null || \
+            log_warn "OpenMetadata 初始化失败（服务可能未运行）"
+    else
+        log_info "OpenMetadata 初始化脚本不存在，跳过"
+    fi
+
+    # DolphinScheduler 初始化
+    if [[ -f "${SUBSYSTEM_DIR}/dolphinscheduler/init_dolphinscheduler.sh" ]]; then
+        log_step "初始化 DolphinScheduler..."
+        bash "${SUBSYSTEM_DIR}/dolphinscheduler/init_dolphinscheduler.sh" 2>/dev/null || \
+            log_warn "DolphinScheduler 初始化失败（服务可能未运行）"
+    else
+        log_info "DolphinScheduler 初始化脚本不存在，跳过"
+    fi
+
+    # Superset 初始化
+    if [[ -f "${SUBSYSTEM_DIR}/superset/init_superset.sh" ]]; then
+        log_step "初始化 Superset..."
+        bash "${SUBSYSTEM_DIR}/superset/init_superset.sh" 2>/dev/null || \
+            log_warn "Superset 初始化失败（服务可能未运行）"
+    else
+        log_info "Superset 初始化脚本不存在，跳过"
+    fi
+
+    # SeaTunnel 初始化
+    if [[ -f "${SUBSYSTEM_DIR}/seatunnel/init_seatunnel.sh" ]]; then
+        log_step "初始化 SeaTunnel..."
+        bash "${SUBSYSTEM_DIR}/seatunnel/init_seatunnel.sh" 2>/dev/null || \
+            log_warn "SeaTunnel 初始化失败（服务可能未运行）"
+    else
+        log_info "SeaTunnel 初始化脚本不存在，跳过"
+    fi
+
+    log_success "子系统数据初始化完成"
+}
+
+# ============================================================
+# 测试数据准备
+# ============================================================
+
+prepare_test_data() {
+    log_section "准备测试数据"
+
+    # 执行边界条件测试数据SQL
+    if [[ -f "${TEST_DATA_DIR}/boundary_conditions.sql" ]]; then
+        log_step "加载边界条件测试数据..."
+
+        if docker ps --format '{{.Names}}' | grep -q "ods-mysql"; then
+            docker exec -i ods-mysql mysql -uroot -ptest_root_password one_data_studio \
+                < "${TEST_DATA_DIR}/boundary_conditions.sql" 2>/dev/null || \
+                log_warn "边界条件测试数据加载失败"
+        else
+            log_warn "MySQL 容器未运行，跳过测试数据加载"
+        fi
+    else
+        log_info "边界条件测试数据文件不存在，跳过"
+    fi
+
+    # 生成测试数据（如果需要）
+    if [[ -f "${PROJECT_ROOT}/tests/tools/test_data_generator.py" ]]; then
+        log_step "生成额外的测试数据..."
+        python "${PROJECT_ROOT}/tests/tools/test_data_generator.py" \
+            --type pii --count 50 2>/dev/null || \
+            log_warn "测试数据生成失败"
+    fi
+
+    log_success "测试数据准备完成"
 }
 
 # ============================================================
@@ -251,30 +332,40 @@ show_help() {
     show_header "init-data.sh" "初始化数据脚本"
 
     cat << 'EOF'
-用法: ./scripts/init-data.sh <action>
+用法: ./scripts/init-data.sh <action> [options]
 
 操作:
-  seed      初始化种子数据 (默认)
-  verify    验证数据完整性
-  reset     重置数据 (危险操作)
-  status    显示数据状态
+  seed            初始化种子数据 (默认)
+  seed --all      初始化所有数据（基础+子系统+测试数据）
+  subsystems      仅初始化子系统数据
+  test-data       仅准备测试数据
+  all, full       完整初始化（等同于 seed --all）
+  verify          验证数据完整性
+  reset           重置数据 (危险操作)
+  status          显示数据状态
 
 种子数据内容:
   - 系统权限定义 (19个)
   - 角色定义 (8个)
-  - 默认管理员用户
-  - 测试用户数据 (可选)
-  - 示例业务数据 (可选)
+  - 用户数据 (7个)
+  - 业务域数据 (15数据集/18质量规则/10管道)
+  - 子系统数据 (OpenMetadata/DolphinScheduler/Superset/SeaTunnel)
+  - 测试数据 (边界条件/敏感数据样本)
 
 示例:
-  ./scripts/init-data.sh seed      # 初始化种子数据
-  ./scripts/init-data.sh verify    # 验证数据
-  ./scripts/init-data.sh status    # 查看状态
-  ./scripts/init-data.sh reset     # 重置数据
+  ./scripts/init-data.sh seed              # 初始化基础种子数据
+  ./scripts/init-data.sh seed --all       # 初始化所有数据
+  ./scripts/init-data.sh all              # 完整初始化
+  ./scripts/init-data.sh subsystems       # 仅初始化子系统
+  ./scripts/init-data.sh test-data        # 仅准备测试数据
+  ./scripts/init-data.sh verify           # 验证数据
+  ./scripts/init-data.sh status           # 查看状态
+  ./scripts/init-data.sh reset            # 重置数据
 
 注意:
   - 运行前请确保服务已启动
   - reset 操作会删除所有数据，请谨慎使用
+  - 子系统初始化需要相应服务运行
 
 EOF
 }
@@ -299,6 +390,28 @@ main() {
     case "$action" in
         seed|init)
             seed_data
+            # 初始化子系统数据（如果指定 --with-subsystems）
+            if [[ "$2" == "--with-subsystems" ]] || [[ "$2" == "--all" ]]; then
+                init_subsystem_data
+            fi
+            # 准备测试数据（如果指定 --with-test-data）
+            if [[ "$2" == "--with-test-data" ]] || [[ "$2" == "--all" ]]; then
+                prepare_test_data
+            fi
+            ;;
+        subsystems)
+            # 仅初始化子系统数据
+            init_subsystem_data
+            ;;
+        test-data)
+            # 仅准备测试数据
+            prepare_test_data
+            ;;
+        all|full)
+            # 完整初始化
+            seed_data
+            init_subsystem_data
+            prepare_test_data
             ;;
         verify|check)
             verify_data

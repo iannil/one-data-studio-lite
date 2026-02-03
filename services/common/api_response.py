@@ -97,14 +97,14 @@ class ErrorCode(IntEnum):
     MESSAGE_QUEUE_ERROR = 42003
 
     # 上游子系统错误
+    # 注意: 42104 (SHARDINGSPHERE_ERROR) 已移除，保留空缺以保持向后兼容
     SEATUNNEL_ERROR = 42100
     DATAHUB_ERROR = 42101  # 已废弃，保留向后兼容
     OPENMETADATA_ERROR = 42101  # OpenMetadata 使用相同错误码
     DOLPHINSCHEDULER_ERROR = 42102
     SUPERSET_ERROR = 42103
-    SHARDINGSPHERE_ERROR = 42104
-    HOP_ERROR = 42105
-    CUBE_STUDIO_ERROR = 42106
+    HOP_ERROR = 42104
+    CUBE_STUDIO_ERROR = 42105
 
     # 系统错误 (50000-59999)
     INTERNAL_ERROR = 50000
@@ -315,7 +315,6 @@ ERROR_MESSAGES: dict[int, str] = {
     ErrorCode.OPENMETADATA_ERROR: "元数据服务错误",
     ErrorCode.DOLPHINSCHEDULER_ERROR: "DolphinScheduler 服务错误",
     ErrorCode.SUPERSET_ERROR: "Superset 服务错误",
-    ErrorCode.SHARDINGSPHERE_ERROR: "ShardingSphere 服务错误",
     ErrorCode.HOP_ERROR: "Hop 服务错误",
     ErrorCode.CUBE_STUDIO_ERROR: "Cube-Studio 服务错误",
 

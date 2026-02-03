@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ONE-DATA-STUDIO-LITE - 平台服务管理脚本
-# 管理: OpenMetadata, Superset, DolphinScheduler, SeaTunnel, Hop, ShardingSphere
+# 管理: OpenMetadata, Superset, DolphinScheduler, SeaTunnel, Hop
 # 用法: ./scripts/platforms.sh <start|stop|status> [service]
 
 # 加载公共库
@@ -15,7 +15,6 @@ declare -a PLATFORMS=(
     "dolphinscheduler:${DEPLOY_DIR}/dolphinscheduler/docker-compose.yml:12345::120"
     "seatunnel:${DEPLOY_DIR}/seatunnel/docker-compose.yml:5802:/hazelcast/rest/cluster:90"
     "hop:${DEPLOY_DIR}/hop/docker-compose.yml:8083:/:60"
-    "shardingsphere:${DEPLOY_DIR}/shardingsphere/docker-compose.yml:3309::60"
 )
 
 # 可选平台（需要额外条件）
@@ -203,7 +202,6 @@ show_platform_status() {
             dolphinscheduler) container="ods-ds-api" ;;
             seatunnel) container="ods-seatunnel" ;;
             hop) container="ods-hop-server" ;;
-            shardingsphere) container="ods-shardingsphere" ;;
             cube-studio) container="ods-cube-studio" ;;
             *) container="ods-${name}" ;;
         esac
@@ -259,7 +257,6 @@ show_help() {
   dolphinscheduler  任务调度平台 (端口: 12345)
   seatunnel         数据同步引擎 (端口: 5802)
   hop               ETL 引擎 (端口: 8083)
-  shardingsphere    数据脱敏代理 (端口: 3309)
 
 选项:
   --no-wait           不等待服务就绪

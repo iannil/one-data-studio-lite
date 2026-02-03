@@ -129,7 +129,7 @@ cmd_logs() {
         echo ""
         echo "可用服务:"
         echo "  基础设施: mysql, redis, minio, etcd"
-        echo "  平台服务: openmetadata, superset, dolphinscheduler, seatunnel, hop, shardingsphere"
+        echo "  平台服务: openmetadata, superset, dolphinscheduler, seatunnel, hop"
         echo "  微服务:   portal, nl2sql, ai-cleaning, metadata-sync, data-api, sensitive-detect, audit-log"
         exit 1
     fi
@@ -157,9 +157,6 @@ cmd_logs() {
             ;;
         hop)
             container="ods-hop"
-            ;;
-        shardingsphere)
-            container="ods-shardingsphere"
             ;;
         *)
             container="$service"
@@ -210,7 +207,6 @@ cmd_info() {
   DolphinScheduler:   http://localhost:12345    (admin/dolphinscheduler123)
   Apache Hop:         http://localhost:8083
   SeaTunnel API:      http://localhost:5802
-  ShardingSphere:     localhost:3309            (root/one-data-studio-2024)
 
 二开服务 (后端):
   统一门户 Portal:    http://localhost:8010     (admin/admin123)

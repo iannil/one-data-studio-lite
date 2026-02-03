@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ONE-DATA-STUDIO-LITE - 生命周期测试脚本
 # 按数据生命周期顺序测试系统功能
-# 用法: ./scripts/test-lifecycle.sh [all|foundation|planning|collection|processing|analysis|security]
+# 用法: ./scripts/test-lifecycle.sh [all|foundation|planning|collection|processing|analysis|security] [python]
 
 # 加载公共库
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,6 +11,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 PORTAL_URL="http://localhost:8010"
 OPENMETADATA_URL="http://localhost:8585"
 SUPERSET_URL="http://localhost:8088"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+TESTS_DIR="${PROJECT_ROOT}/tests"
 
 # 测试结果
 TOTAL_TESTS=0
@@ -353,17 +355,7 @@ test_security() {
     local token
     token=$(get_admin_token)
 
-    echo "6.1 ShardingSphere 连通性测试"
-
-    # ShardingSphere 端口检查
-    if nc -z localhost 3309 2>/dev/null; then
-        test_case "ShardingSphere 服务连通" 0
-    else
-        test_case "ShardingSphere 服务连通" 1
-    fi
-
-    echo ""
-    echo "6.2 审计日志服务测试"
+    echo "6.1 审计日志服务测试"
 
     # 审计日志健康检查
     local audit_health
@@ -376,7 +368,7 @@ test_security() {
     fi
 
     echo ""
-    echo "6.3 权限边界测试"
+    echo "6.2 权限边界测试"
 
     # 测试无 Token 访问受保护 API
     local no_auth_resp
@@ -439,7 +431,7 @@ show_help() {
     show_header "test-lifecycle.sh" "生命周期测试脚本"
 
     cat << 'EOF'
-用法: ./scripts/test-lifecycle.sh [type]
+用法: ./scripts/test-lifecycle.sh [type] [python]
 
 测试类型:
   all           运行所有测试 (默认)
@@ -449,12 +441,17 @@ show_help() {
   collection    阶段3: 数据汇聚 (SeaTunnel、DolphinScheduler、Hop)
   processing    阶段4: 数据加工 (AI清洗、敏感检测、元数据同步)
   analysis      阶段5: 数据分析 (NL2SQL、Superset、数据API)
-  security      阶段6: 数据安全 (ShardingSphere、审计、权限)
+  security      阶段6: 数据安全 (敏感检测、审计、权限)
+
+附加选项:
+  python        运行Python测试（需要pytest）
+  -v, --verbose 详细输出
 
 示例:
-  ./scripts/test-lifecycle.sh                # 运行所有测试
+  ./scripts/test-lifecycle.sh                # 运行所有Bash测试
   ./scripts/test-lifecycle.sh foundation     # 仅测试系统基础
-  ./scripts/test-lifecycle.sh planning       # 仅测试数据规划
+  ./scripts/test-lifecycle.sh all python     # 运行所有Bash+Python测试
+  ./scripts/test-lifecycle.sh -v             # 详细输出
 
 退出码:
   0  所有测试通过
@@ -464,12 +461,103 @@ EOF
 }
 
 # ============================================================
+# Python 测试执行
+# ============================================================
+
+run_python_tests() {
+    local test_type="$1"
+    local verbose="$2"
+
+    log_section "运行Python测试: $test_type"
+
+    # 检查pytest是否安装
+    if ! command -v pytest &>/dev/null; then
+        log_warn "pytest 未安装，跳过Python测试"
+        log_info "安装: pip install pytest pytest-asyncio pytest-cov"
+        return 0
+    fi
+
+    # 确定测试文件模式
+    local test_pattern=""
+    case "$test_type" in
+        foundation|phase1)
+            test_pattern="tests/test_lifecycle/test_lf_01_foundation.py or tests/test_lifecycle/test_01_auth_init.py"
+            ;;
+        planning|phase2)
+            test_pattern="tests/test_lifecycle/test_lf_02_planning.py or tests/test_lifecycle/test_07_metadata_integration.py"
+            ;;
+        collection|phase3)
+            test_pattern="tests/test_lifecycle/test_lf_03_collection.py or tests/test_lifecycle/test_09_seatunnel_pipelines.py or tests/test_lifecycle/test_11_dolphinscheduler.py or tests/test_lifecycle/test_10_hop_etl.py"
+            ;;
+        processing|phase4)
+            test_pattern="tests/test_lifecycle/test_lf_04_processing.py or tests/test_lifecycle/test_17_ai_cleaning.py or tests/test_lifecycle/test_13_sensitive_detect.py or tests/test_lifecycle/test_08_metadata_sync.py"
+            ;;
+        analysis|phase5)
+            test_pattern="tests/test_lifecycle/test_lf_05_analysis.py or tests/test_lifecycle/test_16_nl2sql.py or tests/test_lifecycle/test_15_superset.py or tests/test_lifecycle/test_14_data_api.py"
+            ;;
+        security|phase6)
+            test_pattern="tests/test_lifecycle/test_lf_06_security.py or tests/test_lifecycle/test_13_sensitive_detect.py or tests/test_lifecycle/test_06_audit_logging.py"
+            ;;
+        all|lifecycle)
+            test_pattern="tests/test_lifecycle/test_lf_*.py"
+            ;;
+        *)
+            test_pattern="tests/test_lifecycle/test_lf_${test_type}.py"
+            ;;
+    esac
+
+    # 构建pytest命令
+    local pytest_cmd="pytest -v"
+    if [[ "$verbose" == "true" ]]; then
+        pytest_cmd="pytest -vv --tb=long"
+    fi
+
+    # 添加覆盖率选项
+    pytest_cmd="$pytest_cmd --cov=services --cov-report=term-missing --cov-report=html"
+
+    cd "$PROJECT_ROOT"
+
+    log_info "执行: $pytest_cmd $test_pattern"
+    eval "$pytest_cmd $test_pattern"
+
+    local py_result=$?
+    cd "$PROJECT_ROOT"
+
+    if [[ $py_result -eq 0 ]]; then
+        log_success "Python测试通过"
+    else
+        log_warn "Python测试有失败"
+    fi
+
+    return $py_result
+}
+
+# ============================================================
 # 主入口
 # ============================================================
 
 main() {
     local test_type="${1:-all}"
+    local run_python=false
+    local verbose=false
 
+    # 解析参数
+    shift
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            python|py)
+                run_python=true
+                ;;
+            -v|--verbose)
+                verbose=true
+                ;;
+            *)
+                ;;
+        esac
+        shift
+    done
+
+    # 运行Bash测试
     case "$test_type" in
         all|lifecycle)
             test_foundation
@@ -506,6 +594,7 @@ main() {
             ;;
         help|-h|--help)
             show_help
+            exit 0
             ;;
         *)
             log_error "未知测试类型: $test_type"
@@ -513,6 +602,12 @@ main() {
             exit 1
             ;;
     esac
+
+    # 运行Python测试（如果指定）
+    if [[ "$run_python" == "true" ]]; then
+        echo ""
+        run_python_tests "$test_type" "$verbose"
+    fi
 }
 
 main "$@"

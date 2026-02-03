@@ -1,0 +1,246 @@
+{
+  "pipelines": [
+    {
+      "name": "mysql_user_to_hive",
+      "description": "MySQL用户数据同步到Hive",
+      "env": {
+        "parallelism": 2,
+        "job.mode": "BATCH"
+      },
+      "source": {
+        "type": "Jdbc",
+        "result_table_name": "mysql_user",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "url": "jdbc:mysql://mysql:3306/marketing",
+        "user": "root",
+        "password": "test_root_password",
+        "query": "select id, username, email, phone, created_at from users where created_at >= '${bizdate}'",
+        "partition_column": "id",
+        "partition_num": 10
+      },
+      "transform": [
+        {
+          "type": "sql",
+          "query": "select id, username, lower(email) as email, phone, created_at from mysql_user"
+        }
+      ],
+      "sink": [
+        {
+          "type": "Hive",
+          "source_table_name": "mysql_user",
+          "sink_table_name": "ods.ods_user_info",
+          "save_mode": "overwrite",
+          "partition_by": ["pt"],
+          "partition_value": "${bizdate}",
+          "file_format": "parquet"
+        }
+      ]
+    },
+    {
+      "name": "mysql_order_to_hive",
+      "description": "MySQL订单数据同步到Hive",
+      "env": {
+        "parallelism": 3,
+        "job.mode": "BATCH"
+      },
+      "source": {
+        "type": "Jdbc",
+        "result_table_name": "mysql_order",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "url": "jdbc:mysql://mysql:3306/ecommerce",
+        "user": "root",
+        "password": "test_root_password",
+        "query": "select id, user_id, order_no, total_amount, discount_amount, pay_amount, order_status, pay_time, created_at from orders where created_at >= '${bizdate}'",
+        "partition_column": "id",
+        "partition_num": 20
+      },
+      "transform": [
+        {
+          "type": "Filter",
+          "plugin_input": "mysql_order",
+          "result_table_name": "filtered_order",
+          "fields": [
+            {"field": "order_status", "operator": "NOT_IN", "value": "[5]"}
+          ]
+        }
+      ],
+      "sink": [
+        {
+          "type": "Hive",
+          "source_table_name": "filtered_order",
+          "sink_table_name": "ods.ods_order_info",
+          "save_mode": "overwrite",
+          "partition_by": ["pt"],
+          "partition_value": "${bizdate}",
+          "file_format": "parquet"
+        }
+      ]
+    },
+    {
+      "name": "kafka_behavior_to_clickhouse",
+      "description": "Kafka用户行为数据实时同步到ClickHouse",
+      "env": {
+        "parallelism": 4,
+        "job.mode": "STREAMING",
+        "checkpoint.interval": 10000
+      },
+      "source": {
+        "type": "Kafka",
+        "result_table_name": "kafka_behavior",
+        "bootstrap.servers": "kafka:9092",
+        "topic": "user_behavior",
+        "format.type": "json",
+        "schema": "{\"type\":\"json\",\"fields\":{\"event_id\":\"string\",\"user_id\":\"string\",\"event_type\":\"string\",\"page_url\":\"string\",\"event_time\":\"timestamp\"}}"
+      },
+      "transform": [
+        {
+          "type": "sql",
+          "query": "select event_id, toUInt64(user_id) as user_id, event_type, page_url, toDateTime(event_time) as event_time from kafka_behavior"
+        }
+      ],
+      "sink": [
+        {
+          "type": "ClickHouse",
+          "source_table_name": "kafka_behavior",
+          "host": "clickhouse",
+          "port": 8123,
+          "database": "analytics",
+          "table": "user_behavior_events",
+          "save_mode": "append",
+          "primary_key": "event_id"
+        }
+      ]
+    },
+    {
+      "name": "mysql_product_to_doris",
+      "description": "MySQL商品数据同步到Doris",
+      "env": {
+        "parallelism": 2,
+        "job.mode": "BATCH"
+      },
+      "source": {
+        "type": "Jdbc",
+        "result_table_name": "mysql_product",
+        "driver": "com.mysql.cj.jdbc.Driver",
+        "url": "jdbc:mysql://mysql:3306/product",
+        "user": "root",
+        "password": "test_root_password",
+        "query": "select id, name, category_id, price, stock, status from products"
+      },
+      "sink": [
+        {
+          "type": "Doris",
+          "source_table_name": "mysql_product",
+          "fenodes": "doris:8030",
+          "database": "warehouse",
+          "table": "dim_product",
+          "username": "root",
+          "password": "",
+          "save_mode": "overwrite"
+        }
+      ]
+    },
+    {
+      "name": "hive_to_mysql_sync",
+      "description": "Hive聚合结果同步回MySQL",
+      "env": {
+        "parallelism": 1,
+        "job.mode": "BATCH"
+      },
+      "source": {
+        "type": "Hive",
+        "result_table_name": "hive_summary",
+        "table_name": "dws.dws_user_daily_summary",
+        "partition": "pt=${bizdate}"
+      },
+      "sink": [
+        {
+          "type": "Jdbc",
+          "source_table_name": "hive_summary",
+          "driver": "com.mysql.cj.jdbc.Driver",
+          "url": "jdbc:mysql://mysql:3306/warehouse",
+          "user": "root",
+          "password": "test_root_password",
+          "table": "user_daily_summary",
+          "save_mode": "append",
+          "batch_size": 1000
+        }
+      ]
+    },
+    {
+      "name": "kafka_to_hdfs_raw",
+      "description": "Kafka数据归档到HDFS",
+      "env": {
+        "parallelism": 2,
+        "job.mode": "STREAMING",
+        "checkpoint.interval": 60000
+      },
+      "source": {
+        "type": "Kafka",
+        "result_table_name": "kafka_raw",
+        "bootstrap.servers": "kafka:9092",
+        "topic": "raw_events",
+        "format.type": "json"
+      },
+      "sink": [
+        {
+          "type": "Hdfs",
+          "source_table_name": "kafka_raw",
+          "path": "/data/raw/events",
+          "file_format": "parquet",
+          "partition_by": ["date"],
+          "partition_date_format": "yyyyMMdd",
+          "save_mode": "append"
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "name": "mysql_to_hive_template",
+      "description": "MySQL到Hive同步模板",
+      "source_type": "Jdbc",
+      "sink_type": "Hive",
+      "parameters": [
+        {"name": "source_host", "type": "string", "default": "mysql"},
+        {"name": "source_port", "type": "int", "default": 3306},
+        {"name": "source_database", "type": "string"},
+        {"name": "source_table", "type": "string"},
+        {"name": "target_database", "type": "string"},
+        {"name": "target_table", "type": "string"},
+        {"name": "partition_column", "type": "string", "default": "id"},
+        {"name": "parallelism", "type": "int", "default": 2}
+      ]
+    },
+    {
+      "name": "kafka_to_clickhouse_template",
+      "description": "Kafka到ClickHouse实时同步模板",
+      "source_type": "Kafka",
+      "sink_type": "ClickHouse",
+      "parameters": [
+        {"name": "kafka_topic", "type": "string"},
+        {"name": "kafka_bootstrap_servers", "type": "string", "default": "kafka:9092"},
+        {"name": "clickhouse_host", "type": "string", "default": "clickhouse"},
+        {"name": "clickhouse_database", "type": "string"},
+        {"name": "clickhouse_table", "type": "string"},
+        {"name": "parallelism", "type": "int", "default": 4}
+      ]
+    },
+    {
+      "name": "jdbc_sync_template",
+      "description": "JDBC到JDBC通用同步模板",
+      "source_type": "Jdbc",
+      "sink_type": "Jdbc",
+      "parameters": [
+        {"name": "source_url", "type": "string"},
+        {"name": "source_driver", "type": "string"},
+        {"name": "source_table", "type": "string"},
+        {"name": "source_query", "type": "string", "default": ""},
+        {"name": "sink_url", "type": "string"},
+        {"name": "sink_driver", "type": "string"},
+        {"name": "sink_table", "type": "string"},
+        {"name": "batch_size", "type": "int", "default": 1000}
+      ]
+    }
+  ]
+}

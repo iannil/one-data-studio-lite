@@ -1,0 +1,592 @@
+{
+  "databases": [
+    {
+      "name": "retail_mysql",
+      "serviceType": "mysql",
+      "description": "零售业务MySQL数据库",
+      "connection": {
+        "host": "mysql",
+        "port": 3306,
+        "database": "demo_retail_db"
+      },
+      "tables": [
+        {
+          "name": "ods_user_info",
+          "displayName": "用户信息原始表",
+          "description": "ODS层用户基础信息表，包含用户基本信息",
+          "dataLayer": "ODS",
+          "columns": [
+            {
+              "name": "user_id",
+              "dataType": "BIGINT",
+              "description": "用户唯一标识",
+              "nullable": false,
+              "tags": ["PRIMARY_KEY", "PK"]
+            },
+            {
+              "name": "username",
+              "dataType": "VARCHAR(50)",
+              "description": "用户名",
+              "nullable": false,
+              "tags": ["PII"]
+            },
+            {
+              "name": "phone",
+              "dataType": "VARCHAR(20)",
+              "description": "手机号码",
+              "nullable": true,
+              "tags": ["PII", "SENSITIVE", "HIGH", "PHONE"]
+            },
+            {
+              "name": "email",
+              "dataType": "VARCHAR(100)",
+              "description": "邮箱地址",
+              "nullable": true,
+              "tags": ["PII", "SENSITIVE", "MEDIUM", "EMAIL"]
+            },
+            {
+              "name": "id_card",
+              "dataType": "VARCHAR(18)",
+              "description": "身份证号码",
+              "nullable": true,
+              "tags": ["PII", "SENSITIVE", "CRITICAL", "ID_CARD"]
+            },
+            {
+              "name": "real_name",
+              "dataType": "VARCHAR(50)",
+              "description": "真实姓名",
+              "nullable": true,
+              "tags": ["PII", "SENSITIVE", "HIGH"]
+            },
+            {
+              "name": "gender",
+              "dataType": "TINYINT",
+              "description": "性别 0-未知 1-男 2-女",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "birthday",
+              "dataType": "DATE",
+              "description": "生日",
+              "nullable": true,
+              "tags": ["PII"]
+            },
+            {
+              "name": "province_code",
+              "dataType": "VARCHAR(10)",
+              "description": "省份编码",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "city_code",
+              "dataType": "VARCHAR(10)",
+              "description": "城市编码",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "register_source",
+              "dataType": "VARCHAR(20)",
+              "description": "注册来源",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "status",
+              "dataType": "TINYINT",
+              "description": "用户状态 1-正常 0-禁用",
+              "nullable": false,
+              "tags": []
+            },
+            {
+              "name": "created_at",
+              "dataType": "TIMESTAMP",
+              "description": "创建时间",
+              "nullable": false,
+              "tags": ["SYSTEM"]
+            },
+            {
+              "name": "updated_at",
+              "dataType": "TIMESTAMP",
+              "description": "更新时间",
+              "nullable": true,
+              "tags": ["SYSTEM"]
+            }
+          ]
+        },
+        {
+          "name": "ods_order_info",
+          "displayName": "订单信息原始表",
+          "description": "ODS层订单信息表",
+          "dataLayer": "ODS",
+          "columns": [
+            {
+              "name": "order_id",
+              "dataType": "BIGINT",
+              "description": "订单ID",
+              "nullable": false,
+              "tags": ["PRIMARY_KEY", "PK"]
+            },
+            {
+              "name": "user_id",
+              "dataType": "BIGINT",
+              "description": "用户ID",
+              "nullable": false,
+              "tags": ["FOREIGN_KEY", "FK"]
+            },
+            {
+              "name": "order_no",
+              "dataType": "VARCHAR(32)",
+              "description": "订单编号",
+              "nullable": false,
+              "tags": []
+            },
+            {
+              "name": "total_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "订单总金额",
+              "nullable": false,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "discount_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "优惠金额",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "pay_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "实付金额",
+              "nullable": false,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "order_status",
+              "dataType": "TINYINT",
+              "description": "订单状态 1-待支付 2-已支付 3-已发货 4-已完成 5-已取消",
+              "nullable": false,
+              "tags": ["DIMENSION"]
+            },
+            {
+              "name": "pay_time",
+              "dataType": "TIMESTAMP",
+              "description": "支付时间",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "created_at",
+              "dataType": "TIMESTAMP",
+              "description": "创建时间",
+              "nullable": false,
+              "tags": ["SYSTEM"]
+            }
+          ]
+        },
+        {
+          "name": "dwd_user_profile",
+          "displayName": "用户画像明细表",
+          "description": "DWD层用户画像明细数据",
+          "dataLayer": "DWD",
+          "columns": [
+            {
+              "name": "user_id",
+              "dataType": "BIGINT",
+              "description": "用户ID",
+              "nullable": false,
+              "tags": ["PRIMARY_KEY", "PK"]
+            },
+            {
+              "name": "user_level",
+              "dataType": "TINYINT",
+              "description": "用户等级",
+              "nullable": true,
+              "tags": ["DIMENSION"]
+            },
+            {
+              "name": "preference_tags",
+              "dataType": "VARCHAR(500)",
+              "description": "偏好标签 JSON",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "last_login_time",
+              "dataType": "TIMESTAMP",
+              "description": "最后登录时间",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "total_orders",
+              "dataType": "INT",
+              "description": "累计订单数",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "total_spent",
+              "dataType": "DECIMAL(12,2)",
+              "description": "累计消费金额",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "avg_order_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "平均订单金额",
+              "nullable": true,
+              "tags": ["METRIC"]
+            }
+          ]
+        },
+        {
+          "name": "dws_user_daily_summary",
+          "displayName": "用户日汇总表",
+          "description": "DWS层用户日汇总数据",
+          "dataLayer": "DWS",
+          "columns": [
+            {
+              "name": "id",
+              "dataType": "BIGINT",
+              "description": "主键ID",
+              "nullable": false,
+              "tags": ["PRIMARY_KEY", "PK"]
+            },
+            {
+              "name": "user_id",
+              "dataType": "BIGINT",
+              "description": "用户ID",
+              "nullable": false,
+              "tags": ["FOREIGN_KEY", "FK"]
+            },
+            {
+              "name": "stat_date",
+              "dataType": "DATE",
+              "description": "统计日期",
+              "nullable": false,
+              "tags": ["DIMENSION", "PARTITION"]
+            },
+            {
+              "name": "login_count",
+              "dataType": "INT",
+              "description": "登录次数",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "order_count",
+              "dataType": "INT",
+              "description": "下单次数",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "order_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "下单金额",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "page_views",
+              "dataType": "INT",
+              "description": "页面浏览量",
+              "nullable": true,
+              "tags": ["METRIC"]
+            }
+          ]
+        },
+        {
+          "name": "ads_daily_sales_report",
+          "displayName": "每日销售报表",
+          "description": "ADS层每日销售数据报表",
+          "dataLayer": "ADS",
+          "columns": [
+            {
+              "name": "report_date",
+              "dataType": "DATE",
+              "description": "报表日期",
+              "nullable": false,
+              "tags": ["DIMENSION", "PARTITION"]
+            },
+            {
+              "name": "total_orders",
+              "dataType": "INT",
+              "description": "总订单数",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "total_users",
+              "dataType": "INT",
+              "description": "下单用户数",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "total_gmv",
+              "dataType": "DECIMAL(12,2)",
+              "description": "总GMV",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "avg_order_amount",
+              "dataType": "DECIMAL(10,2)",
+              "description": "平均订单金额",
+              "nullable": true,
+              "tags": ["METRIC"]
+            },
+            {
+              "name": "pay_rate",
+              "dataType": "DECIMAL(5,4)",
+              "description": "支付转化率",
+              "nullable": true,
+              "tags": ["METRIC"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "analytics_clickhouse",
+      "serviceType": "clickhouse",
+      "description": "分析型ClickHouse数据库",
+      "connection": {
+        "host": "clickhouse",
+        "port": 8123,
+        "database": "analytics"
+      },
+      "tables": [
+        {
+          "name": "user_behavior_events",
+          "displayName": "用户行为事件表",
+          "description": "用户行为埋点事件数据",
+          "dataLayer": "ODS",
+          "columns": [
+            {
+              "name": "event_id",
+              "dataType": "String",
+              "description": "事件ID",
+              "nullable": false,
+              "tags": ["PRIMARY_KEY"]
+            },
+            {
+              "name": "user_id",
+              "dataType": "UInt64",
+              "description": "用户ID",
+              "nullable": true,
+              "tags": ["FOREIGN_KEY"]
+            },
+            {
+              "name": "event_type",
+              "dataType": "String",
+              "description": "事件类型",
+              "nullable": false,
+              "tags": ["DIMENSION"]
+            },
+            {
+              "name": "page_url",
+              "dataType": "String",
+              "description": "页面URL",
+              "nullable": true,
+              "tags": ["PII"]
+            },
+            {
+              "name": "referrer",
+              "dataType": "String",
+              "description": "来源页面",
+              "nullable": true,
+              "tags": []
+            },
+            {
+              "name": "event_time",
+              "dataType": "DateTime",
+              "description": "事件时间",
+              "nullable": false,
+              "tags": ["SYSTEM", "PARTITION"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "classifications": [
+    {
+      "name": "PII",
+      "description": "Personal Identifiable Information - 个人身份信息",
+      "category": "SECURITY",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "SENSITIVE",
+      "description": "Sensitive Data - 敏感数据",
+      "category": "SECURITY",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "HIGH",
+      "description": "High Sensitivity - 高敏感度",
+      "category": "SECURITY",
+      "mutability": "MUTABLE",
+      "parents": ["SENSITIVE"]
+    },
+    {
+      "name": "MEDIUM",
+      "description": "Medium Sensitivity - 中敏感度",
+      "category": "SECURITY",
+      "mutability": "MUTABLE",
+      "parents": ["SENSITIVE"]
+    },
+    {
+      "name": "CRITICAL",
+      "description": "Critical Sensitivity - 关键敏感度",
+      "category": "SECURITY",
+      "mutability": "MUTABLE",
+      "parents": ["SENSITIVE"]
+    },
+    {
+      "name": "PHONE",
+      "description": "Phone Number - 手机号码",
+      "category": "PII",
+      "mutability": "MUTABLE",
+      "parents": ["PII"]
+    },
+    {
+      "name": "EMAIL",
+      "description": "Email Address - 邮箱地址",
+      "category": "PII",
+      "mutability": "MUTABLE",
+      "parents": ["PII"]
+    },
+    {
+      "name": "ID_CARD",
+      "description": "ID Card Number - 身份证号",
+      "category": "PII",
+      "mutability": "MUTABLE",
+      "parents": ["PII", "CRITICAL"]
+    },
+    {
+      "name": "ODS",
+      "description": "Operational Data Store - 原始数据层",
+      "category": "DATA_LAYER",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "DWD",
+      "description": "Data Warehouse Detail - 明细数据层",
+      "category": "DATA_LAYER",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "DWS",
+      "description": "Data Warehouse Service - 汇总数据层",
+      "category": "DATA_LAYER",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "ADS",
+      "description": "Application Data Service - 应用数据层",
+      "category": "DATA_LAYER",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "SYSTEM",
+      "description": "System Field - 系统字段",
+      "category": "FIELD_TYPE",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "METRIC",
+      "description": "Metric Field - 指标字段",
+      "category": "FIELD_TYPE",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "DIMENSION",
+      "description": "Dimension Field - 维度字段",
+      "category": "FIELD_TYPE",
+      "mutability": "MUTABLE",
+      "parents": []
+    },
+    {
+      "name": "PARTITION",
+      "description": "Partition Key - 分区键",
+      "category": "FIELD_TYPE",
+      "mutability": "MUTABLE",
+      "parents": ["DIMENSION"]
+    }
+  ],
+  "tags": [
+    {
+      "name": "核心业务表",
+      "description": "Core Business Table",
+      "tagType": "descriptor"
+    },
+    {
+      "name": "用户域",
+      "description": "User Domain",
+      "tagType": "descriptor"
+    },
+    {
+      "name": "订单域",
+      "description": "Order Domain",
+      "tagType": "descriptor"
+    },
+    {
+      "name": "商品域",
+      "description": "Product Domain",
+      "tagType": "descriptor"
+    },
+    {
+      "name": "营销域",
+      "description": "Marketing Domain",
+      "tagType": "descriptor"
+    }
+  ],
+  "glossary_terms": [
+    {
+      "name": "DAU",
+      "description": "Daily Active Users - 日活跃用户数",
+      "synonyms": ["日活", "每日活跃用户"]
+    },
+    {
+      "name": "MAU",
+      "description": "Monthly Active Users - 月活跃用户数",
+      "synonyms": ["月活", "每月活跃用户"]
+    },
+    {
+      "name": "GMV",
+      "description": "Gross Merchandise Value - 商品交易总额",
+      "synonyms": ["交易总额", "成交金额"]
+    },
+    {
+      "name": "ARPU",
+      "description": "Average Revenue Per User - 每用户平均收入",
+      "synonyms": ["人均收入"]
+    },
+    {
+      "name": "LTV",
+      "description": "Lifetime Value - 用户生命周期价值",
+      "synonyms": ["生命周期价值", "客户终身价值"]
+    },
+    {
+      "name": "CAC",
+      "description": "Customer Acquisition Cost - 获客成本",
+      "synonyms": ["获客成本", "用户获取成本"]
+    }
+  ]
+}

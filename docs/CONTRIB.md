@@ -1,7 +1,7 @@
 # 贡献者指南 (CONTRIBUTING)
 
-**更新日期**: 2026-02-02
-**版本**: 1.0
+**更新日期**: 2026-02-03
+**版本**: 1.1
 
 本文档为 ONE-DATA-STUDIO-LITE 项目的开发者提供开发工作流程、可用脚本、环境配置和测试程序的完整参考。
 
@@ -135,60 +135,151 @@ make network
 
 ### 环境变量说明
 
-#### 必需配置
+完整的环境变量配置请参考项目根目录下的 `.env.example` 文件。
 
-| 变量名 | 说明 | 示例值 | 默认值 |
-|-------|------|--------|--------|
-| `DATABASE_URL` | 数据库连接字符串 | `mysql+aiomysql://root:pass@localhost:3306/ods` | - |
-| `JWT_SECRET` | JWT 签名密钥 | 随机32字符字符串 | - |
-| `ENVIRONMENT` | 运行环境 | `development` / `production` | `development` |
-
-#### 可选配置
+#### 通用配置 (必须设置)
 
 | 变量名 | 说明 | 示例值 |
 |-------|------|--------|
-| `LLM_BASE_URL` | LLM 服务地址 | `http://localhost:31434` |
-| `LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
-| `SMTP_ENABLED` | 启用邮件服务 | `true` / `false` |
-| `ENABLE_CONFIG_CENTER` | 启用 etcd 配置中心 | `true` / `false` |
+| `DATABASE_URL` | 数据库连接字符串 | `mysql+aiomysql://root:password@localhost:3306/one_data_studio` |
+| `MYSQL_PASSWORD` | MySQL 密码 | `your_secure_password` |
+| `MYSQL_HOST` | MySQL 主机 | `localhost` |
+| `MYSQL_PORT` | MySQL 端口 | `3306` |
+| `MYSQL_DATABASE` | MySQL 数据库名 | `one_data_warehouse` |
+| `MYSQL_USERNAME` | MySQL 用户名 | `root` |
+| `JWT_SECRET` | JWT 签名密钥 (至少32字符) | 随机安全字符串 |
 
-#### 子系统地址配置
+#### 子系统地址
 
 | 变量名 | 说明 | 默认值 |
 |-------|------|--------|
-| `PORTAL_DATAHUB_URL` | DataHub Web UI | `http://localhost:9002` |
-| `PORTAL_DATAHUB_GMS_URL` | DataHub GMS API | `http://localhost:8081` |
-| `PORTAL_SUPERSET_URL` | Superset | `http://localhost:8088` |
-| `PORTAL_DOLPHINSCHEDULER_URL` | DolphinScheduler | `http://localhost:12345` |
-| `PORTAL_SEATUNNEL_URL` | SeaTunnel | `http://localhost:5802` |
+| `CUBE_STUDIO_URL` | Cube-Studio 地址 | `http://localhost:30080` |
+| `SUPERSET_URL` | Superset 地址 | `http://localhost:8088` |
+| `SUPERSET_SECRET_KEY` | Superset 密钥 | 需修改生产密钥 |
+| `SUPERSET_DATABASE_URI` | Superset 数据库连接 | `mysql+pymysql://root:pass@localhost:3306/superset` |
+| `SUPERSET_ADMIN_PASSWORD` | Superset 管理员密码 | `changeme` |
+| `DATAHUB_GMS_URL` | DataHub GMS API | `http://localhost:8081` |
+| `DATAHUB_TOKEN` | DataHub Token | 需修改生产 Token |
+| `DOLPHINSCHEDULER_API_URL` | DolphinScheduler API | `http://localhost:12345/dolphinscheduler` |
+| `DOLPHINSCHEDULER_TOKEN` | DolphinScheduler Token | 需修改生产 Token |
+| `SEATUNNEL_API_URL` | SeaTunnel API | `http://localhost:5801` |
+
+#### 邮件服务配置 (SMTP)
+
+| 变量名 | 说明 | 默认值 |
+|-------|------|--------|
+| `SMTP_ENABLED` | 启用邮件服务 | `false` |
+| `SMTP_HOST` | SMTP 服务器 | `smtp.example.com` |
+| `SMTP_PORT` | SMTP 端口 | `587` |
+| `SMTP_USERNAME` | SMTP 用户名 | - |
+| `SMTP_PASSWORD` | SMTP 密码 | - |
+| `SMTP_FROM_EMAIL` | 发件人邮箱 | `noreply@one-data-studio.local` |
+| `SMTP_FROM_NAME` | 发件人名称 | `ONE-DATA-STUDIO-LITE` |
+| `SMTP_USE_TLS` | 使用 TLS | `true` |
+| `SMTP_TIMEOUT` | 连接超时(秒) | `30` |
+
+#### LLM 配置
+
+| 变量名 | 说明 | 默认值 |
+|-------|------|--------|
+| `LLM_BASE_URL` | LLM 服务地址 | `http://localhost:31434` |
+| `LLM_MODEL` | LLM 模型名称 | `qwen2.5:7b` |
+| `LLM_TEMPERATURE` | LLM 温度参数 | `0.1` |
+| `LLM_MAX_TOKENS` | LLM 最大 Token 数 | `2048` |
+
+#### 审计日志
+
+| 变量名 | 说明 | 默认值 |
+|-------|------|--------|
+| `AUDIT_LOG_URL` | 审计日志服务 | `http://localhost:8016/api/audit/log` |
+| `AUDIT_LOG_RETENTION_DAYS` | 日志保留天数 | `90` |
+
+#### 各服务独立配置
+
+各服务可以通过特定环境变量覆盖默认配置：
+
+| 服务 | 端口变量 | 数据库变量 |
+|------|---------|----------|
+| Portal | `PORTAL_APP_PORT=8010` | `PORTAL_DATABASE_URL` |
+| NL2SQL | `NL2SQL_APP_PORT=8011` | `NL2SQL_DATABASE_URL` |
+| AI Cleaning | `AI_CLEAN_APP_PORT=8012` | `AI_CLEAN_DATABASE_URL` |
+| Metadata Sync | `META_SYNC_APP_PORT=8013` | `META_SYNC_DATABASE_URL` |
+| Data API | `DATA_API_APP_PORT=8014` | `DATA_API_DATABASE_URL` |
+| Sensitive Detect | `SENSITIVE_APP_PORT=8015` | `SENSITIVE_DATABASE_URL` |
+| Audit Log | `AUDIT_APP_PORT=8016` | `AUDIT_DATABASE_URL` |
 
 ---
 
 ## 可用脚本
 
+### 统一运维入口 (ods.sh)
+
+`ods.sh` 是项目的统一运维入口脚本，支持所有服务的管理操作。
+
+#### 启动服务
+
+| 命令 | 说明 |
+|------|------|
+| `./ods.sh start all` | 启动所有服务 |
+| `./ods.sh start infra` | 启动基础设施 (MySQL, Redis, MinIO, etcd) |
+| `./ods.sh start platforms` | 启动第三方平台 (OpenMetadata, Superset等) |
+| `./ods.sh start services` | 启动后端微服务 |
+| `./ods.sh start web` | 启动前端开发服务器 |
+
+#### 停止服务
+
+| 命令 | 说明 |
+|------|------|
+| `./ods.sh stop all` | 停止所有服务 |
+| `./ods.sh stop infra` | 停止基础设施 |
+| `./ods.sh stop platforms` | 停止第三方平台 |
+| `./ods.sh stop services` | 停止后端微服务 |
+| `./ods.sh stop web` | 停止前端 |
+
+#### 状态与健康检查
+
+| 命令 | 说明 |
+|------|------|
+| `./ods.sh status all` | 查看所有服务状态 |
+| `./ods.sh health all` | 健康检查 |
+| `./ods.sh health infra` | 基础设施健康检查 |
+| `./ods.sh health platforms` | 平台服务健康检查 |
+| `./ods.sh health services` | 微服务健康检查 |
+| `./ods.sh info` | 显示访问地址 |
+
+#### 数据操作
+
+| 命令 | 说明 |
+|------|------|
+| `./ods.sh init-data seed` | 初始化种子数据 |
+| `./ods.sh init-data verify` | 验证数据完整性 |
+| `./ods.sh init-data status` | 显示数据状态 |
+
+#### 测试
+
+| 命令 | 说明 |
+|------|------|
+| `./ods.sh test all` | 运行所有测试 |
+| `./ods.sh test lifecycle` | 按生命周期顺序测试 |
+| `./ods.sh test foundation` | 测试系统基础功能 |
+| `./ods.sh test planning` | 测试数据规划功能 |
+| `./ods.sh test collection` | 测试数据汇聚功能 |
+| `./ods.sh test processing` | 测试数据加工功能 |
+| `./ods.sh test analysis` | 测试数据分析功能 |
+| `./ods.sh test security` | 测试数据安全功能 |
+
 ### Makefile 命令
 
-#### 部署命令
+#### 基础命令
 
 | 命令 | 说明 |
 |------|------|
 | `make help` | 显示所有可用命令 |
-| `make deploy` | 一键部署所有组件 |
+| `make start` | 启动所有服务 |
 | `make stop` | 停止所有服务 |
 | `make status` | 查看服务状态 |
 | `make info` | 显示访问地址 |
-
-#### 全量启动
-
-| 命令 | 说明 |
-|------|------|
-| `make start-all` | 启动所有服务 (平台+后端+前端) |
-| `make start-platforms` | 仅启动第三方平台 |
-| `make start-services` | 仅启动后端微服务 |
-| `make start-web` | 仅启动前端开发服务器 |
-| `make start-dev` | 本地开发模式 (不用Docker) |
-| `make stop-all` | 停止所有服务 |
-| `make status-all` | 查看所有服务状态 |
+| `make health` | 健康检查 |
 | `make network` | 创建 Docker 网络 |
 
 #### 二开服务
@@ -211,7 +302,6 @@ make network
 | `make dolphinscheduler-down` | 停止 DolphinScheduler |
 | `make seatunnel-up` | 启动 SeaTunnel |
 | `make hop-up` | 启动 Apache Hop |
-| `make shardingsphere-up` | 启动 ShardingSphere |
 | `make cube-studio-up` | 启动 Cube-Studio |
 | `make cube-studio-down` | 停止 Cube-Studio |
 | `make cube-studio-logs` | 查看 Cube-Studio 日志 |

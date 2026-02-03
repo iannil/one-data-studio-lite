@@ -10,19 +10,33 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # 基础设施 Docker Compose 文件
 INFRA_COMPOSE="${DEPLOY_DIR}/test-env/docker-compose.yml"
 
-# 服务配置
-declare -A INFRA_SERVICES=(
-    ["mysql"]="3306:MySQL 数据库"
-    ["redis"]="6379:Redis 缓存"
-    ["minio"]="9000:MinIO 对象存储"
-)
+# 服务配置函数 (替代关联数组，兼容 bash 3.x)
+get_service_port() {
+    case "$1" in
+        mysql) echo "3306" ;;
+        redis) echo "6379" ;;
+        minio) echo "9000" ;;
+        *) echo "" ;;
+    esac
+}
 
-# 健康检查配置
-declare -A HEALTH_CHECKS=(
-    ["mysql"]="mysqladmin ping -h localhost -u root -ptest_root_password"
-    ["redis"]="redis-cli ping"
-    ["minio"]="curl -sf http://localhost:9000/minio/health/live"
-)
+get_service_desc() {
+    case "$1" in
+        mysql) echo "MySQL 数据库" ;;
+        redis) echo "Redis 缓存" ;;
+        minio) echo "MinIO 对象存储" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_health_check_cmd() {
+    case "$1" in
+        mysql) echo "mysqladmin ping -h localhost -u root -ptest_root_password" ;;
+        redis) echo "redis-cli ping" ;;
+        minio) echo "curl -sf http://localhost:9000/minio/health/live" ;;
+        *) echo "" ;;
+    esac
+}
 
 # ============================================================
 # 启动基础设施
@@ -42,7 +56,7 @@ start_infra() {
     compose_content=$(cat << 'COMPOSE_EOF'
 networks:
   ods-network:
-    driver: bridge
+    external: true
     name: ods-network
 
 volumes:

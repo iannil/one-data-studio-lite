@@ -6,7 +6,9 @@
 [[ -n "${_ODS_COMMON_LOADED:-}" ]] && return
 _ODS_COMMON_LOADED=1
 
-set -euo pipefail
+# 注意: 为兼容 macOS bash 3.2，不使用 -u (nounset) 选项
+# 建议在 Linux 上使用 bash 4.x+ 或通过 brew 安装新版 bash
+set -eo pipefail
 
 # ============================================================
 # 颜色定义
@@ -23,7 +25,9 @@ export NC='\033[0m'
 # ============================================================
 # 目录配置
 # ============================================================
-SCRIPT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 兼容 bash 和 zsh
+_SCRIPT_SOURCE="${BASH_SOURCE[0]:-${ZSH_VERSION:+$0}}"
+SCRIPT_LIB_DIR="$(cd "$(dirname "${_SCRIPT_SOURCE}")" && pwd)"
 export PROJECT_ROOT="$(cd "${SCRIPT_LIB_DIR}/../.." && pwd)"
 export DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 export SERVICES_DIR="${PROJECT_ROOT}/services"
@@ -372,4 +376,4 @@ show_services_status() {
 # ============================================================
 
 # 确保日志目录存在
-ensure_dir "$LOGS_DIR"
+ensure_dir "$LOGS_DIR" || true

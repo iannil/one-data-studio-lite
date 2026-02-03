@@ -141,7 +141,7 @@ export const getReport = async (reportId: string): Promise<SensitiveScanReport> 
  * 工作流程：
  * 1. 扫描表，识别敏感字段
  * 2. 根据敏感类型匹配脱敏算法
- * 3. 调用 ShardingSphere API 创建脱敏规则
+ * 3. 保存脱敏规则到数据库（供导出或使用）
  */
 export const scanAndApply = async (
   request: ScanAndApplyRequest

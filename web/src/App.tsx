@@ -48,7 +48,6 @@ import AssetDetail from './pages/Assets/AssetDetail';
 import Search from './pages/Assets/Search';
 
 // Security (安全与权限)
-import MaskRules from './pages/Security/MaskRules';
 import Sensitive from './pages/Security/Sensitive';
 import Permissions from './pages/Security/Permissions';
 import Sso from './pages/Security/Sso';
@@ -142,7 +141,6 @@ function App() {
             <Route path="security/permissions" element={<Permissions />} />
             <Route path="security/sso" element={<Sso />} />
             <Route path="security/sensitive" element={<Sensitive />} />
-            <Route path="security/mask-rules" element={<MaskRules />} />
 
             {/* 统一支撑 */}
             <Route path="support/announcements" element={<Announcements />} />

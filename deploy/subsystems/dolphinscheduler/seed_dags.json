@@ -1,0 +1,320 @@
+{
+  "projects": [
+    {
+      "code": "retail_etl",
+      "name": "零售数据ETL项目",
+      "description": "零售业务数据ETL处理项目"
+    },
+    {
+      "code": "data_warehouse",
+      "name": "数据仓库项目",
+      "description": "企业级数据仓库建设"
+    },
+    {
+      "code": "realtime_sync",
+      "name": "实时同步项目",
+      "description": "实时数据同步与处理"
+    }
+  ],
+  "workflows": [
+    {
+      "name": "daily_user_data_sync",
+      "description": "每日用户数据同步",
+      "project": "retail_etl",
+      "schedule": "0 2 * * *",
+      "schedule_type": "CRON",
+      "timezone": "Asia/Shanghai",
+      "tasks": [
+        {
+          "name": "extract_mysql_user",
+          "type": "SEATUNNEL",
+          "description": "从MySQL抽取用户数据",
+          "task_params": {
+            "source": {
+              "type": "mysql",
+              "host": "mysql",
+              "port": 3306,
+              "database": "marketing",
+              "table": "users"
+            },
+            "sink": {
+              "type": "hdfs",
+              "path": "/data/ods/users",
+              "format": "parquet"
+            }
+          },
+          "timeout": {
+            "strategy": "FAILURE",
+            "interval": 3600
+          }
+        },
+        {
+          "name": "clean_user_data",
+          "type": "HOP",
+          "description": "清洗用户数据",
+          "task_params": {
+            "transformation": {
+              "remove_duplicates": true,
+              "null_handling": "remove",
+              "standardize_phone": true
+            }
+          },
+          "timeout": {
+            "strategy": "FAILURE",
+            "interval": 1800
+          }
+        },
+        {
+          "name": "quality_check_user",
+          "type": "DATA_QUALITY",
+          "description": "用户数据质量检查",
+          "task_params": {
+            "rules": [
+              {
+                "column": "user_id",
+                "rule": "not_null",
+                "threshold": 0
+              },
+              {
+                "column": "phone",
+                "rule": "format_check",
+                "pattern": "^1[3-9]\\d{9}$",
+                "threshold": 0.95
+              }
+            ]
+          },
+          "timeout": {
+            "strategy": "WARNING",
+            "interval": 600
+          }
+        },
+        {
+          "name": "load_to_warehouse",
+          "type": "SQL",
+          "description": "加载到数据仓库",
+          "task_params": {
+            "datasource": "hive",
+            "sql": "INSERT OVERWRITE TABLE dwd.dwd_user_info PARTITION(pt='${bizdate}') SELECT * FROM ods.ods_user_info WHERE pt='${bizdate}'"
+          },
+          "timeout": {
+            "strategy": "FAILURE",
+            "interval": 3600
+          }
+        }
+      ],
+      "task_relations": [
+        {"pre_task": "extract_mysql_user", "post_task": "clean_user_data"},
+        {"pre_task": "clean_user_data", "post_task": "quality_check_user"},
+        {"pre_task": "quality_check_user", "post_task": "load_to_warehouse"}
+      ]
+    },
+    {
+      "name": "daily_order_process",
+      "description": "每日订单数据处理",
+      "project": "retail_etl",
+      "schedule": "0 3 * * *",
+      "schedule_type": "CRON",
+      "timezone": "Asia/Shanghai",
+      "tasks": [
+        {
+          "name": "extract_order_data",
+          "type": "SEATUNNEL",
+          "description": "抽取订单数据",
+          "task_params": {
+            "source": {
+              "type": "mysql",
+              "host": "mysql",
+              "port": 3306,
+              "database": "ecommerce",
+              "table": "orders"
+            },
+            "sink": {
+              "type": "hdfs",
+              "path": "/data/ods/orders",
+              "format": "parquet"
+            }
+          }
+        },
+        {
+          "name": "order_aggregation",
+          "type": "SQL",
+          "description": "订单数据聚合",
+          "task_params": {
+            "datasource": "hive",
+            "sql": "INSERT OVERWRITE TABLE dws.dws_user_daily_order SELECT user_id, COUNT(*) as order_cnt, SUM(amount) as order_amt FROM ods.ods_order_info WHERE pt='${bizdate}' GROUP BY user_id"
+          }
+        },
+        {
+          "name": "update_user_profile",
+          "type": "PROCEDURE",
+          "description": "更新用户画像",
+          "task_params": {
+            "procedure_name": "sp_update_user_profile",
+            "parameters": [
+              {"name": "bizdate", "value": "${bizdate}"}
+            ]
+          }
+        }
+      ],
+      "task_relations": [
+        {"pre_task": "extract_order_data", "post_task": "order_aggregation"},
+        {"pre_task": "order_aggregation", "post_task": "update_user_profile"}
+      ]
+    },
+    {
+      "name": "realtime_behavior_collection",
+      "description": "实时用户行为数据采集",
+      "project": "realtime_sync",
+      "schedule": "continuous",
+      "schedule_type": "STREAM",
+      "timezone": "Asia/Shanghai",
+      "tasks": [
+        {
+          "name": "kafka_to_clickhouse",
+          "type": "SEATUNNEL_STREAM",
+          "description": "Kafka到ClickHouse实时同步",
+          "task_params": {
+            "source": {
+              "type": "kafka",
+              "topic": "user_behavior",
+              "bootstrap_servers": "kafka:9092"
+            },
+            "sink": {
+              "type": "clickhouse",
+              "host": "clickhouse",
+              "port": 8123,
+              "database": "analytics",
+              "table": "user_behavior_events"
+            }
+          }
+        }
+      ],
+      "task_relations": []
+    },
+    {
+      "name": "weekly_data_quality_report",
+      "description": "每周数据质量报告生成",
+      "project": "data_warehouse",
+      "schedule": "0 4 * * 1",
+      "schedule_type": "CRON",
+      "timezone": "Asia/Shanghai",
+      "tasks": [
+        {
+          "name": "check_data_completeness",
+          "type": "SHELL",
+          "description": "检查数据完整性",
+          "task_params": {
+            "script": "/scripts/check_data_completeness.sh"
+          }
+        },
+        {
+          "name": "generate_quality_report",
+          "type": "SQL",
+          "description": "生成质量报告",
+          "task_params": {
+            "datasource": "mysql",
+            "sql": "SELECT * FROM quality_reports WHERE report_date='${bizdate}'"
+          }
+        },
+        {
+          "name": "send_notification",
+          "type": "HTTP",
+          "description": "发送质量报告通知",
+          "task_params": {
+            "url": "http://localhost:8016/api/notify",
+            "method": "POST",
+            "headers": {
+              "Content-Type": "application/json"
+            }
+          }
+        }
+      ],
+      "task_relations": [
+        {"pre_task": "check_data_completeness", "post_task": "generate_quality_report"},
+        {"pre_task": "generate_quality_report", "post_task": "send_notification"}
+      ]
+    },
+    {
+      "name": "metadata_sync_workflow",
+      "description": "元数据同步工作流",
+      "project": "data_warehouse",
+      "schedule": "0 1 * * *",
+      "schedule_type": "CRON",
+      "timezone": "Asia/Shanghai",
+      "tasks": [
+        {
+          "name": "sync_mysql_metadata",
+          "type": "HTTP",
+          "description": "同步MySQL元数据到OpenMetadata",
+          "task_params": {
+            "url": "http://localhost:8013/api/sync/mysql",
+            "method": "POST"
+          }
+        },
+        {
+          "name": "sync_hive_metadata",
+          "type": "HTTP",
+          "description": "同步Hive元数据到OpenMetadata",
+          "task_params": {
+            "url": "http://localhost:8013/api/sync/hive",
+            "method": "POST"
+          }
+        },
+        {
+          "name": "update_lineage",
+          "type": "HTTP",
+          "description": "更新数据血缘",
+          "task_params": {
+            "url": "http://localhost:8013/api/lineage/update",
+            "method": "POST"
+          }
+        }
+      ],
+      "task_relations": [
+        {"pre_task": "sync_mysql_metadata", "post_task": "sync_hive_metadata"},
+        {"pre_task": "sync_hive_metadata", "post_task": "update_lineage"}
+      ]
+    }
+  ],
+  "task_groups": [
+    {
+      "name": "data_quality_checks",
+      "description": "数据质量检查任务组",
+      "tasks": [
+        "quality_check_user",
+        "quality_check_order",
+        "quality_check_product"
+      ]
+    },
+    {
+      "name": "data_sync_tasks",
+      "description": "数据同步任务组",
+      "tasks": [
+        "extract_mysql_user",
+        "extract_order_data",
+        "extract_product_data"
+      ]
+    }
+  ],
+  "alert_groups": [
+    {
+      "name": "etl_failure_alert",
+      "description": "ETL任务失败告警",
+      "alert_type": "EMAIL",
+      "recipients": ["admin@one-data-studio.local"],
+      "conditions": {
+        "status": "FAILURE",
+        "retry_times": 3
+      }
+    },
+    {
+      "name": "data_quality_alert",
+      "description": "数据质量告警",
+      "alert_type": "WEBHOOK",
+      "recipients": ["http://localhost:8016/api/alerts"],
+      "conditions": {
+        "quality_score": 0.8
+      }
+    }
+  ]
+}

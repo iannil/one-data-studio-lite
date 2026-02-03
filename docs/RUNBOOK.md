@@ -1,7 +1,8 @@
 # 运维手册 (RUNBOOK)
 
 **更新日期**: 2026-02-03
-**版本**: 1.1
+**版本**: 1.2
+**来源**: Makefile, ods.sh, .env.example
 
 本文档为 ONE-DATA-STUDIO-LITE 项目的运维人员提供部署程序、监控告警、常见问题处理和回滚程序的完整参考。
 
@@ -16,6 +17,44 @@
 5. [备份与恢复](#备份与恢复)
 6. [性能调优](#性能调优)
 7. [安全加固](#安全加固)
+
+---
+
+## 服务访问地址
+
+完整的服务访问地址可通过以下命令获取：
+
+```bash
+./ods.sh info
+```
+
+### 默认访问地址
+
+| 服务 | 地址 | 凭据 |
+|------|------|------|
+| **基座平台** | | |
+| Cube-Studio | http://localhost:30080 | - |
+| **核心组件** | | |
+| Apache Superset | http://localhost:8088 | admin/admin123 |
+| OpenMetadata | http://localhost:8585 | admin/admin |
+| DolphinScheduler | http://localhost:12345 | admin/dolphinscheduler123 |
+| Apache Hop | http://localhost:8083 | - |
+| SeaTunnel API | http://localhost:5802 | - |
+| **二开服务** | | |
+| 统一门户 Portal | http://localhost:8010 | admin/admin123 |
+| NL2SQL API | http://localhost:8011/docs | - |
+| AI清洗 API | http://localhost:8012/docs | - |
+| 元数据同步 API | http://localhost:8013/docs | - |
+| 数据API网关 | http://localhost:8014/docs | - |
+| 敏感检测 API | http://localhost:8015/docs | - |
+| 审计日志 API | http://localhost:8016/docs | - |
+| **前端** | | |
+| 开发服务器 | http://localhost:3000 | - |
+| **基础设施** | | |
+| MySQL | localhost:3306 | root/配置密码 |
+| Redis | localhost:6379 | - |
+| MinIO | http://localhost:9000 | minioadmin/minioadmin123 |
+| etcd | localhost:2379 | - |
 
 ---
 
@@ -107,7 +146,6 @@ make openmetadata-up      # OpenMetadata (元数据)
 make dolphinscheduler-up  # DolphinScheduler (调度)
 make hop-up               # Apache Hop (ETL)
 make seatunnel-up         # SeaTunnel (同步)
-make shardingsphere-up    # ShardingSphere (安全)
 make cube-studio-up       # Cube-Studio (可选)
 ```
 

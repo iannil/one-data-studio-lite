@@ -64,7 +64,6 @@ services:
       PORTAL_DATA_API_URL: http://data-api:8014
       PORTAL_SENSITIVE_DETECT_URL: http://sensitive-detect:8015
       PORTAL_AUDIT_LOG_URL: http://audit-log:8016
-      PORTAL_SHARDINGSPHERE_URL: http://shardingsphere:3307
       SUPERSET_ADMIN_USER: admin
       SUPERSET_ADMIN_PASSWORD: admin123
       USE_COOKIE_AUTH: "true"

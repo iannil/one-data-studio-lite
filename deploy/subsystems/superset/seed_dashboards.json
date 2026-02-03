@@ -1,0 +1,433 @@
+{
+  "datasources": [
+    {
+      "name": "retail_mysql",
+      "connection": {
+        "host": "mysql",
+        "port": 3306,
+        "database": "demo_retail_db",
+        "username": "root",
+        "password": "test_root_password"
+      },
+      "tables": [
+        {
+          "name": "ods_user_info",
+          "description": "用户信息原始表"
+        },
+        {
+          "name": "ods_order_info",
+          "description": "订单信息原始表"
+        },
+        {
+          "name": "dwd_user_profile",
+          "description": "用户画像明细表"
+        },
+        {
+          "name": "dws_user_daily_summary",
+          "description": "用户日汇总表"
+        },
+        {
+          "name": "ads_daily_sales_report",
+          "description": "每日销售报表"
+        }
+      ]
+    },
+    {
+      "name": "analytics_clickhouse",
+      "connection": {
+        "host": "clickhouse",
+        "port": 8123,
+        "database": "analytics",
+        "username": "default",
+        "password": ""
+      },
+      "tables": [
+        {
+          "name": "user_behavior_events",
+          "description": "用户行为事件表"
+        }
+      ]
+    }
+  ],
+  "dashboards": [
+    {
+      "id": 1,
+      "slug": "user_growth_analysis",
+      "dashboard_title": "用户增长分析",
+      "description": "用户注册、活跃、留存分析仪表板",
+      "position": {
+        "DASHBOARD_VERSION_KEY": "v2",
+        "DASHBOARD_ROOT_TAB_KEY": {
+          "id": "root_tab",
+          "type": "DASHBOARD_ROOT_TAB"
+        },
+        "ROOT_ID": {
+          "type": "DASHBOARD_GRID_TYPE",
+          "id": "root_id",
+          "children": [
+            {"type": "CHART_TYPE", "id": "chart_dau", "meta": {"width": 12, "height": 8, "x": 0, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_mau", "meta": {"width": 12, "height": 8, "x": 12, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_retention", "meta": {"width": 24, "height": 10, "x": 0, "y": 8}},
+            {"type": "CHART_TYPE", "id": "chart_region", "meta": {"width": 12, "height": 8, "x": 0, "y": 18}},
+            {"type": "CHART_TYPE", "id": "chart_source", "meta": {"width": 12, "height": 8, "x": 12, "y": 18}}
+          ]
+        }
+      },
+      "metadata": {
+        "native_filter_configuration": {},
+        "refresh_frequency": 60,
+        "color_scheme": "supersetColors",
+        "label_colors": {},
+        "chart_configuration": {},
+        "shared_label_colors": {}
+      },
+      "charts": [
+        {
+          "id": "chart_dau",
+          "name": "DAU趋势",
+          "type": "line",
+          "datasource": "retail_mysql",
+          "table": "dws_user_daily_summary",
+          "params": {
+            "viz_type": "line",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "login_count"}, "aggregate": "SUM", "label": "登录次数"}],
+            "groupby": [{"column_name": "stat_date", "time_grain": "day"}],
+            "x_axis": "stat_date",
+            "time_range": "last 30 days",
+            "x_axis_title": "日期",
+            "y_axis_title": "登录次数"
+          }
+        },
+        {
+          "id": "chart_mau",
+          "name": "MAU趋势",
+          "type": "line",
+          "datasource": "retail_mysql",
+          "table": "dws_user_daily_summary",
+          "params": {
+            "viz_type": "line",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "user_id"}, "aggregate": "COUNT_DISTINCT", "label": "活跃用户"}],
+            "groupby": [{"column_name": "stat_date", "time_grain": "month"}],
+            "x_axis": "stat_date",
+            "time_range": "last 12 months",
+            "x_axis_title": "月份",
+            "y_axis_title": "活跃用户数"
+          }
+        },
+        {
+          "id": "chart_retention",
+          "name": "用户留存漏斗",
+          "type": "funnel",
+          "datasource": "retail_mysql",
+          "table": "dws_user_daily_summary",
+          "params": {
+            "viz_type": "funnel",
+            "steps": [
+              {"column": {"column_name": "login_count"}, "aggregate": "COUNT_DISTINCT", "label": "注册"},
+              {"column": {"column_name": "login_count"}, "aggregate": "COUNT_DISTINCT", "label": "次日登录"},
+              {"column": {"column_name": "order_count"}, "aggregate": "SUM", "label": "下单"},
+              {"column": {"column_name": "order_count"}, "aggregate": "SUM", "label": "复购"}
+            ]
+          }
+        },
+        {
+          "id": "chart_region",
+          "name": "用户地域分布",
+          "type": "map",
+          "datasource": "retail_mysql",
+          "table": "ods_user_info",
+          "params": {
+            "viz_type": "map",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "user_id"}, "aggregate": "COUNT_DISTINCT", "label": "用户数"}],
+            "groupby": [{"column_name": "province_code"}],
+            "map_region": "china",
+            "x_axis_title": "省份",
+            "y_axis_title": "用户数"
+          }
+        },
+        {
+          "id": "chart_source",
+          "name": "注册来源分布",
+          "type": "pie",
+          "datasource": "retail_mysql",
+          "table": "ods_user_info",
+          "params": {
+            "viz_type": "pie",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "user_id"}, "aggregate": "COUNT_DISTINCT", "label": "用户数"}],
+            "groupby": [{"column_name": "register_source"}],
+            "pie_label_type": "key"
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "slug": "sales_performance",
+      "dashboard_title": "销售业绩看板",
+      "description": "销售数据实时监控仪表板",
+      "position": {
+        "DASHBOARD_VERSION_KEY": "v2",
+        "DASHBOARD_ROOT_TAB_KEY": {
+          "id": "root_tab",
+          "type": "DASHBOARD_ROOT_TAB"
+        },
+        "ROOT_ID": {
+          "type": "DASHBOARD_GRID_TYPE",
+          "id": "root_id",
+          "children": [
+            {"type": "CHART_TYPE", "id": "chart_gmv", "meta": {"width": 12, "height": 8, "x": 0, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_orders", "meta": {"width": 12, "height": 8, "x": 12, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_category", "meta": {"width": 12, "height": 10, "x": 0, "y": 8}},
+            {"type": "CHART_TYPE", "id": "chart_status", "meta": {"width": 12, "height": 10, "x": 12, "y": 8}},
+            {"type": "CHART_TYPE", "id": "chart_top_products", "meta": {"width": 24, "height": 10, "x": 0, "y": 18}}
+          ]
+        }
+      },
+      "charts": [
+        {
+          "id": "chart_gmv",
+          "name": "GMV趋势",
+          "type": "line",
+          "datasource": "retail_mysql",
+          "table": "ads_daily_sales_report",
+          "params": {
+            "viz_type": "line",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "total_gmv"}, "aggregate": "SUM", "label": "GMV"}],
+            "groupby": [{"column_name": "report_date", "time_grain": "day"}],
+            "x_axis": "report_date",
+            "time_range": "last 30 days",
+            "x_axis_title": "日期",
+            "y_axis_title": "GMV(元)"
+          }
+        },
+        {
+          "id": "chart_orders",
+          "name": "订单量趋势",
+          "type": "bar",
+          "datasource": "retail_mysql",
+          "table": "ads_daily_sales_report",
+          "params": {
+            "viz_type": "bar",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "total_orders"}, "aggregate": "SUM", "label": "订单数"}],
+            "groupby": [{"column_name": "report_date", "time_grain": "day"}],
+            "x_axis": "report_date",
+            "time_range": "last 30 days",
+            "x_axis_title": "日期",
+            "y_axis_title": "订单数"
+          }
+        },
+        {
+          "id": "chart_category",
+          "name": "品类销售占比",
+          "type": "pie",
+          "datasource": "retail_mysql",
+          "table": "ods_order_info",
+          "params": {
+            "viz_type": "pie",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "pay_amount"}, "aggregate": "SUM", "label": "销售额"}],
+            "groupby": [{"column_name": "category_id"}],
+            "pie_label_type": "key_value"
+          }
+        },
+        {
+          "id": "chart_status",
+          "name": "订单状态分布",
+          "type": "dist_bar",
+          "datasource": "retail_mysql",
+          "table": "ods_order_info",
+          "params": {
+            "viz_type": "dist_bar",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "order_id"}, "aggregate": "COUNT", "label": "订单数"}],
+            "groupby": [{"column_name": "order_status"}],
+            "x_axis": "order_status"
+          }
+        },
+        {
+          "id": "chart_top_products",
+          "name": "TOP10商品",
+          "type": "bar",
+          "datasource": "retail_mysql",
+          "table": "ods_order_info",
+          "params": {
+            "viz_type": "bar",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "pay_amount"}, "aggregate": "SUM", "label": "销售额"}],
+            "groupby": [{"column_name": "product_id"}],
+            "orderby": [["pay_amount", false]],
+            "row_limit": 10,
+            "x_axis": "product_name",
+            "y_axis_title": "销售额(元)"
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "slug": "data_quality_monitor",
+      "dashboard_title": "数据质量监控",
+      "description": "数据质量指标监控仪表板",
+      "position": {
+        "DASHBOARD_VERSION_KEY": "v2",
+        "DASHBOARD_ROOT_TAB_KEY": {
+          "id": "root_tab",
+          "type": "DASHBOARD_ROOT_TAB"
+        },
+        "ROOT_ID": {
+          "type": "DASHBOARD_GRID_TYPE",
+          "id": "root_id",
+          "children": [
+            {"type": "CHART_TYPE", "id": "chart_quality_score", "meta": {"width": 8, "height": 6, "x": 0, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_task_rate", "meta": {"width": 8, "height": 6, "x": 8, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_data_delay", "meta": {"width": 8, "height": 6, "x": 16, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_failure_trend", "meta": {"width": 12, "height": 10, "x": 0, "y": 6}},
+            {"type": "CHART_TYPE", "id": "chart_rules_result", "meta": {"width": 12, "height": 10, "x": 12, "y": 6}}
+          ]
+        }
+      },
+      "charts": [
+        {
+          "id": "chart_quality_score",
+          "name": "数据质量评分",
+          "type": "big_number",
+          "datasource": "retail_mysql",
+          "table": "quality_metrics",
+          "params": {
+            "viz_type": "big_number",
+            "metric": {"expressionType": "SIMPLE", "column": {"column_name": "score"}, "aggregate": "AVG", "label": "质量评分"},
+            "y_axis_format": "0.00",
+            "header_font_size": 0.4,
+            "subheader": "平均质量评分"
+          }
+        },
+        {
+          "id": "chart_task_rate",
+          "name": "任务成功率",
+          "type": "big_number",
+          "datasource": "retail_mysql",
+          "table": "etl_tasks",
+          "params": {
+            "viz_type": "big_number",
+            "metric": {"expressionType": "SIMPLE", "column": {"column_name": "status"}, "sqlExpression": "AVG(CASE WHEN status='success' THEN 1 ELSE 0 END)", "label": "成功率"},
+            "y_axis_format": "0.0%",
+            "header_font_size": 0.4,
+            "subheader": "ETL任务成功率"
+          }
+        },
+        {
+          "id": "chart_data_delay",
+          "name": "数据延迟",
+          "type": "gauge",
+          "datasource": "retail_mysql",
+          "table": "data_freshness",
+          "params": {
+            "viz_type": "gauge",
+            "metric": {"expressionType": "SIMPLE", "column": {"column_name": "delay_seconds"}, "aggregate": "AVG", "label": "平均延迟"},
+            "y_axis_format": "0 ms",
+            "min": 0,
+            "max": 3600000
+          }
+        },
+        {
+          "id": "chart_failure_trend",
+          "name": "任务失败趋势",
+          "type": "line",
+          "datasource": "retail_mysql",
+          "table": "etl_tasks",
+          "params": {
+            "viz_type": "line",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "failure_count"}, "aggregate": "SUM", "label": "失败数"}],
+            "groupby": [{"column_name": "execution_date", "time_grain": "day"}],
+            "time_range": "last 30 days"
+          }
+        },
+        {
+          "id": "chart_rules_result",
+          "name": "质量规则执行结果",
+          "type": "table",
+          "datasource": "retail_mysql",
+          "table": "quality_rules",
+          "params": {
+            "viz_type": "table",
+            "columns": [
+              {"column_name": "rule_name"},
+              {"column_name": "dataset"},
+              {"column_name": "status"},
+              {"column_name": "last_run"}
+            ],
+            "row_limit": 20
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "slug": "marketing_roi",
+      "dashboard_title": "营销ROI分析",
+      "description": "营销活动ROI分析仪表板",
+      "position": {
+        "DASHBOARD_VERSION_KEY": "v2",
+        "DASHBOARD_ROOT_TAB_KEY": {
+          "id": "root_tab",
+          "type": "DASHBOARD_ROOT_TAB"
+        },
+        "ROOT_ID": {
+          "type": "DASHBOARD_GRID_TYPE",
+          "id": "root_id",
+          "children": [
+            {"type": "CHART_TYPE", "id": "chart_roi_rank", "meta": {"width": 12, "height": 10, "x": 0, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_channel_funnel", "meta": {"width": 12, "height": 10, "x": 12, "y": 0}},
+            {"type": "CHART_TYPE", "id": "chart_campaign_trend", "meta": {"width": 24, "height": 10, "x": 0, "y": 10}}
+          ]
+        }
+      },
+      "charts": [
+        {
+          "id": "chart_roi_rank",
+          "name": "ROI排名",
+          "type": "bar",
+          "datasource": "retail_mysql",
+          "table": "marketing_campaigns",
+          "params": {
+            "viz_type": "bar",
+            "metrics": [{"expressionType": "SIMPLE", "column": {"column_name": "roi"}, "aggregate": "SUM", "label": "ROI"}],
+            "groupby": [{"column_name": "campaign_name"}],
+            "orderby": [["roi", false]],
+            "row_limit": 10
+          }
+        },
+        {
+          "id": "chart_channel_funnel",
+          "name": "渠道转化漏斗",
+          "type": "funnel",
+          "datasource": "analytics_clickhouse",
+          "table": "user_behavior_events",
+          "params": {
+            "viz_type": "funnel",
+            "steps": [
+              {"label": "曝光"},
+              {"label": "点击"},
+              {"label": "访问"},
+              {"label": "注册"},
+              {"label": "下单"}
+            ]
+          }
+        },
+        {
+          "id": "chart_campaign_trend",
+          "name": "活动效果趋势",
+          "type": "line",
+          "datasource": "retail_mysql",
+          "table": "marketing_campaigns",
+          "params": {
+            "viz_type": "line",
+            "metrics": [
+              {"expressionType": "SIMPLE", "column": {"column_name": "cost"}, "aggregate": "SUM", "label": "花费"},
+              {"expressionType": "SIMPLE", "column": {"column_name": "revenue"}, "aggregate": "SUM", "label": "收入"}
+            ],
+            "groupby": [{"column_name": "campaign_date", "time_grain": "day"}],
+            "time_range": "last 30 days"
+          }
+        }
+      ]
+    }
+  ]
+}

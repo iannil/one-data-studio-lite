@@ -7,11 +7,25 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
-# 健康检查结果
-declare -A HEALTH_RESULTS
+# 健康检查结果存储 (使用简单变量代替关联数组)
+_HEALTH_RESULTS=""
 TOTAL_CHECKS=0
 PASSED_CHECKS=0
 FAILED_CHECKS=0
+
+# 设置健康检查结果
+set_health_result() {
+    local name="$1"
+    local status="$2"
+    _HEALTH_RESULTS="${_HEALTH_RESULTS}${name}:${status}
+"
+}
+
+# 获取健康检查结果
+get_health_result() {
+    local name="$1"
+    echo "$_HEALTH_RESULTS" | grep -E "^${name}:" | cut -d: -f2
+}
 
 # ============================================================
 # 健康检查函数
@@ -25,11 +39,11 @@ check_http_health() {
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
     if curl -sf --max-time "$timeout" "$url" >/dev/null 2>&1; then
-        HEALTH_RESULTS[$name]="healthy"
+        set_health_result "$name" "healthy"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
         return 0
     else
-        HEALTH_RESULTS[$name]="unhealthy"
+        set_health_result "$name" "unhealthy"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
         return 1
     fi
@@ -44,11 +58,11 @@ check_tcp_health() {
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
 
     if nc -z -w "$timeout" "$host" "$port" 2>/dev/null; then
-        HEALTH_RESULTS[$name]="healthy"
+        set_health_result "$name" "healthy"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
         return 0
     else
-        HEALTH_RESULTS[$name]="unhealthy"
+        set_health_result "$name" "unhealthy"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
         return 1
     fi
@@ -67,21 +81,21 @@ check_container_health() {
         local health
         health=$(get_health_status "$container")
         if [[ "$health" == "healthy" ]]; then
-            HEALTH_RESULTS[$name]="healthy"
+            set_health_result "$name" "healthy"
             PASSED_CHECKS=$((PASSED_CHECKS + 1))
             return 0
         elif [[ "$health" == "unhealthy" ]]; then
-            HEALTH_RESULTS[$name]="unhealthy"
+            set_health_result "$name" "unhealthy"
             FAILED_CHECKS=$((FAILED_CHECKS + 1))
             return 1
         else
             # 没有健康检查配置或正在启动
-            HEALTH_RESULTS[$name]="running"
+            set_health_result "$name" "running"
             PASSED_CHECKS=$((PASSED_CHECKS + 1))
             return 0
         fi
     else
-        HEALTH_RESULTS[$name]="stopped"
+        set_health_result "$name" "stopped"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
         return 1
     fi
@@ -127,9 +141,6 @@ check_platforms_health() {
 
     echo "检查 Hop..."
     check_http_health "Hop" "http://localhost:8083/" || true
-
-    echo "检查 ShardingSphere..."
-    check_tcp_health "ShardingSphere" "localhost" "3309" || true
 
     print_health_table "平台服务"
 }
@@ -184,34 +195,40 @@ print_health_table() {
     printf "%-25s %s\n" "服务" "状态"
     printf "%s\n" "----------------------------------------"
 
-    for name in "${!HEALTH_RESULTS[@]}"; do
-        local status="${HEALTH_RESULTS[$name]}"
-        local status_display
+    # 遍历所有健康检查结果
+    local results="$_HEALTH_RESULTS"
+    if [[ -n "$results" ]]; then
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            local name="${line%%:*}"
+            local status="${line#*:}"
+            local status_display
 
-        case "$status" in
-            healthy)
-                status_display="${GREEN}healthy${NC}"
-                ;;
-            running)
-                status_display="${YELLOW}running${NC}"
-                ;;
-            unhealthy)
-                status_display="${RED}unhealthy${NC}"
-                ;;
-            stopped)
-                status_display="${WHITE}stopped${NC}"
-                ;;
-            *)
-                status_display="${RED}unknown${NC}"
-                ;;
-        esac
+            case "$status" in
+                healthy)
+                    status_display="${GREEN}healthy${NC}"
+                    ;;
+                running)
+                    status_display="${YELLOW}running${NC}"
+                    ;;
+                unhealthy)
+                    status_display="${RED}unhealthy${NC}"
+                    ;;
+                stopped)
+                    status_display="${WHITE}stopped${NC}"
+                    ;;
+                *)
+                    status_display="${RED}unknown${NC}"
+                    ;;
+            esac
 
-        printf "%-25s " "$name"
-        echo -e "$status_display"
-    done
+            printf "%-25s " "$name"
+            echo -e "$status_display"
+        done <<< "$results"
+    fi
 
     # 清空结果用于下一个类别
-    HEALTH_RESULTS=()
+    _HEALTH_RESULTS=""
 }
 
 # ============================================================

@@ -226,7 +226,6 @@ class ProxyErrorHandler:
             "datahub": ErrorCode.DATAHUB_ERROR,
             "dolphinscheduler": ErrorCode.DOLPHINSCHEDULER_ERROR,
             "superset": ErrorCode.SUPERSET_ERROR,
-            "shardingsphere": ErrorCode.SHARDINGSPHERE_ERROR,
             "hop": ErrorCode.HOP_ERROR,
             "cube-studio": ErrorCode.CUBE_STUDIO_ERROR,
         }
