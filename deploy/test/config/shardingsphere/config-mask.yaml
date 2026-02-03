@@ -1,0 +1,94 @@
+# ONE-DATA-STUDIO-LITE - ShardingSphere 数据脱敏规则
+# 用途: 透明化数据脱敏 (手机号、身份证、邮箱、银行卡)
+# 连接 Cube-Studio MySQL (端口3308)
+
+databaseName: one_data_mask
+
+dataSources:
+  ds_0:
+    url: jdbc:mysql://ods-mysql:3306/one_data_studio?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: one-data-studio-2024
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+
+rules:
+  - !MASK
+    tables:
+      # ========== 用户表脱敏规则 ==========
+      t_user:
+        columns:
+          # 手机号脱敏: 138****1234 (保留前3后4位)
+          phone:
+            maskAlgorithm: phone_mask
+          # 身份证脱敏: 110***********1234 (保留前3后4位)
+          id_card:
+            maskAlgorithm: id_card_mask
+          # 邮箱脱敏: a****@example.com (保留前1后保留@后全部)
+          email:
+            maskAlgorithm: email_mask
+          # 银行卡脱敏: 6222********1234 (保留前4后4位)
+          bank_card:
+            maskAlgorithm: bank_card_mask
+          # 姓名脱敏: 张** (保留首字)
+          real_name:
+            maskAlgorithm: name_mask
+
+      # ========== 订单表脱敏规则 ==========
+      t_order:
+        columns:
+          buyer_phone:
+            maskAlgorithm: phone_mask
+          shipping_address:
+            maskAlgorithm: address_mask
+
+    maskAlgorithms:
+      # 手机号: 保留前3后4位，中间用*替换
+      phone_mask:
+        type: KEEP_FIRST_N_LAST_M
+        props:
+          first-n: 3
+          last-m: 4
+          replace-char: "*"
+
+      # 身份证: 保留前3后4位
+      id_card_mask:
+        type: KEEP_FIRST_N_LAST_M
+        props:
+          first-n: 3
+          last-m: 4
+          replace-char: "*"
+
+      # 邮箱: @前保留首字母
+      email_mask:
+        type: MASK_BEFORE_SPECIAL_CHARS
+        props:
+          special-chars: "@"
+          replace-char: "*"
+
+      # 银行卡: 保留前4后4位
+      bank_card_mask:
+        type: KEEP_FIRST_N_LAST_M
+        props:
+          first-n: 4
+          last-m: 4
+          replace-char: "*"
+
+      # 姓名: 保留首字
+      name_mask:
+        type: MASK_FROM_X_TO_Y
+        props:
+          from-x: 1
+          to-y: 100
+          replace-char: "*"
+
+      # 地址: 保留前6位
+      address_mask:
+        type: MASK_FROM_X_TO_Y
+        props:
+          from-x: 6
+          to-y: 200
+          replace-char: "*"

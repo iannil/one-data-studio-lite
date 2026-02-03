@@ -1,0 +1,32 @@
+# ONE-DATA-STUDIO-LITE - Apache SeaTunnel 基础配置
+# 参考: https://seatunnel.apache.org/docs/seatunnel-engine/deployment
+
+seatunnel:
+  engine:
+    # 集群模式：单机开发用 standalone
+    backup-count: 1
+    queue-type: blockingqueue
+    print-execution-info-interval: 60
+    print-job-metrics-info-interval: 60
+
+    # 检查点存储配置
+    checkpoint:
+      storage:
+        type: localfile
+        max-retained: 3
+        plugin-config:
+          namespace: /opt/seatunnel/data/checkpoint
+      interval: 10000
+      timeout: 60000
+
+    # 线程池配置 (适配单机开发)
+    slot-service:
+      dynamic-slot: true
+
+    # REST API 配置
+    http:
+      enable-http: true
+      port: 5801
+
+    # 历史任务归档
+    history-job-expire-minutes: 1440
