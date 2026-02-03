@@ -8,10 +8,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import MetadataBrowser from './MetadataBrowser';
 
-// Mock datahub API
+// Mock metadata API
 const mockSearchEntities = vi.fn();
 const mockGetEntityAspect = vi.fn();
-vi.mock('../../api/datahub', () => ({
+vi.mock('../../api/metadata', () => ({
   searchEntities: () => mockSearchEntities(),
   getEntityAspect: () => mockGetEntityAspect(),
 }));

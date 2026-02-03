@@ -96,10 +96,19 @@ class BaseServiceConfig(BaseSettings):
     # 子系统地址（常用）
     # ============================================================
     PORTAL_URL: str = os.environ.get("PORTAL_URL", "http://localhost:8010")
+
+    # OpenMetadata 配置（替代 DataHub）
+    OPENMETADATA_URL: str = os.environ.get("OPENMETADATA_URL", "http://localhost:8585")
+    OPENMETADATA_API_URL: str = os.environ.get("OPENMETADATA_API_URL", "http://localhost:8585/api/v1")
+    OPENMETADATA_JWT_TOKEN: str = os.environ.get("OPENMETADATA_JWT_TOKEN", "")
+    OPENMETADATA_WEBHOOK_SECRET: str = os.environ.get("OPENMETADATA_WEBHOOK_SECRET", "")
+
+    # DataHub 配置（已废弃，保留向后兼容）
     DATAHUB_URL: str = os.environ.get("DATAHUB_URL", "http://localhost:9002")
     DATAHUB_GMS_URL: str = os.environ.get("DATAHUB_GMS_URL", "http://localhost:8081")
     DATAHUB_TOKEN: str = os.environ.get("DATAHUB_TOKEN", "")
     DATAHUB_WEBHOOK_SECRET: str = os.environ.get("DATAHUB_WEBHOOK_SECRET", "")
+
     SUPERSET_URL: str = os.environ.get("SUPERSET_URL", "http://localhost:8088")
     DOLPHINSCHEDULER_URL: str = os.environ.get("DOLPHINSCHEDULER_URL", "http://localhost:12345")
     DOLPHINSCHEDULER_API_URL: str = os.environ.get("DOLPHINSCHEDULER_API_URL", "http://localhost:12345/dolphinscheduler")

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Input, Modal, Form, message, Typography, Space, Tag, Spin } from 'antd';
 import { TagsOutlined, PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
-import { searchTags, createTag } from '../../api/datahub';
+import { searchTags, createTag } from '../../api/metadata';
 
 const { Title } = Typography;
 

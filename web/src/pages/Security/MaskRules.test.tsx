@@ -40,7 +40,7 @@ describe('MaskRules Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetMaskRulesV1.mockResolvedValue({
-      data: { rules: [] },
+      data: [],
     });
   });
 

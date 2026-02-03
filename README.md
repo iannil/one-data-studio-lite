@@ -9,7 +9,7 @@
 
 ## Key Features
 
-- **Intelligent Metadata Recognition** - DataHub-driven metadata management with data lineage tracking
+- **Intelligent Metadata Recognition** - OpenMetadata-driven metadata management with data lineage tracking
 - **AI-Enhanced Processing** - LLM-powered cleaning rule recommendations, NL2SQL natural language querying
 - **BI Visualization** - Apache Superset interactive data analysis
 - **End-to-End Data Pipeline** - From data ingestion to insights with Apache Hop, SeaTunnel, and DolphinScheduler
@@ -28,7 +28,7 @@
 ├─────────────────────────────────────────────────────────────┤
 │  ETL: Apache Hop + SeaTunnel  │  Scheduler: DolphinScheduler│
 ├─────────────────────────────────────────────────────────────┤
-│  Metadata: DataHub  │  BI: Superset  │  Security: ShardingSphere
+│  Metadata: OpenMetadata  │  BI: Superset  │  Security: ShardingSphere
 ├─────────────────────────────────────────────────────────────┤
 │  Infrastructure: K3s · MySQL/PostgreSQL · MinIO · Redis     │
 └─────────────────────────────────────────────────────────────┘
@@ -79,7 +79,7 @@ make dev-dataapi     # Data API service
 | Unified Portal | http://localhost:8010 | admin / admin123 |
 | Cube-Studio | http://localhost:30080 | - |
 | Apache Superset | http://localhost:8088 | admin / admin123 |
-| DataHub | http://localhost:9002 | datahub / datahub |
+| OpenMetadata | http://localhost:8585 | admin / admin |
 | DolphinScheduler | http://localhost:12345 | admin / dolphinscheduler123 |
 | Apache Hop | http://localhost:8083 | - |
 | SeaTunnel API | http://localhost:5801 | - |
@@ -91,7 +91,7 @@ make dev-dataapi     # Data API service
 │   ├── k3s/                   # K3s installation scripts
 │   ├── cube-studio/           # Cube-Studio Helm values
 │   ├── superset/              # Apache Superset deployment
-│   ├── datahub/               # DataHub deployment + ingestion
+│   ├── openmetadata/            # OpenMetadata deployment
 │   ├── hop/                   # Apache Hop ETL engine
 │   ├── seatunnel/             # SeaTunnel data sync
 │   ├── dolphinscheduler/      # DolphinScheduler
@@ -115,11 +115,11 @@ make dev-dataapi     # Data API service
 
 | Subsystem | Core Components | Capabilities |
 |-----------|-----------------|--------------|
-| **Data Planning & Metadata** | DataHub | Metadata recognition, tag management, data lineage |
+| **Data Planning & Metadata** | OpenMetadata | Metadata recognition, tag management, data lineage |
 | **Data Collection** | SeaTunnel + DolphinScheduler + Hop | Multi-source ingestion, batch-stream unified, CDC |
 | **Data Processing** | SeaTunnel Transform + LLM | AI cleaning rules, data quality checks |
 | **Data Analysis (AI+BI)** | Superset + NL2SQL | BI visualization, natural language queries |
-| **Data Assets** | DataHub + Data API | Asset catalog, service gateway |
+| **Data Assets** | OpenMetadata + Data API | Asset catalog, service gateway |
 | **Data Security** | ShardingSphere + AI | Transparent masking, sensitive data detection |
 
 ## Tech Stack
@@ -130,7 +130,7 @@ make dev-dataapi     # Data API service
 | ETL Engine | Apache Hop | Visual ETL design (Kettle successor) |
 | Data Integration | Apache SeaTunnel | High-performance data sync, 200+ connectors |
 | Scheduler | Apache DolphinScheduler | Workflow scheduling |
-| Metadata | DataHub | Metadata management & lineage |
+| Metadata | OpenMetadata | Metadata management & lineage |
 | BI | Apache Superset | Interactive visualization |
 | AI/LLM | Ollama / vLLM | LLM inference via Cube-Studio |
 | Data Security | Apache ShardingSphere | Transparent data masking |
@@ -147,7 +147,7 @@ make info              # Show access URLs
 
 # Component management
 make superset-up       # Start Superset
-make datahub-up        # Start DataHub
+make openmetadata-up   # Start OpenMetadata
 make services-up       # Start custom services
 
 # Local development
@@ -206,7 +206,7 @@ SeaTunnel (Data Sync/CDC)  ←→  DolphinScheduler (Scheduling)
 Apache Hop (Complex ETL)  ←  AI Cleaning Rules (LLM)
     │
     ▼
-Data Warehouse  ←→  DataHub (Metadata Management)
+Data Warehouse  ←→  OpenMetadata (Metadata Management)
     │                    │
     ├──→ Superset (BI)   ├──→ Data Asset API
     ├──→ NL2SQL          └──→ Lineage Tracking
@@ -233,7 +233,7 @@ This project integrates the following excellent open source projects:
 
 - [Cube-Studio](https://github.com/tencentmusic/cube-studio) - Tencent Music
 - [Apache Superset](https://superset.apache.org/) - Apache Software Foundation
-- [DataHub](https://datahubproject.io/) - LinkedIn
+- [OpenMetadata](https://open-metadata.org/) - Collate
 - [Apache Hop](https://hop.apache.org/) - Apache Software Foundation
 - [Apache SeaTunnel](https://seatunnel.apache.org/) - Apache Software Foundation
 - [Apache DolphinScheduler](https://dolphinscheduler.apache.org/) - Apache Software Foundation

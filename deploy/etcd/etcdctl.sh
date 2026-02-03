@@ -55,7 +55,7 @@ EOF
 
 # 检查 etcd 连接
 check_etcd() {
-    if ! docker run --rm --network one-data-studio-network \
+    if ! docker run --rm --network ods-network \
         quay.io/coreos/etcd:v3.5.12 \
         etcdctl --endpoints=$ETCD_ENDPOINTS endpoint health >/dev/null 2>&1; then
         echo -e "${RED}错误: 无法连接到 etcd 服务${NC}"
@@ -66,7 +66,7 @@ check_etcd() {
 
 # 执行 etcdctl 命令
 etcdctl_cmd() {
-    docker run --rm --network one-data-studio-network \
+    docker run --rm --network ods-network \
         -v "$(pwd)/workspace:/workspace" \
         quay.io/coreos/etcd:v3.5.12 \
         etcdctl \

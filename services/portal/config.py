@@ -127,9 +127,10 @@ class Settings(PortalConfig):
         elif self.JWT_SECRET == "dev-only-change-in-production":
             warnings.append("JWT_SECRET 使用默认值！生产环境必须设置环境变量")
 
-        # DataHub Token 检查（从基类继承）
-        if not self.DATAHUB_TOKEN:
-            warnings.append("DATAHUB_TOKEN 未配置")
+        # OpenMetadata Token 检查（替代 DataHub）
+        openmetadata_token = getattr(self, 'OPENMETADATA_JWT_TOKEN', '') or self.DATAHUB_TOKEN
+        if not openmetadata_token:
+            warnings.append("OPENMETADATA_JWT_TOKEN 未配置")
 
         # DolphinScheduler Token 检查
         if not self.DOLPHINSCHEDULER_TOKEN:
@@ -170,9 +171,9 @@ class Settings(PortalConfig):
             warnings.append("INTERNAL_TOKEN 未配置")
 
         # Webhook 签名密钥检查
-        webhook_secret = os.environ.get("META_SYNC_DATAHUB_WEBHOOK_SECRET", "")
+        webhook_secret = getattr(self, 'OPENMETADATA_WEBHOOK_SECRET', '') or os.environ.get("OPENMETADATA_WEBHOOK_SECRET", "")
         if not webhook_secret and self.is_production():
-            warnings.append("META_SYNC_DATAHUB_WEBHOOK_SECRET 未配置")
+            warnings.append("OPENMETADATA_WEBHOOK_SECRET 未配置")
 
         return warnings
 

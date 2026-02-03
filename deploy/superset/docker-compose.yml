@@ -15,7 +15,7 @@ services:
     volumes:
       - superset-db-data:/var/lib/postgresql/data
     networks:
-      - one-data-studio-network
+      - ods-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U superset"]
       interval: 5s
@@ -29,7 +29,7 @@ services:
     volumes:
       - superset-redis-data:/data
     networks:
-      - one-data-studio-network
+      - ods-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -77,7 +77,7 @@ services:
       # 允许跨域请求（开发环境）
       SUPERSET_REACT_BUILD_BASE: "/static"
     networks:
-      - one-data-studio-network
+      - ods-network
     depends_on:
       superset-db:
         condition: service_healthy
@@ -100,7 +100,7 @@ services:
     volumes:
       - superset-home:/app/superset_home
     networks:
-      - one-data-studio-network
+      - ods-network
     depends_on:
       superset-init:
         condition: service_completed_successfully
@@ -120,7 +120,7 @@ services:
     volumes:
       - superset-home:/app/superset_home
     networks:
-      - one-data-studio-network
+      - ods-network
     depends_on:
       superset-init:
         condition: service_completed_successfully
@@ -137,7 +137,6 @@ volumes:
     name: one-data-studio-superset-home
 
 networks:
-  one-data-studio-network:
-    name: one-data-studio-network
-    driver: bridge
+  ods-network:
+    name: ods-network
     external: true

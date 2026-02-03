@@ -75,7 +75,7 @@ services:
       start_period: 10s
 
     networks:
-      - one-data-studio-network
+      - ods-network
 
   # etcdctl 工具容器（用于手动操作）
   etcdctl:
@@ -87,7 +87,7 @@ services:
       ETCDCTL_ENDPOINTS: http://etcd:2379
       ETCDCTL_DIAL_TIMEOUT: 3s
     networks:
-      - one-data-studio-network
+      - ods-network
     working_dir: /etcdctl-workspace
     command: ["sh", "-c", "echo 'etcdctl 工具容器已就绪。使用 docker exec -it one-data-studio-etcdctl sh 进入' && sleep infinity"]
 
@@ -97,7 +97,6 @@ volumes:
     name: one-data-studio-etcd-data
 
 networks:
-  one-data-studio-network:
-    name: one-data-studio-network
-    driver: bridge
+  ods-network:
+    name: ods-network
     external: true

@@ -155,15 +155,7 @@ export function useApiCall<T = unknown>(
   execute: (fn: () => Promise<ApiResponse<T>>, opts?: UseApiCallOptions<T>) => Promise<T | null>;
   reset: () => void;
 } {
-  const {
-    onSuccess,
-    onError,
-    showError = true,
-    successMessage,
-    errorMessage,
-    retry = false,
-    maxRetries = 3,
-  } = options;
+  const { maxRetries = 3 } = options;
 
   const [state, setState] = useState<RequestState<T>>({
     data: null,
@@ -186,7 +178,6 @@ export function useApiCall<T = unknown>(
       callOptions?: UseApiCallOptions<T>
     ): Promise<T | null> => {
       const mergedOptions = { ...options, ...callOptions };
-      let lastError: ApiError | null = null;
 
       const attemptRequest = async (attempt: number): Promise<T | null> => {
         setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -239,7 +230,6 @@ export function useApiCall<T = unknown>(
           if (!isMounted.current) return null;
 
           const apiError = normalizeError(err);
-          lastError = apiError;
 
           // Check if should retry
           const shouldRetry =

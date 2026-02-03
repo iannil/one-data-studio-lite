@@ -2,6 +2,12 @@
 # 7 个自研微服务
 # 注意: 使用前请创建 .env 文件或设置环境变量
 
+x-healthcheck-common: &healthcheck-common
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+
 x-service-common: &service-common
   build:
     context: ..
@@ -45,6 +51,9 @@ services:
       PORTAL_SENSITIVE_DETECT_URL: "http://ods-sensitive-detect:8015"
       PORTAL_AUDIT_LOG_URL: "http://ods-audit-log:8016"
     command: uvicorn services.portal.main:app --host 0.0.0.0 --port 8010
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
 
   nl2sql:
     <<: *service-common
@@ -52,6 +61,9 @@ services:
     ports:
       - "8011:8011"
     command: uvicorn services.nl2sql.main:app --host 0.0.0.0 --port 8011
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
 
   ai-cleaning:
     <<: *service-common
@@ -59,6 +71,9 @@ services:
     ports:
       - "8012:8012"
     command: uvicorn services.ai_cleaning.main:app --host 0.0.0.0 --port 8012
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
 
   metadata-sync:
     <<: *service-common
@@ -66,6 +81,9 @@ services:
     ports:
       - "8013:8013"
     command: uvicorn services.metadata_sync.main:app --host 0.0.0.0 --port 8013
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
 
   data-api:
     <<: *service-common
@@ -73,6 +91,9 @@ services:
     ports:
       - "8014:8014"
     command: uvicorn services.data_api.main:app --host 0.0.0.0 --port 8014
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
 
   sensitive-detect:
     <<: *service-common
@@ -80,6 +101,9 @@ services:
     ports:
       - "8015:8015"
     command: uvicorn services.sensitive_detect.main:app --host 0.0.0.0 --port 8015
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
 
   audit-log:
     <<: *service-common
@@ -87,6 +111,9 @@ services:
     ports:
       - "8016:8016"
     command: uvicorn services.audit_log.main:app --host 0.0.0.0 --port 8016
+    healthcheck:
+      <<: *healthcheck-common
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
 
 networks:
   ods-network:

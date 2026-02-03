@@ -8,10 +8,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Tags from './Tags';
 
-// Mock datahub API
+// Mock metadata API
 const mockSearchTags = vi.fn();
 const mockCreateTag = vi.fn();
-vi.mock('../../api/datahub', () => ({
+vi.mock('../../api/metadata', () => ({
   searchTags: () => mockSearchTags(),
   createTag: () => mockCreateTag(),
 }));

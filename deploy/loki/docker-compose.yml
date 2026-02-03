@@ -13,7 +13,7 @@ services:
       - loki-data:/loki
       - ./config:/etc/loki:ro
     networks:
-      - one-data-studio-network
+      - ods-network
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "localhost:3100/ready"]
       interval: 10s
@@ -28,7 +28,7 @@ services:
       - /var/log:/var/log:ro
       - ./config/promtail:/etc/promtail:ro
     networks:
-      - one-data-studio-network
+      - ods-network
     depends_on:
       loki:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
-      - one-data-studio-network
+      - ods-network
     depends_on:
       loki:
         condition: service_healthy
@@ -69,7 +69,6 @@ volumes:
     name: one-data-studio-grafana-data
 
 networks:
-  one-data-studio-network:
-    name: one-data-studio-network
-    driver: bridge
+  ods-network:
+    name: ods-network
     external: true

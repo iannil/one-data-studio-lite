@@ -1,42 +1,45 @@
-"""Test DataHub Integration Lifecycle - Phase 07
+"""Test Metadata Integration Lifecycle - Phase 07
 
-Tests DataHub metadata management integration:
+Tests OpenMetadata metadata management integration (replaces DataHub):
 - Setup and configuration
 - Search datasets
 - Get entity details
 - Get lineage relationships
 - Create tags
 - Permission boundaries
+
+Note: API paths remain /api/proxy/datahub for backward compatibility.
+The backend routes requests to OpenMetadata.
 """
 import pytest
 from httpx import AsyncClient
 
 
 @pytest.mark.p0
-class TestDataHubIntegrationLifecycle:
-    """Test DataHub integration complete lifecycle"""
+class TestMetadataIntegrationLifecycle:
+    """Test OpenMetadata integration complete lifecycle"""
 
-    async def test_datahub_01_setup(self, portal_client: AsyncClient, super_admin_headers: dict):
-        """Verify DataHub proxy endpoint is accessible"""
+    async def test_metadata_01_setup(self, portal_client: AsyncClient, super_admin_headers: dict):
+        """Verify metadata proxy endpoint is accessible"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/datasets",
             headers=super_admin_headers
         )
-        # May return external service error if DataHub is not configured
+        # May return external service error if OpenMetadata is not configured
         assert response.status_code in (200, 503, 504)
 
-    async def test_datahub_02_search_datasets(self, portal_client: AsyncClient, super_admin_headers: dict):
-        """Search for datasets in DataHub"""
+    async def test_metadata_02_search_datasets(self, portal_client: AsyncClient, super_admin_headers: dict):
+        """Search for datasets in OpenMetadata"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/datasets",
             params={"query": "*", "start": 0, "count": 10},
             headers=super_admin_headers
         )
-        # May return external service error if DataHub is not configured
+        # May return external service error if OpenMetadata is not configured
         assert response.status_code in (200, 503, 504)
 
-    async def test_datahub_03_search_entities(self, portal_client: AsyncClient, super_admin_headers: dict):
-        """Search DataHub entities"""
+    async def test_metadata_03_search_entities(self, portal_client: AsyncClient, super_admin_headers: dict):
+        """Search metadata entities"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/entities",
             params={"entity": "dataset", "query": "*", "start": 0, "count": 10},
@@ -44,7 +47,7 @@ class TestDataHubIntegrationLifecycle:
         )
         assert response.status_code in (200, 503, 504)
 
-    async def test_datahub_04_get_entity_aspect(self, portal_client: AsyncClient, super_admin_headers: dict):
+    async def test_metadata_04_get_entity_aspect(self, portal_client: AsyncClient, super_admin_headers: dict):
         """Get entity aspect details"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/aspects",
@@ -53,7 +56,7 @@ class TestDataHubIntegrationLifecycle:
         )
         assert response.status_code in (200, 400, 503, 504)
 
-    async def test_datahub_05_get_lineage(self, portal_client: AsyncClient, super_admin_headers: dict):
+    async def test_metadata_05_get_lineage(self, portal_client: AsyncClient, super_admin_headers: dict):
         """Get data lineage relationships"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/relationships",
@@ -62,8 +65,8 @@ class TestDataHubIntegrationLifecycle:
         )
         assert response.status_code in (200, 400, 503, 504)
 
-    async def test_datahub_06_create_tag(self, portal_client: AsyncClient, super_admin_headers: dict):
-        """Create a tag in DataHub"""
+    async def test_metadata_06_create_tag(self, portal_client: AsyncClient, super_admin_headers: dict):
+        """Create a tag in OpenMetadata"""
         response = await portal_client.post(
             "/api/proxy/datahub/v1/tags",
             params={"name": "test_tag", "description": "Test tag for lifecycle testing"},
@@ -71,8 +74,8 @@ class TestDataHubIntegrationLifecycle:
         )
         assert response.status_code in (200, 503, 504)
 
-    async def test_datahub_07_search_tags(self, portal_client: AsyncClient, super_admin_headers: dict):
-        """Search tags in DataHub"""
+    async def test_metadata_07_search_tags(self, portal_client: AsyncClient, super_admin_headers: dict):
+        """Search tags in OpenMetadata"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/tags/search",
             params={"query": "*"},
@@ -82,18 +85,18 @@ class TestDataHubIntegrationLifecycle:
 
 
 @pytest.mark.p1
-class TestDataHubPermissions:
-    """Test DataHub permission boundaries"""
+class TestMetadataPermissions:
+    """Test metadata permission boundaries"""
 
-    async def test_datahub_08_viewer_can_access(self, portal_client: AsyncClient, viewer_headers: dict):
-        """Viewer can access DataHub metadata (read-only)"""
+    async def test_metadata_08_viewer_can_access(self, portal_client: AsyncClient, viewer_headers: dict):
+        """Viewer can access metadata (read-only)"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/datasets",
             headers=viewer_headers
         )
         assert response.status_code in (200, 403, 503, 504)
 
-    async def test_datahub_09_analyst_can_search(self, portal_client: AsyncClient, analyst_headers: dict):
+    async def test_metadata_09_analyst_can_search(self, portal_client: AsyncClient, analyst_headers: dict):
         """Analyst can search metadata"""
         response = await portal_client.get(
             "/api/proxy/datahub/v1/entities",
@@ -101,7 +104,7 @@ class TestDataHubPermissions:
         )
         assert response.status_code in (200, 403, 503, 504)
 
-    async def test_datahub_10_viewer_cannot_create_tags(self, portal_client: AsyncClient, viewer_headers: dict):
+    async def test_metadata_10_viewer_cannot_create_tags(self, portal_client: AsyncClient, viewer_headers: dict):
         """Viewer cannot create tags"""
         response = await portal_client.post(
             "/api/proxy/datahub/v1/tags",
@@ -113,10 +116,10 @@ class TestDataHubPermissions:
 
 
 @pytest.mark.p2
-class TestDataHubIntegration:
-    """Test DataHub integration with other systems"""
+class TestMetadataIntegration:
+    """Test metadata integration with other systems"""
 
-    async def test_datahub_11_metadata_sync_trigger(self, portal_client: AsyncClient, super_admin_headers: dict):
+    async def test_metadata_11_metadata_sync_trigger(self, portal_client: AsyncClient, super_admin_headers: dict):
         """Test metadata sync can be triggered"""
         response = await portal_client.post(
             "/api/proxy/metadata-sync/v1/webhook",
@@ -129,7 +132,7 @@ class TestDataHubIntegration:
         )
         assert response.status_code in (200, 503, 504)
 
-    async def test_datahub_12_etl_mapping_exists(self, portal_client: AsyncClient, super_admin_headers: dict):
+    async def test_metadata_12_etl_mapping_exists(self, portal_client: AsyncClient, super_admin_headers: dict):
         """Test ETL mapping exists for metadata changes"""
         response = await portal_client.get(
             "/api/proxy/metadata-sync/v1/mappings",

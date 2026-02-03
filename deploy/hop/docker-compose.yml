@@ -18,6 +18,12 @@ services:
       - hop-data:/home/hop/data
     networks:
       - ods-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   hop-data:

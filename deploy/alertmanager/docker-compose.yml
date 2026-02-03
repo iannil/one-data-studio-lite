@@ -12,6 +12,11 @@ services:
     networks:
       - ods-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   ods-network:

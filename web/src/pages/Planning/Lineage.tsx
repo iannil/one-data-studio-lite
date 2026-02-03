@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Input, Button, message, Typography, Flex, Space, Spin, Tag, Table } from 'antd';
 import { BranchesOutlined, SearchOutlined } from '@ant-design/icons';
-import { getLineage } from '../../api/datahub';
+import { getLineage } from '../../api/metadata';
 
 const { Title, Text } = Typography;
 

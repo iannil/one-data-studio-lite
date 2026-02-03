@@ -1,7 +1,7 @@
 # 运维手册 (RUNBOOK)
 
-**更新日期**: 2026-02-02
-**版本**: 1.0
+**更新日期**: 2026-02-03
+**版本**: 1.1
 
 本文档为 ONE-DATA-STUDIO-LITE 项目的运维人员提供部署程序、监控告警、常见问题处理和回滚程序的完整参考。
 
@@ -65,12 +65,16 @@ curl http://localhost:8010/security/check
 
 ```bash
 # 一键部署所有组件
-make deploy
+./ods.sh start all
+# 或使用 make
+make start
 
-# 等待部署完成
+# 等待部署完成，查看状态
+./ods.sh status all
 make status
 
 # 查看访问地址
+./ods.sh info
 make info
 ```
 
@@ -79,40 +83,73 @@ make info
 **阶段 1: 基础设施**
 
 ```bash
-# 创建网络
-make network
+# 启动基础设施 (MySQL, Redis, MinIO)
+./ods.sh start infra
+# 或使用 make
+make start-infra
 
-# 启动配置中心（可选）
-make etcd-up
-
-# 启动监控系统（可选）
-make monitoring-up
+# 等待就绪后检查健康状态
+./ods.sh health infra
+make health-infra
 ```
 
 **阶段 2: 第三方平台**
 
 ```bash
-# 按顺序启动各平台
-make cube-studio-up    # 1. Cube-Studio (基座)
-make superset-up       # 2. Apache Superset (BI)
-make datahub-up        # 3. DataHub (元数据)
-make dolphinscheduler-up  # 4. DolphinScheduler (调度)
-make hop-up            # 5. Apache Hop (ETL)
-make seatunnel-up      # 6. SeaTunnel (同步)
-make shardingsphere-up # 7. ShardingSphere (安全)
+# 启动所有平台服务
+./ods.sh start platforms
+# 或使用 make
+make start-platforms
+
+# 或按需启动单个平台
+make superset-up          # Apache Superset (BI)
+make openmetadata-up      # OpenMetadata (元数据)
+make dolphinscheduler-up  # DolphinScheduler (调度)
+make hop-up               # Apache Hop (ETL)
+make seatunnel-up         # SeaTunnel (同步)
+make shardingsphere-up    # ShardingSphere (安全)
+make cube-studio-up       # Cube-Studio (可选)
 ```
 
 **阶段 3: 二开服务**
 
 ```bash
 # 启动所有二开服务
-make services-up
+./ods.sh start services
+# 或使用 make
+make start-services
 
 # 查看日志
 make services-logs
 ```
 
-#### 3. 生产环境部署
+**阶段 4: 前端（开发环境）**
+
+```bash
+# 启动前端开发服务器
+./ods.sh start web
+# 或使用 make
+make start-web
+```
+
+#### 3. 初始化数据
+
+```bash
+# 初始化种子数据
+./ods.sh init-data seed
+# 或使用 make
+make init-data
+
+# 验证数据完整性
+./ods.sh init-data verify
+make init-data-verify
+
+# 查看数据状态
+./ods.sh init-data status
+make init-data-status
+```
+
+#### 4. 生产环境部署
 
 ```bash
 # 1. 生成生产密钥
@@ -141,7 +178,20 @@ curl http://localhost:8010/health
 
 ```bash
 # 检查所有服务状态
+./ods.sh status all
 make status
+
+# 分层健康检查
+./ods.sh health all        # 所有服务
+./ods.sh health infra      # 基础设施
+./ods.sh health platforms  # 平台服务
+./ods.sh health services   # 微服务
+
+# 或使用 make
+make health
+make health-infra
+make health-platforms
+make health-services
 
 # 检查各服务健康端点
 curl http://localhost:8010/health  # Portal
@@ -156,11 +206,21 @@ curl http://localhost:8016/health  # Audit Log
 #### 功能验证
 
 ```bash
-# 运行冒烟测试
-make test-smoke
+# 运行生命周期测试（推荐）
+./ods.sh test lifecycle
+make test-lifecycle
 
-# 运行 P0 测试
-make test-p0
+# 分阶段测试
+make test-foundation       # 系统基础测试
+make test-planning         # 数据规划测试
+make test-collection       # 数据汇聚测试
+make test-processing       # 数据加工测试
+make test-analysis         # 数据分析测试
+make test-security         # 数据安全测试
+
+# 运行所有测试
+./ods.sh test all
+make test
 
 # 检查数据库连接
 make db-verify
@@ -479,11 +539,13 @@ alembic downgrade -1
 
 ```bash
 # 立即停止所有服务
-make stop-all
+./ods.sh stop all
+make stop
 
-# 或
-docker compose -f services/docker-compose.yml down
-docker compose -f deploy/*/docker-compose.yml down
+# 分层停止
+./ods.sh stop services     # 停止微服务
+./ods.sh stop platforms    # 停止平台服务
+./ods.sh stop infra        # 停止基础设施
 ```
 
 #### 恢复备份
@@ -636,7 +698,7 @@ make generate-secrets-file
 # 或单独生成
 export JWT_SECRET=$(openssl rand -hex 32)
 export INTERNAL_TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
-export META_SYNC_DATAHUB_WEBHOOK_SECRET=$(openssl rand -hex 32)
+export META_SYNC_WEBHOOK_SECRET=$(openssl rand -hex 32)
 ```
 
 ### 配置 HTTPS

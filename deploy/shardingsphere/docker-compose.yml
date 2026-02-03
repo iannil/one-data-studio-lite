@@ -23,6 +23,12 @@ services:
       - shardingsphere-data:/opt/shardingsphere-proxy/data
     networks:
       - ods-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3307 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   shardingsphere-data:

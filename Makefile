@@ -1,45 +1,88 @@
 # ONE-DATA-STUDIO-LITE Makefile
-.PHONY: help deploy stop status info services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean test-env-up test-env-down test-env-status test-env-logs test-env-clean
+.PHONY: help start stop status info health init-data test network services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# ========== 部署命令 ==========
+# ========== 统一运维命令（推荐） ==========
 
-deploy: ## 一键部署所有组件
-	bash deploy.sh deploy
+start: ## 启动所有服务
+	./ods.sh start all
+
+start-infra: ## 启动基础设施（MySQL, Redis, MinIO）
+	./ods.sh start infra
+
+start-platforms: ## 启动第三方平台（OpenMetadata, Superset等）
+	./ods.sh start platforms
+
+start-services: ## 启动后端微服务
+	./ods.sh start services
+
+start-web: ## 启动前端开发服务器
+	./ods.sh start web
 
 stop: ## 停止所有服务
-	bash deploy.sh stop
+	./ods.sh stop all
+
+stop-infra: ## 停止基础设施
+	./ods.sh stop infra
+
+stop-platforms: ## 停止第三方平台
+	./ods.sh stop platforms
+
+stop-services: ## 停止后端微服务
+	./ods.sh stop services
+
+stop-web: ## 停止前端
+	./ods.sh stop web
 
 status: ## 查看服务状态
-	bash deploy.sh status
+	./ods.sh status all
 
 info: ## 显示访问地址
-	bash deploy.sh info
+	./ods.sh info
 
-# ========== 全量启动 ==========
+health: ## 健康检查
+	./ods.sh health all
 
-start-all: ## 启动所有服务 (平台+后端+前端)
-	bash start-all.sh all
+health-infra: ## 基础设施健康检查
+	./ods.sh health infra
 
-start-platforms: ## 仅启动第三方平台
-	bash start-all.sh platforms
+health-platforms: ## 平台服务健康检查
+	./ods.sh health platforms
 
-start-services: ## 仅启动后端微服务
-	bash start-all.sh services
+health-services: ## 微服务健康检查
+	./ods.sh health services
 
-start-web: ## 仅启动前端开发服务器
-	bash start-all.sh web
+init-data: ## 初始化种子数据
+	./ods.sh init-data seed
 
-start-dev: ## 本地开发模式 (不用Docker)
-	bash start-all.sh dev
+init-data-verify: ## 验证数据完整性
+	./ods.sh init-data verify
 
-stop-all: ## 停止所有服务
-	bash start-all.sh stop
+init-data-status: ## 查看数据状态
+	./ods.sh init-data status
 
-status-all: ## 查看所有服务状态
-	bash start-all.sh status
+test-lifecycle: ## 运行生命周期测试
+	./ods.sh test lifecycle
+
+test-foundation: ## 运行系统基础测试
+	./ods.sh test foundation
+
+test-planning: ## 运行数据规划测试
+	./ods.sh test planning
+
+test-collection: ## 运行数据汇聚测试
+	./ods.sh test collection
+
+test-processing: ## 运行数据加工测试
+	./ods.sh test processing
+
+test-analysis: ## 运行数据分析测试
+	./ods.sh test analysis
+
+test-security: ## 运行数据安全测试
+	./ods.sh test security
 
 network: ## 创建 Docker 网络
 	docker network create ods-network 2>/dev/null || true
@@ -63,11 +106,11 @@ superset-up: network ## 启动 Superset
 superset-down: ## 停止 Superset
 	docker compose -f deploy/superset/docker-compose.yml down
 
-datahub-up: network ## 启动 DataHub
-	docker compose -f deploy/datahub/docker-compose.yml up -d
+openmetadata-up: network ## 启动 OpenMetadata
+	docker compose -f deploy/openmetadata/docker-compose.yml up -d
 
-datahub-down: ## 停止 DataHub
-	docker compose -f deploy/datahub/docker-compose.yml down
+openmetadata-down: ## 停止 OpenMetadata
+	docker compose -f deploy/openmetadata/docker-compose.yml down
 
 dolphinscheduler-up: network ## 启动 DolphinScheduler
 	docker compose -f deploy/dolphinscheduler/docker-compose.yml up -d
@@ -271,7 +314,7 @@ dev-audit: ## 本地启动审计日志服务
 # ========== 清理 ==========
 
 clean: ## 停止并清理所有容器和卷
-	bash deploy.sh stop
+	./ods.sh stop all
 	docker volume prune -f
 
 # ========== 前端开发 ==========
@@ -295,76 +338,15 @@ web-preview: ## 预览前端生产构建
 
 test: ## 运行所有测试
 	@echo "运行所有测试..."
-	cd web/e2e && npm test -- --workers=1
+	./ods.sh test all
 
 test-e2e: ## 运行E2E测试
 	@echo "运行E2E测试..."
 	cd web/e2e && npx playwright test
 
-test-unit: ## 运行单元测试
-	@echo "运行单元测试..."
-	cd web && npm run test:unit
-
-test-lifecycle: ## 运行生命周期测试
-	@echo "运行生命周期测试..."
-	cd web/e2e && npx playwright test --grep "@lifecycle"
-
-test-lifecycle-01: ## 运行生命周期阶段1测试（账户创建）
-	cd web/e2e && npx playwright test --grep "@lifecycle-01"
-
-test-lifecycle-02: ## 运行生命周期阶段2测试（权限配置）
-	cd web/e2e && npx playwright test --grep "@lifecycle-02"
-
-test-lifecycle-03: ## 运行生命周期阶段3测试（数据访问）
-	cd web/e2e && npx playwright test --grep "@lifecycle-03"
-
-test-lifecycle-04: ## 运行生命周期阶段4测试（功能使用）
-	cd web/e2e && npx playwright test --grep "@lifecycle-04"
-
-test-lifecycle-05: ## 运行生命周期阶段5测试（监控审计）
-	cd web/e2e && npx playwright test --grep "@lifecycle-05"
-
-test-lifecycle-06: ## 运行生命周期阶段6测试（维护）
-	cd web/e2e && npx playwright test --grep "@lifecycle-06"
-
-test-lifecycle-07: ## 运行生命周期阶段7测试（账户禁用）
-	cd web/e2e && npx playwright test --grep "@lifecycle-07"
-
-test-lifecycle-08: ## 运行生命周期阶段8测试（账户删除）
-	cd web/e2e && npx playwright test --grep "@lifecycle-08"
-
-test-lifecycle-09: ## 运行生命周期阶段9测试（紧急处理）
-	cd web/e2e && npx playwright test --grep "@lifecycle-09"
-
-test-subsystem: ## 运行六大子系统测试
-	@echo "运行六大子系统测试..."
-	cd web/e2e && npx playwright test --grep "@planning"
-
-test-planning: ## 运行数据规划子系统测试
-	cd web/e2e && npx playwright test --grep "@planning"
-
-test-collection: ## 运行数据汇聚子系统测试
-	cd web/e2e && npx playwright test --grep "@collection"
-
-test-development: ## 运行数据开发子系统测试
-	cd web/e2e && npx playwright test --grep "@development"
-
-test-analysis: ## 运行数据分析子系统测试
-	cd web/e2e && npx playwright test --grep "@analysis"
-
-test-assets: ## 运行数据资产子系统测试
-	cd web/e2e && npx playwright test --grep "@assets"
-
-test-security: ## 运行数据安全子系统测试
-	cd web/e2e && npx playwright test --grep "@security"
-
-test-roles: ## 运行角色权限测试
-	@echo "运行角色权限测试..."
-	cd web/e2e && npx playwright test tests/roles/
-
-test-api: ## 运行API测试
-	@echo "运行API测试..."
-	cd web/e2e && npx playwright test tests/api/
+test-unit: ## 运行Python单元测试
+	@echo "运行Python单元测试..."
+	pytest tests/ -v
 
 test-report: ## 生成测试HTML报告
 	@echo "生成测试报告..."
@@ -397,27 +379,3 @@ test-p1: ## 运行P1级别测试
 
 test-coverage: ## 生成测试覆盖率报告
 	cd web && npm run test:coverage
-
-# ========== 测试环境 ==========
-
-test-env-up: ## 启动精简测试环境
-	bash deploy/test-env.sh
-
-test-env-down: ## 停止测试环境
-	bash deploy/test-env-stop.sh
-
-test-env-clean: ## 停止并清理测试环境数据
-	bash deploy/test-env-stop.sh --clean
-
-test-env-status: ## 查看测试环境状态
-	docker compose -f deploy/test-env/docker-compose.yml ps
-
-test-env-logs: ## 查看测试环境日志
-	docker compose -f deploy/test-env/docker-compose.yml logs -f
-
-test-env-restart: ## 重启测试环境
-	bash deploy/test-env-stop.sh && bash deploy/test-env.sh
-
-test-env-pull: ## 拉取测试环境镜像
-	docker compose -f deploy/test-env/docker-compose.yml pull
-

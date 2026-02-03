@@ -1,6 +1,7 @@
 /**
- * DataHub 元数据管理 API 测试
- * TDD: 验证元数据管理相关API的正确性
+ * 元数据管理 API 测试 - OpenMetadata 适配
+ *
+ * 测试后端适配 OpenMetadata API 后的前端 API 调用
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -15,7 +16,7 @@ import {
   getLineage,
   searchTags,
   createTag,
-} from './datahub';
+} from './metadata';
 import { ErrorCode } from './types';
 
 // Mock axios client
@@ -29,7 +30,7 @@ vi.mock('./client', () => ({
 import client from './client';
 const mockClient = vi.mocked(client);
 
-describe('DataHub API', () => {
+describe('Metadata API (OpenMetadata)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -48,36 +49,40 @@ describe('DataHub API', () => {
             entities: [
               {
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)',
-                type: 'dataset',
+                type: 'table',
                 name: 'users',
+                _openmetadata: { fqn: 'mysql.default.users' },
               },
               {
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,orders,PROD)',
-                type: 'dataset',
+                type: 'table',
                 name: 'orders',
+                _openmetadata: { fqn: 'mysql.default.orders' },
               },
             ],
             total: 2,
           },
         };
-        mockClient.post.mockResolvedValue({ data: mockResponse });
+        mockClient.get.mockResolvedValue({ data: mockResponse });
 
         // Act
         const result = await searchEntitiesV1({ entity: 'dataset', query: 'user' });
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=search', {
-          entity: 'dataset',
-          input: 'user',
-          start: 0,
-          count: 20,
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities', {
+          params: {
+            entity: 'dataset',
+            query: 'user',
+            start: 0,
+            count: 20,
+          },
         });
         expect(result.data.entities).toHaveLength(2);
       });
 
       it('should use default parameters', async () => {
         // Arrange
-        mockClient.post.mockResolvedValue({
+        mockClient.get.mockResolvedValue({
           data: { code: ErrorCode.SUCCESS, message: 'success', data: { entities: [], total: 0 } },
         });
 
@@ -85,17 +90,19 @@ describe('DataHub API', () => {
         await searchEntitiesV1({ entity: 'dataset' });
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=search', {
-          entity: 'dataset',
-          input: '*',
-          start: 0,
-          count: 20,
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities', {
+          params: {
+            entity: 'dataset',
+            query: '*',
+            start: 0,
+            count: 20,
+          },
         });
       });
 
       it('should support pagination', async () => {
         // Arrange
-        mockClient.post.mockResolvedValue({
+        mockClient.get.mockResolvedValue({
           data: { code: ErrorCode.SUCCESS, message: 'success', data: { entities: [], total: 0 } },
         });
 
@@ -103,17 +110,19 @@ describe('DataHub API', () => {
         await searchEntitiesV1({ entity: 'dataset', query: '*', start: 20, count: 10 });
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=search', {
-          entity: 'dataset',
-          input: '*',
-          start: 20,
-          count: 10,
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities', {
+          params: {
+            entity: 'dataset',
+            query: '*',
+            start: 20,
+            count: 10,
+          },
         });
       });
     });
 
     describe('getEntityAspectV1', () => {
-      it('should return entity aspect', async () => {
+      it('should return entity aspect with schema', async () => {
         // Arrange
         const mockResponse = {
           code: ErrorCode.SUCCESS,
@@ -121,14 +130,20 @@ describe('DataHub API', () => {
           data: {
             urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)',
             aspect: 'schemaMetadata',
-            data: {
+            schemaMetadata: {
               schemaName: 'users',
+              platform: 'mysql',
               fields: [
-                { name: 'id', type: 'INTEGER' },
-                { name: 'name', type: 'VARCHAR' },
-                { name: 'email', type: 'VARCHAR' },
+                { fieldPath: 'id', nativeDataType: 'INTEGER', nullable: false },
+                { fieldPath: 'name', nativeDataType: 'VARCHAR', nullable: true },
+                { fieldPath: 'email', nativeDataType: 'VARCHAR', nullable: true },
               ],
             },
+            fields: [
+              { fieldPath: 'id', nativeDataType: 'INTEGER', nullable: false },
+              { fieldPath: 'name', nativeDataType: 'VARCHAR', nullable: true },
+              { fieldPath: 'email', nativeDataType: 'VARCHAR', nullable: true },
+            ],
           },
         };
         mockClient.get.mockResolvedValue({ data: mockResponse });
@@ -147,11 +162,12 @@ describe('DataHub API', () => {
           },
         });
         expect(result.data.aspect).toBe('schemaMetadata');
+        expect(result.data.fields).toHaveLength(3);
       });
     });
 
     describe('getLineageV1', () => {
-      it('should return incoming lineage', async () => {
+      it('should return incoming lineage (upstream)', async () => {
         // Arrange
         const mockResponse = {
           code: ErrorCode.SUCCESS,
@@ -160,12 +176,14 @@ describe('DataHub API', () => {
             urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,fact_sales,PROD)',
             relationships: [
               {
-                entity: 'dataset',
+                entity: 'table',
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,dim_user,PROD)',
+                type: 'DownstreamOf',
               },
               {
-                entity: 'dataset',
+                entity: 'table',
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,dim_product,PROD)',
+                type: 'DownstreamOf',
               },
             ],
           },
@@ -188,7 +206,7 @@ describe('DataHub API', () => {
         expect(result.data.relationships).toHaveLength(2);
       });
 
-      it('should return outgoing lineage', async () => {
+      it('should return outgoing lineage (downstream)', async () => {
         // Arrange
         const mockResponse = {
           code: ErrorCode.SUCCESS,
@@ -197,8 +215,9 @@ describe('DataHub API', () => {
             urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,dim_user,PROD)',
             relationships: [
               {
-                entity: 'dataset',
+                entity: 'table',
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,fact_sales,PROD)',
+                type: 'UpstreamOf',
               },
             ],
           },
@@ -217,7 +236,7 @@ describe('DataHub API', () => {
     });
 
     describe('searchTagsV1', () => {
-      it('should search tags', async () => {
+      it('should search tags using dedicated endpoint', async () => {
         // Arrange
         const mockResponse = {
           code: ErrorCode.SUCCESS,
@@ -234,18 +253,21 @@ describe('DataHub API', () => {
             total: 1,
           },
         };
-        mockClient.post.mockResolvedValue({ data: mockResponse });
+        mockClient.get.mockResolvedValue({ data: mockResponse });
 
         // Act
         const result = await searchTagsV1('PII');
 
         // Assert
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/tags/search', {
+          params: { query: 'PII' },
+        });
         expect(result.data.entities).toHaveLength(1);
       });
 
       it('should search all tags when no query provided', async () => {
         // Arrange
-        mockClient.post.mockResolvedValue({
+        mockClient.get.mockResolvedValue({
           data: { code: ErrorCode.SUCCESS, message: 'success', data: { entities: [], total: 0 } },
         });
 
@@ -253,19 +275,22 @@ describe('DataHub API', () => {
         await searchTagsV1();
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalled();
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/tags/search', {
+          params: { query: '*' },
+        });
       });
     });
 
     describe('createTagV1', () => {
-      it('should create new tag', async () => {
+      it('should create new tag via OpenMetadata API', async () => {
         // Arrange
         const mockResponse = {
           code: ErrorCode.SUCCESS,
           message: 'success',
           data: {
             urn: 'urn:li:tag:CONFIDENTIAL',
-            type: 'tag',
+            name: 'CONFIDENTIAL',
+            description: 'Confidential data',
           },
         };
         mockClient.post.mockResolvedValue({ data: mockResponse });
@@ -274,38 +299,24 @@ describe('DataHub API', () => {
         const result = await createTagV1('CONFIDENTIAL', 'Confidential data');
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=ingest', {
-          entity: {
-            value: {
-              'com.linkedin.tag.TagProperties': {
-                name: 'CONFIDENTIAL',
-                description: 'Confidential data',
-              },
-            },
-          },
+        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/tags', null, {
+          params: { name: 'CONFIDENTIAL', description: 'Confidential data' },
         });
-        expect(result.data).toBeDefined();
+        expect(result.data.name).toBe('CONFIDENTIAL');
       });
 
       it('should create tag without description', async () => {
         // Arrange
         mockClient.post.mockResolvedValue({
-          data: { code: ErrorCode.SUCCESS, message: 'success', data: {} },
+          data: { code: ErrorCode.SUCCESS, message: 'success', data: { urn: 'urn:li:tag:PUBLIC', name: 'PUBLIC' } },
         });
 
         // Act
         await createTagV1('PUBLIC');
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=ingest', {
-          entity: {
-            value: {
-              'com.linkedin.tag.TagProperties': {
-                name: 'PUBLIC',
-                description: '',
-              },
-            },
-          },
+        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/tags', null, {
+          params: { name: 'PUBLIC', description: '' },
         });
       });
     });
@@ -316,36 +327,48 @@ describe('DataHub API', () => {
   // ============================================
   describe('legacy API', () => {
     describe('searchEntities', () => {
-      it('should return search results', async () => {
+      it('should return search results and extract data', async () => {
         // Arrange
         const mockResponse = {
-          entities: [
-            { urn: 'urn:li:dataset:users', type: 'dataset', name: 'users' },
-          ],
-          total: 1,
+          code: ErrorCode.SUCCESS,
+          message: 'success',
+          data: {
+            entities: [
+              { urn: 'urn:li:dataset:users', type: 'table', name: 'users' },
+            ],
+            total: 1,
+          },
         };
-        mockClient.post.mockResolvedValue({ data: mockResponse });
+        mockClient.get.mockResolvedValue({ data: mockResponse });
 
         // Act
         const result = await searchEntities({ entity: 'dataset', query: 'user' });
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/entities?action=search', {
-          entity: 'dataset',
-          input: 'user',
-          start: 0,
-          count: 20,
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities', {
+          params: {
+            entity: 'dataset',
+            query: 'user',
+            start: 0,
+            count: 20,
+          },
         });
+        // Legacy API should extract data from ApiResponse
+        expect(result.entities).toHaveLength(1);
       });
     });
 
     describe('getEntityAspect', () => {
-      it('should return entity aspect', async () => {
+      it('should return entity aspect and extract data', async () => {
         // Arrange
         const mockResponse = {
-          urn: 'urn:li:dataset:users',
-          aspect: 'schemaMetadata',
-          data: { schemaName: 'users' },
+          code: ErrorCode.SUCCESS,
+          message: 'success',
+          data: {
+            urn: 'urn:li:dataset:users',
+            aspect: 'schemaMetadata',
+            fields: [{ fieldPath: 'id', nativeDataType: 'INTEGER' }],
+          },
         };
         mockClient.get.mockResolvedValue({ data: mockResponse });
 
@@ -353,18 +376,23 @@ describe('DataHub API', () => {
         const result = await getEntityAspect('urn:li:dataset:users', 'schemaMetadata');
 
         // Assert
-        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/aspects/v1', {
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/aspects', {
           params: { urn: 'urn:li:dataset:users', aspect: 'schemaMetadata' },
         });
+        expect(result.fields).toHaveLength(1);
       });
     });
 
     describe('getLineage', () => {
-      it('should return lineage', async () => {
+      it('should return lineage and extract data', async () => {
         // Arrange
         const mockResponse = {
-          urn: 'urn:li:dataset:fact',
-          relationships: [{ entity: 'dataset', urn: 'urn:li:dataset:dim' }],
+          code: ErrorCode.SUCCESS,
+          message: 'success',
+          data: {
+            urn: 'urn:li:dataset:fact',
+            relationships: [{ entity: 'table', urn: 'urn:li:dataset:dim' }],
+          },
         };
         mockClient.get.mockResolvedValue({ data: mockResponse });
 
@@ -372,31 +400,52 @@ describe('DataHub API', () => {
         const result = await getLineage('urn:li:dataset:fact', 'INCOMING');
 
         // Assert
-        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/relationships', {
+        expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/relationships', {
           params: { urn: 'urn:li:dataset:fact', direction: 'INCOMING' },
         });
+        expect(result.relationships).toHaveLength(1);
+      });
+    });
+
+    describe('searchTags', () => {
+      it('should search tags and extract data', async () => {
+        // Arrange
+        const mockResponse = {
+          code: ErrorCode.SUCCESS,
+          message: 'success',
+          data: {
+            entities: [{ urn: 'urn:li:tag:PII', name: 'PII' }],
+            total: 1,
+          },
+        };
+        mockClient.get.mockResolvedValue({ data: mockResponse });
+
+        // Act
+        const result = await searchTags('PII');
+
+        // Assert
+        expect(result.entities).toHaveLength(1);
       });
     });
 
     describe('createTag', () => {
-      it('should create tag', async () => {
+      it('should create tag and extract data', async () => {
         // Arrange
-        mockClient.post.mockResolvedValue({ data: { urn: 'urn:li:tag:TEST' } });
+        const mockResponse = {
+          code: ErrorCode.SUCCESS,
+          message: 'success',
+          data: { urn: 'urn:li:tag:TEST', name: 'TEST' },
+        };
+        mockClient.post.mockResolvedValue({ data: mockResponse });
 
         // Act
         const result = await createTag('TEST', 'Test tag');
 
         // Assert
-        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/entities?action=ingest', {
-          entity: {
-            value: {
-              'com.linkedin.tag.TagProperties': {
-                name: 'TEST',
-                description: 'Test tag',
-              },
-            },
-          },
+        expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/tags', null, {
+          params: { name: 'TEST', description: 'Test tag' },
         });
+        expect(result.name).toBe('TEST');
       });
     });
   });
@@ -407,7 +456,7 @@ describe('DataHub API', () => {
   describe('boundary conditions', () => {
     it('should handle empty search query', async () => {
       // Arrange
-      mockClient.post.mockResolvedValue({
+      mockClient.get.mockResolvedValue({
         data: { code: ErrorCode.SUCCESS, message: 'success', data: { entities: [], total: 0 } },
       });
 
@@ -438,7 +487,7 @@ describe('DataHub API', () => {
 
     it('should handle large pagination values', async () => {
       // Arrange
-      mockClient.post.mockResolvedValue({
+      mockClient.get.mockResolvedValue({
         data: { code: ErrorCode.SUCCESS, message: 'success', data: { entities: [], total: 0 } },
       });
 
@@ -446,11 +495,13 @@ describe('DataHub API', () => {
       await searchEntitiesV1({ entity: 'dataset', start: 10000, count: 1000 });
 
       // Assert
-      expect(mockClient.post).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities?action=search', {
-        entity: 'dataset',
-        input: '*',
-        start: 10000,
-        count: 1000,
+      expect(mockClient.get).toHaveBeenCalledWith('/api/proxy/datahub/v1/entities', {
+        params: {
+          entity: 'dataset',
+          query: '*',
+          start: 10000,
+          count: 1000,
+        },
       });
     });
   });
@@ -461,7 +512,7 @@ describe('DataHub API', () => {
   describe('integration: metadata workflow', () => {
     it('should search entity, get aspect, and query lineage', async () => {
       // Step 1: Search for dataset
-      mockClient.post.mockResolvedValue({
+      mockClient.get.mockResolvedValueOnce({
         data: {
           code: ErrorCode.SUCCESS,
           message: 'success',
@@ -469,7 +520,7 @@ describe('DataHub API', () => {
             entities: [
               {
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,fact_sales,PROD)',
-                type: 'dataset',
+                type: 'table',
                 name: 'fact_sales',
               },
             ],
@@ -483,20 +534,25 @@ describe('DataHub API', () => {
       const datasetUrn = searchResult.data.entities[0].urn;
 
       // Step 2: Get schema aspect
-      mockClient.get.mockResolvedValue({
+      mockClient.get.mockResolvedValueOnce({
         data: {
           code: ErrorCode.SUCCESS,
           message: 'success',
           data: {
             urn: datasetUrn,
             aspect: 'schemaMetadata',
-            data: {
+            schemaMetadata: {
               schemaName: 'fact_sales',
+              platform: 'mysql',
               fields: [
-                { name: 'sales_id', type: 'BIGINT' },
-                { name: 'amount', type: 'DECIMAL' },
+                { fieldPath: 'sales_id', nativeDataType: 'BIGINT' },
+                { fieldPath: 'amount', nativeDataType: 'DECIMAL' },
               ],
             },
+            fields: [
+              { fieldPath: 'sales_id', nativeDataType: 'BIGINT' },
+              { fieldPath: 'amount', nativeDataType: 'DECIMAL' },
+            ],
           },
         },
       });
@@ -505,7 +561,7 @@ describe('DataHub API', () => {
       expect(aspect.data.aspect).toBe('schemaMetadata');
 
       // Step 3: Get lineage
-      mockClient.get.mockResolvedValue({
+      mockClient.get.mockResolvedValueOnce({
         data: {
           code: ErrorCode.SUCCESS,
           message: 'success',
@@ -513,8 +569,9 @@ describe('DataHub API', () => {
             urn: datasetUrn,
             relationships: [
               {
-                entity: 'dataset',
+                entity: 'table',
                 urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,raw_sales,PROD)',
+                type: 'DownstreamOf',
               },
             ],
           },
@@ -523,6 +580,41 @@ describe('DataHub API', () => {
 
       const lineage = await getLineageV1({ urn: datasetUrn, direction: 'INCOMING' });
       expect(lineage.data.relationships).toHaveLength(1);
+    });
+  });
+
+  // ============================================
+  // OpenMetadata 特定功能测试
+  // ============================================
+  describe('OpenMetadata specific features', () => {
+    it('should include OpenMetadata metadata in entity response', async () => {
+      // Arrange
+      const mockResponse = {
+        code: ErrorCode.SUCCESS,
+        message: 'success',
+        data: {
+          entities: [
+            {
+              urn: 'urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)',
+              type: 'table',
+              name: 'users',
+              _openmetadata: {
+                id: 'abc-123-uuid',
+                fqn: 'mysql.default.users',
+              },
+            },
+          ],
+          total: 1,
+        },
+      };
+      mockClient.get.mockResolvedValue({ data: mockResponse });
+
+      // Act
+      const result = await searchEntitiesV1({ entity: 'dataset' });
+
+      // Assert
+      expect(result.data.entities[0]._openmetadata).toBeDefined();
+      expect(result.data.entities[0]._openmetadata.fqn).toBe('mysql.default.users');
     });
   });
 });

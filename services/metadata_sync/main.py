@@ -1,6 +1,6 @@
 """元数据联动ETL服务 - FastAPI 应用
 
-使用数据库持久化 ETL 映射规则。
+适配 OpenMetadata Webhook 格式。
 """
 
 import json
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="DataHub 元数据变更自动触发 ETL 任务配置更新",
-    version="0.1.0",
+    description="OpenMetadata 元数据变更自动触发 ETL 任务配置更新",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -47,15 +47,21 @@ app.add_middleware(RequestLoggingMiddleware, service_name="metadata-sync")
 register_exception_handlers(app)
 setup_metrics(app)
 
-datahub_client = ServiceClient(settings.DATAHUB_GMS_URL, token=settings.DATAHUB_TOKEN)
+# OpenMetadata 客户端
+openmetadata_url = getattr(settings, 'OPENMETADATA_API_URL', None) or settings.DATAHUB_GMS_URL
+openmetadata_token = getattr(settings, 'OPENMETADATA_JWT_TOKEN', None) or settings.DATAHUB_TOKEN
+openmetadata_client = ServiceClient(openmetadata_url, token=openmetadata_token)
+
+# ETL 系统客户端
 ds_client = ServiceClient(settings.DOLPHINSCHEDULER_API_URL, token=settings.DOLPHINSCHEDULER_TOKEN)
 seatunnel_client = ServiceClient(settings.SEATUNNEL_API_URL)
 hop_client = ServiceClient(settings.HOP_API_URL)
 
-# Webhook 签名验证器
+# Webhook 签名验证器（支持 OpenMetadata 格式）
+webhook_secret = getattr(settings, 'OPENMETADATA_WEBHOOK_SECRET', None) or settings.DATAHUB_WEBHOOK_SECRET
 webhook_verifier = create_webhook_verifier(
-    secret=settings.DATAHUB_WEBHOOK_SECRET,
-    header_name="X-DataHub-Signature",
+    secret=webhook_secret,
+    header_name="X-OM-Signature",  # OpenMetadata 使用的签名头
     is_development=settings.is_development(),
 )
 
@@ -71,6 +77,7 @@ def _orm_to_pydantic(orm: ETLMappingORM) -> ETLMapping:
         auto_update_config=orm.auto_update_config,
         description=orm.description or "",
         enabled=orm.enabled,
+        source_fqn=getattr(orm, 'source_fqn', None),
     )
 
 
@@ -95,10 +102,27 @@ async def receive_metadata_event(
     db: AsyncSession = Depends(get_db),
     body: bytes = Depends(webhook_verifier),
 ):
-    """接收 DataHub 元数据变更事件 (Webhook)
+    """接收 OpenMetadata 元数据变更事件 (Webhook)
 
-    此端点需要有效的 HMAC-SHA256 签名验证。
-    签名应在 X-DataHub-Signature 头中提供，格式为 sha256=<hex>。
+    支持两种格式：
+    1. OpenMetadata Alerts/Notifications 格式（推荐）
+    2. DataHub 格式（向后兼容）
+
+    此端点需要有效的 HMAC 签名验证。
+    签名应在 X-OM-Signature 头中提供。
+
+    OpenMetadata 事件示例:
+    {
+        "eventType": "entityCreated",
+        "entityType": "table",
+        "entityId": "uuid",
+        "entityFullyQualifiedName": "mysql.db.table",
+        "changeDescription": {
+            "fieldsAdded": [],
+            "fieldsUpdated": [],
+            "fieldsDeleted": []
+        }
+    }
 
     开发环境（ENVIRONMENT != production）允许无签名请求，但会记录警告。
     """
@@ -117,14 +141,28 @@ async def receive_metadata_event(
     if event.event_id is None:
         event.event_id = str(uuid.uuid4())
 
-    logger.info(f"收到元数据变更事件: {event.entity_urn} [{event.change_type}]")
+    # 记录事件详情
+    entity_identifier = event.entityFullyQualifiedName or event.entity_urn or "unknown"
+    logger.info(f"收到元数据变更事件: {entity_identifier} [{event.change_type}] (type: {event.eventType or event.entity_type})")
 
     # 查找匹配的映射规则
     repo = ETLMappingRepository(db)
-    matching = await repo.find_matching(event.entity_urn, event.change_type.value)
+    all_mappings = await repo.get_all()
+
+    # 使用 ETLMapping.matches_event 方法匹配
+    matching_orm = []
+    for orm in all_mappings:
+        mapping = _orm_to_pydantic(orm)
+        if mapping.matches_event(event):
+            matching_orm.append(orm)
+
+    # 如果没有匹配到，回退到旧的匹配逻辑
+    if not matching_orm and event.entity_urn:
+        matching_orm = await repo.find_matching(event.entity_urn, event.change_type.value)
 
     affected_tasks = []
-    for mapping in matching:
+    for orm in matching_orm:
+        mapping = _orm_to_pydantic(orm)
         try:
             if mapping.target_task_type == "dolphinscheduler":
                 await _trigger_dolphinscheduler(mapping.target_task_id)
@@ -133,6 +171,7 @@ async def receive_metadata_event(
             elif mapping.target_task_type == "hop":
                 await _trigger_hop(mapping.target_task_id)
             affected_tasks.append(f"{mapping.target_task_type}:{mapping.target_task_id}")
+            logger.info(f"成功触发任务: {mapping.target_task_type}:{mapping.target_task_id}")
         except Exception as e:
             logger.error(f"触发任务失败: {mapping.target_task_id}, 错误: {e}")
 
@@ -140,6 +179,11 @@ async def receive_metadata_event(
         success=True,
         message=f"处理完成，触发 {len(affected_tasks)} 个任务",
         affected_tasks=affected_tasks,
+        details={
+            "event_id": event.event_id,
+            "event_type": event.eventType or event.entity_type,
+            "entity": entity_identifier,
+        },
     )
 
 
@@ -147,19 +191,24 @@ async def receive_metadata_event(
 async def manual_sync(
     user: TokenPayload = Depends(get_current_user),
 ):
-    """手动触发全量元数据同步"""
+    """手动触发全量元数据同步
+
+    从 OpenMetadata 获取所有表信息。
+    """
     try:
-        datasets = await datahub_client.get("/entities?action=search", params={
-            "entity": "dataset",
-            "start": 0,
-            "count": 100,
+        # OpenMetadata API: GET /api/v1/tables
+        tables = await openmetadata_client.get("/tables", params={
+            "limit": 100,
+            "fields": "columns,tags",
         })
+        synced_count = len(tables.get("data", [])) if isinstance(tables, dict) else 0
         return SyncResult(
             success=True,
             message="元数据同步完成",
-            details={"synced_entities": len(datasets) if isinstance(datasets, list) else 0},
+            details={"synced_entities": synced_count},
         )
     except Exception as e:
+        logger.error(f"元数据同步失败: {e}")
         return SyncResult(success=False, message=f"同步失败: {e}")
 
 

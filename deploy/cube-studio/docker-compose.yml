@@ -54,6 +54,12 @@ services:
     depends_on:
       cube-myapp:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   cube-myapp:
     image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard:2026.01.01
@@ -78,6 +84,12 @@ services:
         condition: service_healthy
       cube-redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 volumes:
   cube-mysql-data:

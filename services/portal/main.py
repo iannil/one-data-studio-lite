@@ -41,9 +41,9 @@ from services.portal.routers import (
     cleaning,
     cubestudio,
     data_api,
-    datahub,
     dolphinscheduler,
     hop,
+    metadata,  # OpenMetadata 适配（替代 datahub）
     metadata_sync,
     nl2sql,
     roles,  # 新增
@@ -122,7 +122,7 @@ app = FastAPI(
 
     - Cube-Studio (AI 平台)
     - Apache Superset (BI 分析)
-    - DataHub (元数据管理)
+    - OpenMetadata (元数据管理)
     - DolphinScheduler (任务调度)
     - Apache Hop (ETL 引擎)
     - SeaTunnel (数据同步)
@@ -160,8 +160,8 @@ app = FastAPI(
             "description": "Apache Hop ETL API"
         },
         {
-            "name": "DataHub",
-            "description": "DataHub 元数据管理 API"
+            "name": "Metadata",
+            "description": "OpenMetadata 元数据管理 API"
         },
         {
             "name": "DolphinScheduler",
@@ -244,7 +244,7 @@ setup_metrics(app)
 
 # 注册代理路由
 app.include_router(cubestudio.router)
-app.include_router(datahub.router)
+app.include_router(metadata.router)  # OpenMetadata 适配（保持 /api/proxy/datahub 路径兼容）
 app.include_router(superset.router)
 app.include_router(dolphinscheduler.router)
 app.include_router(seatunnel.router)
@@ -267,7 +267,7 @@ app.include_router(system_router.router)
 SUBSYSTEMS = [
     {"name": "cube-studio", "display_name": "Cube-Studio (AI平台)", "url": settings.CUBE_STUDIO_URL, "health_path": "/health"},
     {"name": "superset", "display_name": "Apache Superset (BI分析)", "url": settings.SUPERSET_URL, "health_path": "/health"},
-    {"name": "datahub", "display_name": "DataHub (元数据管理)", "url": settings.DATAHUB_URL, "health_path": "/"},
+    {"name": "openmetadata", "display_name": "OpenMetadata (元数据管理)", "url": getattr(settings, 'OPENMETADATA_URL', 'http://localhost:8585'), "health_path": "/api/v1/system/version"},
     {"name": "dolphinscheduler", "display_name": "DolphinScheduler (任务调度)", "url": settings.DOLPHINSCHEDULER_URL, "health_path": "/dolphinscheduler/actuator/health"},
     {"name": "hop", "display_name": "Apache Hop (ETL引擎)", "url": settings.HOP_URL, "health_path": "/"},
 ]
@@ -1150,11 +1150,11 @@ async def security_check():
     token_status = {
         "jwt_secret_configured": bool(settings.JWT_SECRET and settings.JWT_SECRET != "dev-only-change-in-production"),
         "jwt_secret_strong": len(settings.JWT_SECRET) >= 32 if settings.JWT_SECRET else False,
-        "datahub_token_configured": bool(settings.DATAHUB_TOKEN),
+        "openmetadata_token_configured": bool(getattr(settings, 'OPENMETADATA_JWT_TOKEN', '')),
         "dolphinscheduler_token_configured": bool(settings.DOLPHINSCHEDULER_TOKEN),
         "seatunnel_api_key_configured": bool(settings.SEA_TUNNEL_API_KEY),
         "internal_token_configured": bool(os.environ.get("INTERNAL_TOKEN")),
-        "webhook_secret_configured": bool(os.environ.get("META_SYNC_DATAHUB_WEBHOOK_SECRET")),
+        "webhook_secret_configured": bool(getattr(settings, 'OPENMETADATA_WEBHOOK_SECRET', '') or os.environ.get("OPENMETADATA_WEBHOOK_SECRET")),
         "superset_weak_creds": (
             settings.SUPERSET_ADMIN_USER == "admin" and
             settings.SUPERSET_ADMIN_PASSWORD in ("admin", "admin123", "password")
@@ -1168,7 +1168,7 @@ async def security_check():
         score += 1
     if token_status["jwt_secret_strong"]:
         score += 1
-    if token_status["datahub_token_configured"]:
+    if token_status["openmetadata_token_configured"]:
         score += 1
     if token_status["dolphinscheduler_token_configured"]:
         score += 1
@@ -1209,7 +1209,7 @@ async def security_check():
             "配置所有子系统的认证 Token",
             "修改 Superset 默认凭据",
             "启用 INTERNAL_TOKEN 用于服务间通信",
-            "配置 META_SYNC_DATAHUB_WEBHOOK_SECRET",
+            "配置 OPENMETADATA_WEBHOOK_SECRET",
             "启用 CONFIG_ENCRYPTION_KEY 加密配置中心敏感信息",
         ],
     }

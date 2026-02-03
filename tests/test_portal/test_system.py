@@ -335,7 +335,8 @@ class TestEmergencyStop:
             username="super",
             role="super_admin",
             exp=datetime(2099, 12, 31),
-            iat=datetime(2023, 1, 1)
+            iat=datetime(2023, 1, 1),
+            user_id="super_admin"
         )
 
         req = EmergencyStopRequest(
@@ -343,10 +344,11 @@ class TestEmergencyStop:
             confirmed=True
         )
 
-        with patch('services.portal.routers.system.os.kill') as mock_kill:
+        with patch('services.common.service_control.emergency_stop_all', new_callable=AsyncMock) as mock_stop:
+            mock_stop.return_value = {"stopped": ["service1", "service2"]}
             result = await emergency_stop(req, mock_user)
 
-            assert "停止" in result.message or "已发送" in result.message
+            assert "停止" in result.message or "已执行" in result.message
 
     @pytest.mark.asyncio
     async def test_emergency_stop_not_confirmed(self):

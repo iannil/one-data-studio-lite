@@ -107,12 +107,13 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 512M
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   datahub-elasticsearch:
     image: elasticsearch:7.17.18
@@ -159,7 +160,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: datahub-zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://datahub-kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_HEAP_OPTS: "-Xms128m -Xmx128m"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx256m"
     networks:
       - test-env-network
     depends_on:
@@ -167,7 +168,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 512M
 
   datahub-schema-registry:
     image: confluentinc/cp-schema-registry:7.6.0
@@ -183,7 +184,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 256M
 
   datahub-mysql-setup:
     image: acryldata/datahub-mysql-setup:v0.13.2

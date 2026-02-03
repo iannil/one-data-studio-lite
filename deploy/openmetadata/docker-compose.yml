@@ -1,0 +1,121 @@
+# ONE-DATA-STUDIO-LITE - OpenMetadata 部署
+# 端口: 8585 (Server), 8586 (Admin)
+# 参考: https://docs.open-metadata.org/
+
+services:
+  # ========== 依赖服务 ==========
+  openmetadata-mysql:
+    image: mysql:8.0
+    container_name: ods-openmetadata-mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${OPENMETADATA_MYSQL_PASSWORD:-openmetadata2024}
+      MYSQL_DATABASE: openmetadata
+    ports:
+      - "3308:3306"
+    volumes:
+      - openmetadata-mysql-data:/var/lib/mysql
+    networks:
+      - ods-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  openmetadata-elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.18
+    container_name: ods-openmetadata-es
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      xpack.security.enabled: "false"
+    ports:
+      - "9201:9200"
+    volumes:
+      - openmetadata-es-data:/usr/share/elasticsearch/data
+    networks:
+      - ods-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ========== OpenMetadata 服务 ==========
+  openmetadata-server:
+    image: docker.getcollate.io/openmetadata/server:1.4.4
+    container_name: ods-openmetadata
+    restart: unless-stopped
+    ports:
+      - "8585:8585"
+      - "8586:8586"
+    environment:
+      # 集群配置
+      OPENMETADATA_CLUSTER_NAME: ods-cluster
+
+      # 数据库配置
+      DB_DRIVER_CLASS: com.mysql.cj.jdbc.Driver
+      DB_SCHEME: mysql
+      DB_HOST: openmetadata-mysql
+      DB_PORT: "3306"
+      OM_DATABASE: openmetadata
+      DB_USER: root
+      DB_USER_PASSWORD: ${OPENMETADATA_MYSQL_PASSWORD:-openmetadata2024}
+
+      # Elasticsearch 配置
+      SEARCH_TYPE: elasticsearch
+      ELASTICSEARCH_HOST: openmetadata-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
+
+      # 服务器配置
+      SERVER_HOST: openmetadata-server
+      SERVER_PORT: "8585"
+      SERVER_ADMIN_PORT: "8586"
+
+      # 认证配置
+      AUTHENTICATION_PROVIDER: basic
+      AUTHENTICATION_PUBLIC_KEYS: "[\"http://openmetadata-server:8585/api/v1/system/config/jwks\"]"
+      AUTHENTICATION_AUTHORITY: "http://openmetadata-server:8585/api/v1/system/config/authorizer"
+      AUTHENTICATION_CLIENT_ID: open-metadata
+      AUTHENTICATION_CALLBACK_URL: ""
+
+      # Authorizer 配置
+      AUTHORIZER_CLASS_NAME: org.openmetadata.service.security.DefaultAuthorizer
+      AUTHORIZER_REQUEST_FILTER: org.openmetadata.service.security.JwtFilter
+      AUTHORIZER_ADMIN_PRINCIPALS: "[admin]"
+      AUTHORIZER_PRINCIPAL_DOMAIN: "open-metadata.org"
+
+      # Pipeline Service 配置 (Airflow)
+      PIPELINE_SERVICE_CLIENT_ENABLED: "false"
+
+      # 日志级别
+      LOG_LEVEL: INFO
+
+      # Java 内存配置
+      JAVA_OPTS: "-Xms512m -Xmx1g"
+    networks:
+      - ods-network
+    depends_on:
+      openmetadata-mysql:
+        condition: service_healthy
+      openmetadata-elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8585/api/v1/system/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  openmetadata-mysql-data:
+  openmetadata-es-data:
+
+networks:
+  ods-network:
+    name: ods-network
+    external: true

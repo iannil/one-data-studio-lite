@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Tree, Input, message, Typography, Row, Col, Spin, Descriptions, Tag } from 'antd';
 import { NodeIndexOutlined, SearchOutlined } from '@ant-design/icons';
-import { searchEntities, getEntityAspect } from '../../api/datahub';
+import { searchEntities, getEntityAspect } from '../../api/metadata';
 
 const { Title, Text } = Typography;
 

@@ -98,7 +98,8 @@ class ErrorCode(IntEnum):
 
     # 上游子系统错误
     SEATUNNEL_ERROR = 42100
-    DATAHUB_ERROR = 42101
+    DATAHUB_ERROR = 42101  # 已废弃，保留向后兼容
+    OPENMETADATA_ERROR = 42101  # OpenMetadata 使用相同错误码
     DOLPHINSCHEDULER_ERROR = 42102
     SUPERSET_ERROR = 42103
     SHARDINGSPHERE_ERROR = 42104
@@ -310,7 +311,8 @@ ERROR_MESSAGES: dict[int, str] = {
     ErrorCode.MESSAGE_QUEUE_ERROR: "消息队列错误",
 
     ErrorCode.SEATUNNEL_ERROR: "SeaTunnel 服务错误",
-    ErrorCode.DATAHUB_ERROR: "DataHub 服务错误",
+    ErrorCode.DATAHUB_ERROR: "元数据服务错误",  # 兼容别名
+    ErrorCode.OPENMETADATA_ERROR: "元数据服务错误",
     ErrorCode.DOLPHINSCHEDULER_ERROR: "DolphinScheduler 服务错误",
     ErrorCode.SUPERSET_ERROR: "Superset 服务错误",
     ErrorCode.SHARDINGSPHERE_ERROR: "ShardingSphere 服务错误",
