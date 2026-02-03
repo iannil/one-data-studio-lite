@@ -396,7 +396,9 @@ const Permissions: React.FC = () => {
               defaultExpandAll
               treeData={treeData}
               titleRender={(nodeData: any) => {
-                const isLocked = Math.random() > 0.5;
+                // Use a hash of the node title to determine "locked" state consistently
+                const hash = nodeData.title.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                const isLocked = hash % 2 === 0;
                 return (
                   <Space>
                     <span>{nodeData.title}</span>

@@ -768,4 +768,7 @@ server {
 - [部署指南](./deployment.md) - 基础部署说明
 - [安全配置指南](./standards/security.md) - 详细安全配置
 - [贡献者指南](./CONTRIB.md) - 开发相关内容
+- [配置参考](./REFERENCE.md) - 完整配置参考
+- [文档状态](./STATUS.md) - 文档更新状态
 - [生产检查清单](./production-checklist.md) - 上线前检查
+- [模块化运维指南](./modules/MODULES.md) - 模块详细说明

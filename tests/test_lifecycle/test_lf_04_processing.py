@@ -71,7 +71,7 @@ class TestAICleaningService:
         response = await portal_client.post(
             "/api/cleaning/rules/1/apply",
             headers=engineer_headers,
-            json{
+            json={
                 "target_table": "users_clean",
                 "preview": True
             }
@@ -107,7 +107,7 @@ class TestSensitiveDetectionService:
         response = await portal_client.post(
             "/api/sensitive/scan",
             headers=admin_headers,
-            json{
+            json={
                 "database": "demo_retail_db",
                 "table": "ods_user_info",
                 "sample_size": 1000
@@ -136,7 +136,7 @@ class TestSensitiveDetectionService:
         response = await portal_client.post(
             "/api/sensitive/rules",
             headers=admin_headers,
-            json{
+            json={
                 "name": "员工工号检测",
                 "pattern": "^EMP\\d{6}$",
                 "sensitivity_level": "medium",
@@ -150,7 +150,7 @@ class TestSensitiveDetectionService:
         response = await portal_client.post(
             "/api/sensitive/detect/phone",
             headers=admin_headers,
-            json{
+            json={
                 "text": "13800138000, 13912345678"
             }
         )
@@ -161,7 +161,7 @@ class TestSensitiveDetectionService:
         response = await portal_client.post(
             "/api/sensitive/detect/id_card",
             headers=admin_headers,
-            json{
+            json={
                 "text": "110101199001011234, 310101198512125678"
             }
         )
@@ -188,7 +188,7 @@ class TestMetadataSyncService:
         response = await portal_client.post(
             "/api/metadata/sync/trigger",
             headers=admin_headers,
-            json{
+            json={
                 "source": "mysql",
                 "source_config": {
                     "host": "mysql",
@@ -220,7 +220,7 @@ class TestMetadataSyncService:
         response = await portal_client.post(
             "/api/metadata/sync/tasks",
             headers=admin_headers,
-            json{
+            json={
                 "name": "mysql_metadata_sync",
                 "source_type": "mysql",
                 "source_config": {
@@ -247,7 +247,7 @@ class TestDataQualityChecks:
         response = await portal_client.post(
             "/api/quality/run",
             headers=steward_headers,
-            json{
+            json={
                 "table": "users",
                 "checks": ["null_check", "unique_check", "format_check"]
             }
@@ -275,7 +275,7 @@ class TestDataQualityChecks:
         response = await portal_client.post(
             "/api/quality/thresholds",
             headers=steward_headers,
-            json{
+            json={
                 "table": "users",
                 "metric": "completeness",
                 "min_value": 0.95
@@ -305,7 +305,7 @@ class TestETLMapping:
         response = await portal_client.post(
             "/api/etl/mappings",
             headers=engineer_headers,
-            json{
+            json={
                 "source_urn": "urn:li:dataset:(mysql,users,PROD)",
                 "target_task_type": "seatunnel",
                 "target_task_id": "sync_users",
@@ -320,7 +320,7 @@ class TestETLMapping:
         response = await portal_client.put(
             "/api/etl/mappings/1/auto-update",
             headers=engineer_headers,
-            json{
+            json={
                 "enabled": True
             }
         )
@@ -348,7 +348,7 @@ class TestMaskRules:
         response = await portal_client.post(
             "/api/mask/rules",
             headers=admin_headers,
-            json{
+            json={
                 "table_name": "customers",
                 "column_name": "phone",
                 "algorithm_type": "MASK_FIRST_LAST",
@@ -367,7 +367,7 @@ class TestMaskRules:
         response = await portal_client.post(
             "/api/mask/test",
             headers=admin_headers,
-            json{
+            json={
                 "value": "13800138000",
                 "algorithm": "MASK_FIRST_LAST",
                 "params": {
@@ -407,7 +407,7 @@ class TestDataTransformation:
         response = await portal_client.post(
             "/api/transform/transformations",
             headers=engineer_headers,
-            json{
+            json={
                 "name": "normalize_phone",
                 "description": "手机号标准化",
                 "transform_type": "function",
@@ -425,7 +425,7 @@ class TestDataTransformation:
         response = await portal_client.post(
             "/api/transform/transformations/1/apply",
             headers=engineer_headers,
-            json{
+            json={
                 "data": ["138-0000-0000", "139 1234 5678"]
             }
         )

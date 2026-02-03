@@ -1,5 +1,5 @@
 # ONE-DATA-STUDIO-LITE Makefile
-.PHONY: help start stop status info health init-data test network services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean
+.PHONY: help start stop status info health init-data test network services-up services-down services-logs dev-portal dev-nl2sql clean web-install web-dev web-build web-build-deploy etcd-up etcd-down etcd-logs etcd-ctl generate-secrets security-check loki-up loki-down loki-logs grafana-up grafana-down grafana-logs monitoring-up monitoring-down monitoring-logs db-migrate db-migrate-dev db-reset db-seed db-seed-prod db-verify backup-db backup-etcd backup-all restore-db restore-etcd schedule-backup unschedule-backup test test-e2e test-unit test-lifecycle test-subsystem test-report test-clean module-start module-stop module-status module-health module-list module-test
 
 help: ## 显示帮助
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -379,3 +379,82 @@ test-p1: ## 运行P1级别测试
 
 test-coverage: ## 生成测试覆盖率报告
 	cd web && npm run test:coverage
+
+# ========== 模块化运维命令 ==========
+
+module-start: ## 启动模块 (用法: make module-start MODULE=base)
+	@if [ -z "$(MODULE)" ]; then \
+		echo "用法: make module-start MODULE=<模块名>"; \
+		echo "可用模块: base, metadata, integration, processing, bi, security, all"; \
+	else \
+		./scripts/modules.sh start $(MODULE); \
+	fi
+
+module-stop: ## 停止模块 (用法: make module-stop MODULE=base)
+	@if [ -z "$(MODULE)" ]; then \
+		echo "用法: make module-stop MODULE=<模块名>"; \
+		echo "可用模块: base, metadata, integration, processing, bi, security, all"; \
+	else \
+		./scripts/modules.sh stop $(MODULE); \
+	fi
+
+module-restart: ## 重启模块 (用法: make module-restart MODULE=base)
+	@if [ -z "$(MODULE)" ]; then \
+		echo "用法: make module-restart MODULE=<模块名>"; \
+	else \
+		./scripts/modules.sh restart $(MODULE); \
+	fi
+
+module-status: ## 查看模块状态
+	@./scripts/modules.sh status
+
+module-health: ## 模块健康检查
+	@if [ -z "$(MODULE)" ] || [ "$(MODULE)" = "all" ]; then \
+		./scripts/modules.sh health all; \
+	else \
+		./scripts/modules.sh health $(MODULE); \
+	fi
+
+module-list: ## 列出所有模块
+	@./scripts/modules.sh list
+
+module-test: ## 测试模块 (用法: make module-test MODULE=base)
+	@if [ -z "$(MODULE)" ]; then \
+		echo "用法: make module-test MODULE=<模块名>"; \
+		echo "可用模块: base, metadata, integration, processing, bi, security, all"; \
+	else \
+		./scripts/test-modules.sh test $(MODULE); \
+	fi
+
+module-verify: ## 快速验证模块
+	@if [ -z "$(MODULE)" ]; then \
+		echo "用法: make module-verify MODULE=<模块名>"; \
+	else \
+		./scripts/test-modules.sh verify $(MODULE); \
+	fi
+
+# 快捷命令
+
+mod-base: ## 启动基础平台模块
+	./scripts/modules.sh start base
+
+mod-metadata: ## 启动元数据管理模块
+	./scripts/modules.sh start metadata
+
+mod-integration: ## 启动数据集成模块
+	./scripts/modules.sh start integration
+
+mod-processing: ## 启动数据加工模块
+	./scripts/modules.sh start processing
+
+mod-bi: ## 启动BI分析模块
+	./scripts/modules.sh start bi
+
+mod-security: ## 启动数据安全模块
+	./scripts/modules.sh start security
+
+mod-all: ## 启动所有模块
+	./scripts/modules.sh start all
+
+mod-stop-all: ## 停止所有模块
+	./scripts/modules.sh stop all

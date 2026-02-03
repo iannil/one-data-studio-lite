@@ -113,7 +113,7 @@ export function useTaskWebSocket() {
 
         ws.onopen = () => {
           setIsConnected(true);
-          console.log('Task WebSocket connected');
+          // WebSocket connected
         };
 
         ws.onmessage = (event) => {

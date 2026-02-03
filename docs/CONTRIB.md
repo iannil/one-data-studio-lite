@@ -391,6 +391,7 @@ make network
 |------|------|
 | `npm run dev` | 启动 Vite 开发服务器 |
 | `npm run build` | 构建生产版本 (tsc + vite build) |
+| `npm run build:full` | 完整构建 (tsc -b + vite build) |
 | `npm run preview` | 预览生产构建 |
 
 #### 代码检查
@@ -595,6 +596,132 @@ test.describe('用户认证', () => {
 
 ---
 
+## 模块化开发
+
+ONE-DATA-STUDIO-LITE 支持按模块启动和开发，适合不同的开发场景。
+
+### 可用模块
+
+| 模块 | 名称 | 内存需求 | 端口 |
+|------|------|----------|------|
+| `base` | 基础平台 | ~4 GB | 8010, 8016, 3306, 6379 |
+| `metadata` | 元数据管理 | ~6 GB | 8585, 8586, 9201 |
+| `integration` | 数据集成 | ~8 GB | 5802, 12345, 2181 |
+| `processing` | 数据加工 | ~6 GB | 8083, 8012 |
+| `bi` | BI 分析 | ~8 GB | 8088, 8011 |
+| `security` | 数据安全 | ~5 GB | 8015 |
+
+### 模块命令
+
+#### 启动模块
+
+```bash
+# 使用 Makefile 快捷命令
+make mod-base         # 启动基础平台
+make mod-metadata     # 启动元数据管理
+make mod-integration  # 启动数据集成
+make mod-processing   # 启动数据加工
+make mod-bi           # 启动 BI 分析
+make mod-security     # 启动数据安全
+make mod-all          # 启动所有模块
+
+# 使用模块脚本
+./scripts/modules.sh start <module>
+./scripts/modules.sh stop <module>
+./scripts/modules.sh restart <module>
+```
+
+#### 查看状态
+
+```bash
+# 查看模块状态
+./scripts/modules.sh status
+
+# 健康检查
+./scripts/modules.sh health <module>
+
+# 列出所有模块
+./scripts/modules.sh list
+```
+
+#### 本地模式
+
+```bash
+# 本地模式启动（支持热重载）
+./scripts/modules.sh start base --local
+
+# 本地运行单个服务
+make dev-portal
+make dev-nl2sql
+make dev-cleaning
+```
+
+### 开发场景
+
+#### 前端开发
+
+```bash
+# 启动基础平台（最小配置）
+./scripts/modules.sh start base --local
+
+# 启动前端
+make web-dev
+
+# 内存需求: ~6 GB
+```
+
+#### 后端 API 开发
+
+```bash
+# 启动基础平台
+./scripts/modules.sh start base --local
+
+# 本地运行需要开发的服务
+make dev-portal
+make dev-nl2sql
+
+# 内存需求: ~4 GB
+```
+
+#### 元数据开发
+
+```bash
+# 启动元数据管理模块
+./scripts/modules.sh start metadata
+
+# 内存需求: ~10 GB
+```
+
+#### 数据工程开发
+
+```bash
+# 启动数据集成和加工模块
+./scripts/modules.sh start integration
+./scripts/modules.sh start processing
+
+# 内存需求: ~14 GB
+```
+
+#### BI 开发
+
+```bash
+# 启动 BI 分析模块
+./scripts/modules.sh start bi
+
+# 内存需求: ~12 GB
+```
+
+#### 全栈开发
+
+```bash
+# 启动所有模块
+./scripts/modules.sh start all
+
+# 内存需求: ~32 GB
+```
+
+---
+
 ## 代码规范
 
 ### Python 代码规范
@@ -681,6 +808,11 @@ git commit -m "refactor(services): extract common database utilities"
 
 - [部署指南](./deployment.md) - 生产环境部署
 - [开发指南](./development.md) - 详细开发规范
+- [运维手册](./RUNBOOK.md) - 运维操作指南
+- [配置参考](./REFERENCE.md) - 完整配置参考
+- [文档状态](./STATUS.md) - 文档更新状态
 - [API 设计规范](./standards/api-design.md) - API 设计标准
 - [安全配置指南](./standards/security.md) - 安全配置参考
 - [E2E 测试选择指南](./standards/e2e-selector-guide.md) - E2E 测试选择
+- [模块化运维指南](./modules/MODULES.md) - 模块详细说明
+- [模块快速参考](./modules/QUICKREF.md) - 模块运维快速参考

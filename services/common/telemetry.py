@@ -10,11 +10,10 @@ from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPxClientInstrumentor
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import ConsoleMetricReader, PeriodicMetricsReader
-from opentelemetry.sdk.metrics.view import ConsoleMetricExporter
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, TELEMETRY_SDK_LANGUAGE
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
@@ -22,7 +21,7 @@ from opentelemetry.sdk.trace.export import (
     ConsoleSpanExporter,
     SimpleSpanProcessor,
 )
-from opentelemetry.sdk.trace.resources import Resource
+from opentelemetry.sdk.resources import Resource
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +97,11 @@ def setup_telemetry(
             endpoint=f"{endpoint}/v1/metrics",
             insecure=True if environment == "development" else False,
         )
-        metric_reader = PeriodicMetricsReader(metric_exporter, export_interval_millis=60000)
+        metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=60000)
     else:
         # 开发环境使用控制台导出
         metric_exporter = ConsoleMetricExporter()
-        metric_reader = ConsoleMetricReader(metric_exporter)
+        metric_reader = PeriodicExportingMetricReader(metric_exporter, export_interval_millis=60000)
 
     meter_provider = MeterProvider(resource=resource)
     meter_provider.add_metrics_reader(metric_reader)
@@ -135,7 +134,7 @@ def setup_fastapi_instrumentation(
         FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
 
         # HTTPX 客户端自动埋点
-        HTTPxClientInstrumentor().instrument()
+        HTTPXClientInstrumentor().instrument()
 
         logger.info(f"FastAPI 自动埋点已启用: {service_name}")
 

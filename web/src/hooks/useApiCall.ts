@@ -140,7 +140,9 @@ function handleAuthError(error: ApiError) {
  * @example
  * ```tsx
  * const { data, loading, error, execute } = useApiCall({
- *   onSuccess: (data) => console.log('Success', data),
+ *   onSuccess: (data) => {
+ *     // Handle success
+ *   },
  *   showError: true,
  * });
  *

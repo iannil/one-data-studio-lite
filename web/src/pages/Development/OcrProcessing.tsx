@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Card,
   Upload,
@@ -13,7 +13,6 @@ import {
   Alert,
   Modal,
   Progress,
-  Image,
 } from 'antd';
 import {
   FileImageOutlined,
@@ -84,6 +83,12 @@ const DEMO_TASKS: OcrTask[] = [
 ];
 
 const OcrProcessing: React.FC = () => {
+  const taskIdCounter = useRef(0);
+  const generateTaskId = useCallback(() => {
+    taskIdCounter.current += 1;
+    return `task_${taskIdCounter.current}_${Date.now().toString(36)}`;
+  }, []);
+
   const [tasks, setTasks] = useState<OcrTask[]>(DEMO_TASKS);
   const [selectedLanguage, setSelectedLanguage] = useState('ch_en');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -112,7 +117,7 @@ const OcrProcessing: React.FC = () => {
 
       // Create new task
       const newTask: OcrTask = {
-        id: Date.now().toString(),
+        id: generateTaskId(),
         fileName: file.name,
         status: 'pending',
         progress: 0,

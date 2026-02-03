@@ -47,7 +47,7 @@ class TestAuditLogService:
         response = await portal_client.post(
             "/api/audit/export",
             headers=admin_headers,
-            json{
+            json={
                 "start_date": "2024-01-01",
                 "end_date": "2024-12-31",
                 "format": "csv"
@@ -156,7 +156,7 @@ class TestSensitiveDataAccess:
         response = await portal_client.post(
             "/api/data/query",
             headers=viewer_headers,
-            json{
+            json={
                 "dataset": "customers",
                 "fields": ["name", "phone", "id_card"]
             }
@@ -178,7 +178,7 @@ class TestSensitiveDataAccess:
         response = await portal_client.post(
             "/api/data/query",
             headers=admin_headers,
-            json{
+            json={
                 "dataset": "customers",
                 "fields": ["name", "phone", "id_card"],
                 "unmask": True
@@ -191,7 +191,7 @@ class TestSensitiveDataAccess:
         response = await portal_client.post(
             "/api/data/query",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "customers",
                 "fields": ["name", "phone"]
             }
@@ -203,7 +203,7 @@ class TestSensitiveDataAccess:
         response = await portal_client.post(
             "/api/data/query",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "customers",
                 "fields": ["name", "phone"],
                 "unmask": True
@@ -232,7 +232,7 @@ class TestPasswordSecurity:
         response = await portal_client.post(
             "/auth/change-password",
             headers=admin_headers,
-            json{
+            json={
                 "new_password": "newPassword123"
             }
         )
@@ -244,7 +244,7 @@ class TestPasswordSecurity:
         response = await portal_client.post(
             "/auth/change-password",
             headers=admin_headers,
-            json{
+            json={
                 "old_password": "admin123",
                 "new_password": "admin123"
             }
@@ -256,7 +256,7 @@ class TestPasswordSecurity:
         """测试密码重置令牌"""
         response = await portal_client.post(
             "/auth/password-reset/request",
-            json{"email": "admin@one-data-studio.local"}
+            json={"email": "admin@one-data-studio.local"}
         )
         # 端点可能不存在
         assert response.status_code in (200, 404)

@@ -31,7 +31,7 @@ class TestNL2SQLService:
         response = await portal_client.post(
             "/api/nl2sql/convert",
             headers=analyst_headers,
-            json{
+            json={
                 "query": "查询最近7天的订单数量",
                 "database": "demo_retail_db"
             }
@@ -49,7 +49,7 @@ class TestNL2SQLService:
         response = await portal_client.post(
             "/api/nl2sql/explain",
             headers=analyst_headers,
-            json{
+            json={
                 "sql": "SELECT u.name, COUNT(o.id) as order_count FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.name"
             }
         )
@@ -60,7 +60,7 @@ class TestNL2SQLService:
         response = await portal_client.post(
             "/api/nl2sql/validate",
             headers=analyst_headers,
-            json{
+            json={
                 "sql": "SELECT * FROM users",
                 "database": "demo_retail_db"
             }
@@ -72,7 +72,7 @@ class TestNL2SQLService:
         response = await portal_client.post(
             "/api/nl2sql/suggest",
             headers=analyst_headers,
-            json{
+            json={
                 "context": "用户分析",
                 "tables": ["users", "orders"]
             }
@@ -164,7 +164,7 @@ class TestDataAPIGateway:
         response = await portal_client.post(
             "/api/data/query",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "users",
                 "limit": 10,
                 "fields": ["id", "name", "email"]
@@ -177,7 +177,7 @@ class TestDataAPIGateway:
         response = await portal_client.post(
             "/api/data/query",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "users",
                 "filter": {"status": "active"},
                 "limit": 100
@@ -190,7 +190,7 @@ class TestDataAPIGateway:
         response = await portal_client.post(
             "/api/data/aggregate",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "orders",
                 "group_by": ["category"],
                 "metrics": [{"field": "amount", "agg": "sum"}]
@@ -203,7 +203,7 @@ class TestDataAPIGateway:
         response = await portal_client.post(
             "/api/data/export",
             headers=analyst_headers,
-            json{
+            json={
                 "dataset": "users",
                 "format": "csv",
                 "limit": 1000
@@ -225,7 +225,7 @@ class TestQueryFunctionality:
         response = await portal_client.post(
             "/api/query/execute",
             headers=data_scientist_headers,
-            json{
+            json={
                 "sql": "SELECT * FROM users LIMIT 10",
                 "database": "demo_retail_db"
             }
@@ -237,7 +237,7 @@ class TestQueryFunctionality:
         response = await portal_client.post(
             "/api/query/execute",
             headers=data_scientist_headers,
-            json{
+            json={
                 "sql": "SELECT * FROM users WHERE id = ?",
                 "params": [1]
             }
@@ -249,7 +249,7 @@ class TestQueryFunctionality:
         response = await portal_client.post(
             "/api/query/saved",
             headers=analyst_headers,
-            json{
+            json={
                 "name": "每日用户统计",
                 "sql": "SELECT DATE(created_at) as date, COUNT(*) as count FROM users GROUP BY DATE(created_at)",
                 "database": "demo_retail_db"
@@ -270,7 +270,7 @@ class TestQueryFunctionality:
         response = await portal_client.post(
             "/api/query/analyze",
             headers=admin_headers,
-            json{
+            json={
                 "sql": "SELECT * FROM orders JOIN users ON orders.user_id = users.id"
             }
         )
@@ -298,7 +298,7 @@ class TestReporting:
         response = await portal_client.post(
             "/api/reports/generate",
             headers=analyst_headers,
-            json{
+            json={
                 "report_id": 1,
                 "params": {
                     "start_date": "2024-01-01",
@@ -313,7 +313,7 @@ class TestReporting:
         response = await portal_client.post(
             "/api/reports/schedule",
             headers=admin_headers,
-            json{
+            json={
                 "report_id": 1,
                 "schedule": "0 8 * * 1",
                 "recipients": ["admin@example.com"]
@@ -343,7 +343,7 @@ class TestVisualizationConfig:
         response = await portal_client.post(
             "/api/viz/charts",
             headers=analyst_headers,
-            json{
+            json={
                 "name": "用户增长趋势",
                 "chart_type": "line",
                 "dataset": "users",
@@ -358,7 +358,7 @@ class TestVisualizationConfig:
         response = await portal_client.post(
             "/api/viz/charts/preview",
             headers=analyst_headers,
-            json{
+            json={
                 "chart_type": "bar",
                 "data": {
                     "labels": ["A", "B", "C"],
