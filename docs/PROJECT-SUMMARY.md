@@ -236,6 +236,10 @@ docker-compose -f services/docker-compose.yml exec mysql bash
 - ✅ Docker网络健康检查
 - ✅ 运维脚本重构
 - ✅ 测试脚本内存计算Bug修复
+- ✅ 端口冲突问题（配置非标准端口13306/16379/19000）
+- ✅ 自动端口选择和诊断选项
+- ✅ 文档整理与归档
+- ✅ LLM-INDEX.md 创建
 
 ---
 

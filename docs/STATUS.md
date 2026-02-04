@@ -85,7 +85,9 @@
 | `config-center.md` | 2026-01-31 | 当前 | 配置中心规范 |
 | `security.md` | 2026-01-31 | 当前 | 安全配置规范 |
 | `unified-auth.md` | 2026-01-31 | 当前 | 统一认证规范 |
-| `e2e-selector-guide.md` | 2026-01-31 | 当前 | E2E 测试选择指南 |
+| `e2e-selector-guide.md` | 2026-01-31 | 当前 | E2E 测试选择器指南 |
+| `e2e-test-guide.md` | 2026-02-04 | 最新 | E2E 测试执行指南 (从progress迁移) |
+| `tdd-plan-all-features.md` | 2026-02-04 | 最新 | TDD 完整规划 (从progress迁移) |
 | `demo-data-standards.md` | 2026-02-01 | 当前 | 演示数据标准 |
 
 ---
@@ -130,48 +132,26 @@
 
 | 文档 | 最后更新 | 状态 | 说明 |
 |------|----------|------|------|
-| `2026-01-31-test-execution-progress.md` | 2026-01-31 | 当前 | 测试执行进度 |
-| `e2e-test-guide.md` | 2026-01-31 | 当前 | E2E 测试指南 |
-| `demo-dataset-design.md` | 2026-02-01 | 当前 | 演示数据集设计 |
-| `e2e-test-report-2026-02-01.md` | 2026-02-01 | 当前 | E2E 测试报告 |
-| `docs-update-summary-2026-02-03.md` | 2026-02-03 | 最新 | 文档更新摘要 |
-| `lifecycle-testing-implementation.md` | 2026-02-02 | 当前 | 生命周期测试实现 |
-| `remaining-issues-implementation-2026-02-01.md` | 2026-02-01 | 当前 | 剩余问题 |
-| `tdd-plan-all-features.md` | 2026-02-01 | 当前 | TDD 计划 |
-| `test-env-deployment-20260202.md` | 2026-02-02 | 当前 | 测试环境部署 |
-| `test-env-implementation-2026-02-02.md` | 2026-02-03 | 最新 | 测试环境实现 |
-| `test-phased-fixes-20260204.md` | 2026-02-04 | 最新 | 测试阶段修复 |
-| `test-script-fixes-20260204.md` | 2026-02-04 | 最新 | 测试脚本修复 |
+| `demo-dataset-design.md` | 2026-02-01 | 当前 | 演示数据集设计（待迭代） |
+| `docs-update-summary-2026-02-03.md` | 2026-02-03 | 最新 | 文档更新摘要（定期更新） |
 
-### docs/progress/ (已归档)
+### docs/archive/progress-2026-02-04/ (已归档)
 
-以下文档已于 2026-02-04 归档至 `docs/archive/progress-2026-02-04/`:
-- 21个 `phased-testing-20260204_*.md` 文档 (重复测试进度)
+以下文档已于 2026-02-04 归档：
+- `2026-01-31-test-execution-progress.md` - 测试执行进度
+- `e2e-test-report-2026-02-01.md` - E2E 测试报告
+- `lifecycle-testing-implementation.md` - 生命周期测试实现
+- `remaining-issues-implementation-2026-02-01.md` - 剩余问题实现
+- `test-env-deployment-20260202.md` - 测试环境部署
+- `test-env-implementation-2026-02-02.md` - 测试环境实现
+- `test-phased-fixes-20260204.md` - 测试阶段修复
+- `test-script-fixes-20260204.md` - 测试脚本修复
 
-以下文档已于 2026-02-04 归档至 `docs/reports/completed/`:
-- `implementation-progress-2026-02-01*.md` (4个文件)
-- `init-test-implementation-2025-02-03.md`
-- `ops-script-fix-2026-02-03.md`
-- `test_coverage_analysis_2024-02-03.md`
+### docs/standards/ (新迁移)
 
-| 文档 | 最后更新 | 状态 | 说明 |
-|------|----------|------|------|
-| `2026-01-31-test-execution-progress.md` | 2026-01-31 | 当前 | 测试执行进度 |
-| `e2e-test-guide.md` | 2026-01-31 | 当前 | E2E 测试指南 |
-| `demo-dataset-design.md` | 2026-02-01 | 当前 | 演示数据集设计 |
-| `e2e-test-report-2026-02-01.md` | 2026-02-01 | 当前 | E2E 测试报告 |
-| `implementation-progress-2026-02-01.md` | 2026-02-01 | 当前 | 实现进度 |
-| `implementation-progress-2026-02-01-part1.md` | 2026-02-01 | 当前 | 实现进度 (第一部分) |
-| `remaining-issues-implementation-2026-02-01.md` | 2026-02-01 | 当前 | 剩余问题 |
-| `tdd-plan-all-features.md` | 2026-02-01 | 当前 | TDD 计划 |
-| `implementation-progress-2026-02-01-init-data-lifecycle.md` | 2026-02-02 | 当前 | 初始化数据生命周期 |
-| `lifecycle-testing-implementation.md` | 2026-02-02 | 当前 | 生命周期测试实现 |
-| `test-env-deployment-20260202.md` | 2026-02-02 | 当前 | 测试环境部署 |
-| `docs-update-summary-2026-02-03.md` | 2026-02-03 | 最新 | 文档更新摘要 |
-| `init-test-implementation-2025-02-03.md` | 2026-02-03 | 最新 | 初始化测试实现 |
-| `ops-script-fix-2026-02-03.md` | 2026-02-03 | 最新 | 运维脚本修复 |
-| `test_coverage_analysis_2024-02-03.md` | 2026-02-03 | 最新 | 测试覆盖率分析 |
-| `test-env-implementation-2026-02-02.md` | 2026-02-03 | 最新 | 测试环境实现 |
+以下文档已于 2026-02-04 从 `docs/progress/` 迁移至 `docs/standards/`：
+- `e2e-test-guide.md` - E2E 测试执行指南
+- `tdd-plan-all-features.md` - TDD 完整规划
 
 ---
 
@@ -256,7 +236,22 @@
 
 ## 文档更新记录
 
-### 2026-02-04 更新
+### 2026-02-04 更新 (文档整理)
+
+**文档归档与移动：**
+- 归档 8 个已完成进度文档至 `docs/archive/progress-2026-02-04/`
+- 迁移 `e2e-test-guide.md` 和 `tdd-plan-all-features.md` 至 `docs/standards/`
+- 保留 2 个进行中文档在 `docs/progress/` 中
+
+**新增文档：**
+- 新增 `LLM-INDEX.md` - 专门为大模型优化的项目索引
+
+**文档清理：**
+- `docs/progress/` 从 12 个文件减少到 2 个
+- `docs/standards/` 从 6 个文件增加到 8 个
+- 确保文档结构清晰，便于查找和维护
+
+### 2026-02-04 更新 (之前)
 
 - 新增 `PROJECT-SUMMARY.md` - 项目概览 (LLM友好索引)
 - 新增 `QUICK-START.md` - 快速开始指南
