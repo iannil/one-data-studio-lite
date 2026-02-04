@@ -26,12 +26,12 @@ export const removeToken = (): void => {
   localStorage.removeItem(USER_KEY);
 };
 
-export const getUser = (): any | null => {
+export const getUser = (): Record<string, unknown> | null => {
   const user = localStorage.getItem(USER_KEY);
   return user ? JSON.parse(user) : null;
 };
 
-export const setUser = (user: any): void => {
+export const setUser = (user: Record<string, unknown> | unknown): void => {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 };
 

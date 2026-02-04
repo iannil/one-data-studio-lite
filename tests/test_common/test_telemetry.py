@@ -5,25 +5,24 @@ Tests for services/common/telemetry.py
 Note: OpenTelemetry is an optional dependency. Tests will be skipped if not installed.
 """
 
-import sys
 
 import pytest
 
 # Skip all tests if opentelemetry is not installed
 pytest.importorskip("opentelemetry", reason="opentelemetry not installed")
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from services.common.telemetry import (
-    TraceContext,
-    setup_telemetry,
-    setup_fastapi_instrumentation,
-    TracingMiddleware,
     SpanHelper,
-    get_trace_id,
+    TraceContext,
+    TracingMiddleware,
     get_trace_headers,
-    traced,
+    get_trace_id,
+    setup_fastapi_instrumentation,
+    setup_telemetry,
     timed,
+    traced,
 )
 
 

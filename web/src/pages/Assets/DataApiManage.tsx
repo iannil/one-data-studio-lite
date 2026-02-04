@@ -3,7 +3,7 @@ import { Card, Input, Button, Table, Tabs, message, Typography, Space, Spin, Tag
 import { ApiOutlined, SearchOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { getDatasetSchemaV1, queryDatasetV1, subscribeDatasetV1, type DatasetSchema, type QueryResult } from '../../api/data-api';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 const DataApiManage: React.FC = () => {

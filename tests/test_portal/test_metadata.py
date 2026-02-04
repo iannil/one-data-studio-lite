@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.portal.routers.metadata import (
-    _openmetadata_request,
     _convert_entity_type,
     _convert_om_to_datahub_entity,
+    _openmetadata_request,
     _parse_fqn_from_urn,
     router,
 )
@@ -265,9 +265,10 @@ class TestListDatasetsV1:
     @pytest.mark.asyncio
     async def test_list_datasets_v1_default_params(self):
         """测试默认参数"""
-        from services.portal.routers.metadata import list_datasets_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import list_datasets_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -291,9 +292,10 @@ class TestListDatasetsV1:
     @pytest.mark.asyncio
     async def test_list_datasets_v1_custom_params(self):
         """测试自定义参数"""
-        from services.portal.routers.metadata import list_datasets_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import list_datasets_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -325,9 +327,10 @@ class TestSearchEntitiesV1:
     @pytest.mark.asyncio
     async def test_search_entities_v1_default(self):
         """测试默认参数"""
-        from services.portal.routers.metadata import search_entities_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import search_entities_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -350,9 +353,10 @@ class TestSearchEntitiesV1:
     @pytest.mark.asyncio
     async def test_search_entities_v1_custom_entity(self):
         """测试自定义实体类型"""
-        from services.portal.routers.metadata import search_entities_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import search_entities_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -383,9 +387,10 @@ class TestGetEntityAspectV1:
     @pytest.mark.asyncio
     async def test_get_entity_aspect_v1(self):
         """测试获取实体详情"""
-        from services.portal.routers.metadata import get_entity_aspect_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import get_entity_aspect_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -416,9 +421,10 @@ class TestGetEntityAspectV1:
     @pytest.mark.asyncio
     async def test_get_entity_aspect_v1_invalid_urn(self):
         """测试无效 URN"""
-        from services.portal.routers.metadata import get_entity_aspect_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import get_entity_aspect_v1
 
         mock_payload = TokenPayload(
             sub="testuser",
@@ -444,9 +450,10 @@ class TestGetLineageV1:
     @pytest.mark.asyncio
     async def test_get_lineage_v1_default(self):
         """测试默认方向"""
-        from services.portal.routers.metadata import get_lineage_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import get_lineage_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -473,9 +480,10 @@ class TestGetLineageV1:
     @pytest.mark.asyncio
     async def test_get_lineage_v1_incoming(self):
         """测试传入方向"""
-        from services.portal.routers.metadata import get_lineage_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import get_lineage_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -503,9 +511,10 @@ class TestGetLineageV1:
     @pytest.mark.asyncio
     async def test_get_lineage_v1_invalid_direction(self):
         """测试无效方向"""
-        from services.portal.routers.metadata import get_lineage_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import get_lineage_v1
 
         mock_payload = TokenPayload(
             sub="testuser",
@@ -531,9 +540,10 @@ class TestCreateTagV1:
     @pytest.mark.asyncio
     async def test_create_tag_v1(self):
         """测试创建标签"""
-        from services.portal.routers.metadata import create_tag_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import create_tag_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -562,9 +572,10 @@ class TestSearchTagsV1:
     @pytest.mark.asyncio
     async def test_search_tags_v1(self):
         """测试搜索标签"""
-        from services.portal.routers.metadata import search_tags_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import search_tags_v1
 
         with patch('services.portal.routers.metadata._openmetadata_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -593,10 +604,12 @@ class TestMetadataProxy:
     @pytest.mark.asyncio
     async def test_metadata_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.metadata import metadata_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.metadata import metadata_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"

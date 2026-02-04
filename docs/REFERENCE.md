@@ -1,7 +1,7 @@
 # 配置参考手册 (REFERENCE)
 
-**更新日期**: 2026-02-03
-**版本**: 1.0
+**更新日期**: 2026-02-04
+**版本**: 1.1
 **来源**: .env.example, Makefile, package.json
 
 本文档提供 ONE-DATA-STUDIO-LITE 项目的完整配置参考，包括所有环境变量、脚本命令和模块依赖关系。
@@ -551,5 +551,6 @@
 
 - [贡献者指南](./CONTRIB.md) - 开发工作流程
 - [运维手册](./RUNBOOK.md) - 部署和运维
+- [脚本参考](./SCRIPTS.md) - 完整脚本命令参考
 - [模块化运维指南](./modules/MODULES.md) - 模块详细说明
 - [模块快速参考](./modules/QUICKREF.md) - 模块运维快速参考

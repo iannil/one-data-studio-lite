@@ -3,18 +3,17 @@
 Tests for services/data_api/main.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from services.common.auth import TokenPayload
 from services.data_api.main import (
     app,
     get_current_user,
 )
-from services.common.auth import TokenPayload
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(

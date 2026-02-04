@@ -5,21 +5,20 @@ Tests for services/common/logging.py
 
 import json
 import logging
-
 from datetime import datetime
 
 import pytest
 
 from services.common.logging import (
-    json_serial,
     JsonFormatter,
+    LogHelper,
     PlainTextFormatter,
-    setup_logging,
     get_logger,
+    get_service_logger,
+    json_serial,
     log_context,
     log_duration,
-    LogHelper,
-    get_service_logger,
+    setup_logging,
 )
 
 

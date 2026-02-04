@@ -1,16 +1,11 @@
 
 
 import imp
-import json
 import os
-import shutil
 import sys
 
-from dateutil import tz
-
-from flask_appbuilder.security.manager import AUTH_REMOTE_USER, AUTH_DB, AUTH_LDAP
+from flask_appbuilder.security.manager import AUTH_DB
 from myapp.stats_logger import DummyStatsLogger
-
 
 # Realtime stats logger, a StatsD implementation exists
 STATS_LOGGER = DummyStatsLogger()
@@ -342,9 +337,7 @@ try:
         # Explicitly import config module that is not in pythonpath; useful
         # for case where app is being executed via pex.
         print(
-            "Loaded your LOCAL configuration at [{}]".format(
-                os.environ[CONFIG_PATH_ENV_VAR]
-            )
+            f"Loaded your LOCAL configuration at [{os.environ[CONFIG_PATH_ENV_VAR]}]"
         )
         module = sys.modules[__name__]
         override_conf = imp.load_source(
@@ -359,7 +352,7 @@ try:
         import myapp_config
 
         print(
-            "Loaded your LOCAL configuration at [{}]".format(myapp_config.__file__)
+            f"Loaded your LOCAL configuration at [{myapp_config.__file__}]"
         )
 except ImportError:
     pass
@@ -373,8 +366,8 @@ def get_env_variable(var_name, default=None):
         if default is not None:
             return default
         else:
-            error_msg = 'The environment variable {} was missing, abort...'.format(var_name)
-            raise EnvironmentError(error_msg)
+            error_msg = f'The environment variable {var_name} was missing, abort...'
+            raise OSError(error_msg)
 
 # 当前控制器所在的集群
 ENVIRONMENT=get_env_variable('ENVIRONMENT','DEV').lower()
@@ -408,7 +401,7 @@ CACHE_CONFIG = {
     'CACHE_REDIS_URL':'redis://:%s@%s:%s/1'%(REDIS_PASSWORD,REDIS_HOST,str(REDIS_PORT)) if REDIS_PASSWORD else 'redis://%s:%s/1'%(REDIS_HOST,str(REDIS_PORT))   # 0，1为数据库编号（redis有0-16个数据库）
 }
 # 异步任务和定时任务配置
-class CeleryConfig(object):
+class CeleryConfig:
     # 任务队列
     broker_url = 'redis://:%s@%s:%s/0'%(REDIS_PASSWORD,REDIS_HOST,str(REDIS_PORT)) if REDIS_PASSWORD else 'redis://%s:%s/0'%(REDIS_HOST,str(REDIS_PORT))
     # celery_task的定义模块

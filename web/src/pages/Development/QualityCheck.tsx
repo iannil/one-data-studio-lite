@@ -9,7 +9,23 @@ const QualityCheck: React.FC = () => {
   const [tableName, setTableName] = useState('');
   const [database, setDatabase] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<QualityReport | null>(null);
+
+  interface QualityReport {
+    total_columns?: number;
+    total_rows?: number;
+    issues?: QualityIssue[];
+    quality_issues?: QualityIssue[];
+    quality_score?: number;
+  }
+
+  interface QualityIssue {
+    column?: string;
+    issue_type?: string;
+    description?: string;
+    severity?: string;
+    affected_ratio?: number;
+  }
 
   const handleAnalyze = async () => {
     if (!tableName.trim()) {
@@ -131,7 +147,7 @@ const QualityCheck: React.FC = () => {
             <Card title="质量问题" size="small">
               <Table
                 columns={issueColumns}
-                dataSource={issues.map((issue: any, i: number) => ({ ...issue, key: i }))}
+                dataSource={issues.map((issue: QualityIssue, i: number) => ({ ...issue, key: i }))}
                 pagination={false}
                 size="small"
                 locale={{ emptyText: '未发现质量问题' }}

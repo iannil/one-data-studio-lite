@@ -18,7 +18,7 @@ function getSafeAuthError(error: unknown): string {
   }
 
   // HTTP 状态码错误映射
-  const status = (error as any)?.response?.status;
+  const status = (error as { response?: { status?: number } })?.response?.status;
   const errorMessages: Record<number, string> = {
     400: '请求参数错误',
     401: '用户名或密码错误',
@@ -57,7 +57,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   token: getToken(),
-  user: getUser(),
+  user: getUser() as User | null,
   isAuthenticated: !!getToken(),
   loading: false,
   error: null,
@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         if (!USE_COOKIE_AUTH) {
           setToken(response.token);
         }
-        setUser(response.user);
+        setUser(response.user as unknown as Record<string, unknown>);
         set({
           token: response.token,
           user: response.user,
@@ -84,10 +84,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ error: response.message, loading: false });
         return false;
       }
-    } catch (error: any) {
+    } catch (error) {
       // 使用安全的错误消息，避免暴露内部信息
-      const message = getSafeAuthError(error);
-      set({ error: message, loading: false });
+      const safeMessage = getSafeAuthError(error);
+      set({ error: safeMessage, loading: false });
       return false;
     }
   },
@@ -110,7 +110,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkAuth: () => {
     const token = getToken();
-    const user = getUser();
+    const user = getUser() as User | null;
     set({
       token,
       user,

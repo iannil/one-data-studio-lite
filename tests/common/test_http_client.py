@@ -6,15 +6,14 @@ Tests for services/common/http_client.py
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import httpx
 
 from services.common.http_client import (
     ServiceClient,
     create_cube_studio_client,
-    create_superset_client,
     create_datahub_client,
     create_dolphinscheduler_client,
     create_seatunnel_client,
+    create_superset_client,
 )
 
 

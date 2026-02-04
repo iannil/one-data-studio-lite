@@ -3,19 +3,18 @@
 Tests for services/portal/routers/seatunnel.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from services.portal.routers.seatunnel import (
-    router,
-    fetch_seatunnel,
-    _normalize_job,
-)
 from services.common.auth import TokenPayload
-
+from services.portal.routers.seatunnel import (
+    _normalize_job,
+    fetch_seatunnel,
+    router,
+)
 
 # Mock user for testing
 MOCK_USER = TokenPayload(

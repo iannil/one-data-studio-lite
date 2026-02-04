@@ -6,7 +6,6 @@ Tests metrics setup including:
 - Graceful handling when Prometheus is unavailable
 """
 
-import pytest
 
 from services.common.metrics import PROMETHEUS_AVAILABLE, setup_metrics
 

@@ -18,7 +18,7 @@ export function renderWithProviders(
 /**
  * 创建 mock wrapper
  */
-export function createMockWrapper(Component: React.ComponentType<any>) {
+export function createMockWrapper(Component: React.ComponentType<unknown>) {
   return ({ children }: { children: React.ReactNode }) => {
     return <Component>{children}</Component>;
   };

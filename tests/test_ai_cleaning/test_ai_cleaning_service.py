@@ -3,31 +3,29 @@
 Tests for services/ai_cleaning/main.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
 from services.ai_cleaning.main import (
-    app,
     _call_llm_service,
     _parse_llm_json_response,
+    app,
     get_current_user,
 )
 from services.ai_cleaning.models import (
     AnalyzeRequest,
+    CleaningRecommendation,
+    CleaningRule,
     DataQualityReport,
+    GenerateConfigRequest,
     QualityIssue,
     QualityIssueType,
-    CleaningRule,
-    CleaningRecommendation,
-    GenerateConfigRequest,
     SeaTunnelTransformConfig,
 )
 from services.common.auth import TokenPayload
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(

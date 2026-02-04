@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Input,
   Button,
   Table,
   Tag,
-  Form,
   Select,
   message,
   Typography,
@@ -65,7 +64,7 @@ const FillMissing: React.FC = () => {
       });
 
       if (resp.success && resp.data) {
-        const { issues, total_rows, quality_score } = resp.data;
+        const { issues, total_rows } = resp.data;
 
         // Extract null-related issues
         const nullIssues = issues.filter((issue) =>
@@ -95,7 +94,7 @@ const FillMissing: React.FC = () => {
       } else {
         message.error(resp.message || '分析失败');
       }
-    } catch (error) {
+    } catch {
       message.error('分析失败，请检查网络连接');
     } finally {
       setAnalyzing(false);

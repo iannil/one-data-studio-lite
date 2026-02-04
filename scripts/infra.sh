@@ -11,11 +11,13 @@ source "${SCRIPT_DIR}/lib/common.sh"
 INFRA_COMPOSE="${DEPLOY_DIR}/test-env/docker-compose.yml"
 
 # 服务配置函数 (替代关联数组，兼容 bash 3.x)
+# 使用非标准端口避免与其他项目冲突
+# 可以通过环境变量覆盖: ODS_MYSQL_PORT, ODS_REDIS_PORT, ODS_MINIO_PORT
 get_service_port() {
     case "$1" in
-        mysql) echo "3306" ;;
-        redis) echo "6379" ;;
-        minio) echo "9000" ;;
+        mysql) echo "${ODS_MYSQL_PORT:-13306}" ;;
+        redis) echo "${ODS_REDIS_PORT:-16379}" ;;
+        minio) echo "${ODS_MINIO_PORT:-19000}" ;;
         *) echo "" ;;
     esac
 }
@@ -45,15 +47,42 @@ get_health_check_cmd() {
 start_infra() {
     log_section "启动基础设施服务"
 
+    # 获取端口配置（使用非标准端口避免冲突）
+    local mysql_port="${ODS_MYSQL_PORT:-13306}"
+    local redis_port="${ODS_REDIS_PORT:-16379}"
+    local minio_port="${ODS_MINIO_PORT:-19000}"
+    local minio_console_port="${ODS_MINIO_CONSOLE_PORT:-19001}"
+
     # 检查端口
-    local ports=(3306 6379 9000 9001)
+    local ports=("$mysql_port" "$redis_port" "$minio_port" "$minio_console_port")
     if ! check_ports "${ports[@]}"; then
         log_warn "部分端口已被占用，可能会导致启动失败"
     fi
 
-    # 使用内联 docker-compose 配置
-    local compose_content
-    compose_content=$(cat << 'COMPOSE_EOF'
+    # 强制清理遗留容器（防止名称冲突）
+    log_step "清理遗留容器..."
+    for container in ods-mysql ods-redis ods-minio; do
+        if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${container}$"; then
+            log_info "移除遗留容器: $container"
+            docker stop "$container" >/dev/null 2>&1 || true
+            docker rm "$container" >/dev/null 2>&1 || true
+        fi
+    done
+
+    # 重试逻辑
+    local max_retries=3
+    local retry=0
+    local success=false
+
+    while [[ $retry -lt $max_retries && "$success" == "false" ]]; do
+        if [[ $retry -gt 0 ]]; then
+            log_info "重试启动基础设施 (第 $retry 次)..."
+            sleep 5
+        fi
+
+        # 使用内联 docker-compose 配置
+        local compose_content
+        compose_content=$(cat << COMPOSE_EOF
 networks:
   ods-network:
     external: true
@@ -71,10 +100,10 @@ services:
     restart: unless-stopped
     command: --default-authentication-plugin=mysql_native_password --max-connections=500
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-test_root_password}
+      MYSQL_ROOT_PASSWORD: \${MYSQL_ROOT_PASSWORD:-test_root_password}
       MYSQL_DATABASE: one_data_studio
     ports:
-      - "3306:3306"
+      - "$mysql_port:3306"
     volumes:
       - ods-mysql-data:/var/lib/mysql
     networks:
@@ -92,7 +121,7 @@ services:
     restart: unless-stopped
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "$redis_port:6379"
     volumes:
       - ods-redis-data:/data
     networks:
@@ -109,11 +138,11 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ROOT_USER: \${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: \${MINIO_ROOT_PASSWORD:-minioadmin123}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "$minio_port:9000"
+      - "$minio_console_port:9001"
     volumes:
       - ods-minio-data:/data
     networks:
@@ -132,16 +161,33 @@ COMPOSE_EOF
 
     # 启动服务
     log_step "启动 MySQL, Redis, MinIO..."
-    docker compose -f "$temp_compose" up -d
+    if docker compose -f "$temp_compose" up -d 2>&1; then
+        # 等待服务就绪（增加超时时间）
+        log_info "等待服务就绪..."
 
-    # 等待服务就绪
-    log_info "等待服务就绪..."
+        if wait_for_container "ods-mysql" 120 && \
+           wait_for_container "ods-redis" 60 && \
+           wait_for_container "ods-minio" 60; then
+            log_success "基础设施服务已启动"
+            success=true
+        else
+            log_warn "部分服务未完全就绪"
+        fi
+    else
+        log_warn "docker compose 启动失败"
+    fi
 
-    wait_for_container "ods-mysql" 120 || log_warn "MySQL 未就绪"
-    wait_for_container "ods-redis" 60 || log_warn "Redis 未就绪"
-    wait_for_container "ods-minio" 60 || log_warn "MinIO 未就绪"
+    if [[ "$success" == "true" ]]; then
+        break
+    fi
 
-    log_success "基础设施服务已启动"
+    ((retry++))
+    done
+
+    if [[ "$success" == "false" ]]; then
+        log_error "基础设施启动失败，已重试 $max_retries 次"
+        return 1
+    fi
 
     # 显示状态
     show_infra_status
@@ -194,7 +240,14 @@ show_infra_status() {
     printf "%-20s %-15s %-10s %s\n" "服务" "容器" "状态" "端口"
     printf "%s\n" "--------------------------------------------------------------"
 
-    local services=("mysql:ods-mysql:3306" "redis:ods-redis:6379" "minio:ods-minio:9000,9001")
+    # 使用动态端口配置
+    local mysql_port="${ODS_MYSQL_PORT:-13306}"
+    local redis_port="${ODS_REDIS_PORT:-16379}"
+    local minio_port="${ODS_MINIO_PORT:-19000}"
+    local minio_console_port="${ODS_MINIO_CONSOLE_PORT:-19001}"
+    local minio_ports="$minio_port,$minio_console_port"
+
+    local services=("mysql:ods-mysql:$mysql_port" "redis:ods-redis:$redis_port" "minio:ods-minio:$minio_ports")
 
     for svc in "${services[@]}"; do
         IFS=':' read -r name container ports <<< "$svc"
@@ -245,6 +298,10 @@ show_help() {
   MYSQL_ROOT_PASSWORD   MySQL root 密码 (默认: test_root_password)
   MINIO_ROOT_USER       MinIO 用户名 (默认: minioadmin)
   MINIO_ROOT_PASSWORD   MinIO 密码 (默认: minioadmin123)
+  ODS_MYSQL_PORT        MySQL 端口 (默认: 13306, 避免与标准 3306 冲突)
+  ODS_REDIS_PORT        Redis 端口 (默认: 16379, 避免与标准 6379 冲突)
+  ODS_MINIO_PORT        MinIO API 端口 (默认: 19000, 避免与标准 9000 冲突)
+  ODS_MINIO_CONSOLE_PORT MinIO 控制台端口 (默认: 19001, 避免与标准 9001 冲突)
 
 示例:
   ./scripts/infra.sh start          # 启动基础设施

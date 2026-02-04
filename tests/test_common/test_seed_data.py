@@ -286,11 +286,11 @@ class TestVerificationStructure:
 
     def test_verification_has_required_fields(self):
         """测试验证包含必需字段"""
-        from services.common.seed_data import verify_data
-
         # This is a compile-time check for structure
         # The actual function is tested in TestVerifyData
         import inspect
+
+        from services.common.seed_data import verify_data
         sig = inspect.signature(verify_data)
         assert len(sig.parameters) == 0
         assert inspect.iscoroutinefunction(verify_data)

@@ -143,7 +143,7 @@ const ROLE_OPTIONS = [
 
 const Sso: React.FC = () => {
   const [configs, setConfigs] = useState<SsoConfig[]>(DEMO_CONFIGS);
-  const [histories, _setHistories] = useState<LoginHistory[]>(DEMO_HISTORY);
+  const [histories] = useState<LoginHistory[]>(DEMO_HISTORY);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SsoConfig | null>(null);
   const [currentStep, setCurrentStep] = useState(0);

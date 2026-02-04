@@ -3,26 +3,25 @@
 Tests for services/portal/routers/seatunnel.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 from fastapi import HTTPException
 
+from services.common.api_response import ErrorCode
+from services.common.auth import TokenPayload
 from services.portal.routers.seatunnel import (
-    router,
-    fetch_seatunnel,
     _normalize_job,
-    list_jobs,
+    cancel_job,
+    fetch_seatunnel,
+    get_cluster_status,
     get_job_detail,
     get_job_status,
-    submit_job,
-    cancel_job,
-    get_cluster_status,
+    list_jobs,
+    router,
 )
-from services.common.auth import TokenPayload
-from services.common.api_response import ErrorCode
 
 
 class TestRouter:

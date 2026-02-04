@@ -72,7 +72,7 @@ log_section() {
 }
 
 log_debug() {
-    [[ "${DEBUG:-0}" == "1" ]] && echo -e "${WHITE}[DEBUG]${NC} $(_timestamp) $*"
+    [[ "${DEBUG:-0}" == "1" ]] && echo -e "${WHITE}[DEBUG]${NC} $(_timestamp) $*" || true
 }
 
 # ============================================================

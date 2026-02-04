@@ -16,13 +16,12 @@
 
 import argparse
 import json
-import os
 import random
 import string
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent.parent
@@ -107,7 +106,7 @@ class PIIDataGenerator:
         return f'{id_17}{check_code}'
 
     @classmethod
-    def generate_email(cls, name: Optional[str] = None) -> str:
+    def generate_email(cls, name: str | None = None) -> str:
         """生成邮箱地址"""
         if name:
             # 基于姓名生成拼音邮箱
@@ -154,7 +153,7 @@ class PIIDataGenerator:
         return f'{province}{district}{street}{number}号'
 
     @classmethod
-    def generate_pii_sample(cls) -> Dict[str, Any]:
+    def generate_pii_sample(cls) -> dict[str, Any]:
         """生成一个完整的PII样本"""
         name = cls.generate_name()
         return {
@@ -167,7 +166,7 @@ class PIIDataGenerator:
         }
 
     @classmethod
-    def generate_pii_samples(cls, count: int) -> List[Dict[str, Any]]:
+    def generate_pii_samples(cls, count: int) -> list[dict[str, Any]]:
         """生成多个PII样本"""
         return [cls.generate_pii_sample() for _ in range(count)]
 
@@ -215,7 +214,7 @@ class BoundaryValueGenerator:
     }
 
     @classmethod
-    def generate_null_variants(cls) -> List[Dict[str, Any]]:
+    def generate_null_variants(cls) -> list[dict[str, Any]]:
         """生成各种空值变体"""
         return [
             {'value': None, 'type': 'None'},
@@ -231,7 +230,7 @@ class BoundaryValueGenerator:
         ]
 
     @classmethod
-    def generate_long_strings(cls) -> List[Dict[str, Any]]:
+    def generate_long_strings(cls) -> list[dict[str, Any]]:
         """生成超长字符串"""
         lengths = [1, 10, 100, 1000, 10000, 100000]
         results = []
@@ -245,7 +244,7 @@ class BoundaryValueGenerator:
         return results
 
     @classmethod
-    def generate_numeric_boundaries(cls) -> List[Dict[str, Any]]:
+    def generate_numeric_boundaries(cls) -> list[dict[str, Any]]:
         """生成数值边界"""
         return [
             {'name': 'zero', 'int': 0, 'float': 0.0, 'negative_zero': -0.0},
@@ -261,7 +260,7 @@ class BoundaryValueGenerator:
         ]
 
     @classmethod
-    def generate_date_boundaries(cls) -> List[Dict[str, Any]]:
+    def generate_date_boundaries(cls) -> list[dict[str, Any]]:
         """生成日期边界"""
         return [
             {'name': 'min_date', 'date': '0001-01-01', 'timestamp': '0001-01-01 00:00:00'},
@@ -274,7 +273,7 @@ class BoundaryValueGenerator:
         ]
 
     @classmethod
-    def generate_special_chars(cls) -> List[Dict[str, Any]]:
+    def generate_special_chars(cls) -> list[dict[str, Any]]:
         """生成特殊字符"""
         results = []
         for category, chars in cls.SPECIAL_CHARS.items():
@@ -286,7 +285,7 @@ class BoundaryValueGenerator:
         return results
 
     @classmethod
-    def generate_boundary_samples(cls, count: int) -> List[Dict[str, Any]]:
+    def generate_boundary_samples(cls, count: int) -> list[dict[str, Any]]:
         """生成混合边界样本"""
         samples = []
 
@@ -373,7 +372,7 @@ class OrderDataGenerator:
     ]
 
     @classmethod
-    def generate_order(cls, user_id_range: tuple = (1, 1000)) -> Dict[str, Any]:
+    def generate_order(cls, user_id_range: tuple = (1, 1000)) -> dict[str, Any]:
         """生成单个订单"""
         order_id = random.randint(100000, 999999)
         user_id = random.randint(*user_id_range)
@@ -438,7 +437,7 @@ class OrderDataGenerator:
         }
 
     @classmethod
-    def generate_orders(cls, count: int, user_id_range: tuple = (1, 1000)) -> List[Dict[str, Any]]:
+    def generate_orders(cls, count: int, user_id_range: tuple = (1, 1000)) -> list[dict[str, Any]]:
         """生成多个订单"""
         return [cls.generate_order(user_id_range) for _ in range(count)]
 
@@ -483,7 +482,7 @@ class BusinessDataGenerator:
     """
 
     @classmethod
-    def generate_user_profile(cls, user_id: int) -> Dict[str, Any]:
+    def generate_user_profile(cls, user_id: int) -> dict[str, Any]:
         """生成用户画像"""
         # 用户等级（基于消费金额）
         levels = [
@@ -515,7 +514,7 @@ class BusinessDataGenerator:
         }
 
     @classmethod
-    def generate_behavior_event(cls, user_id: Optional[int] = None) -> Dict[str, Any]:
+    def generate_behavior_event(cls, user_id: int | None = None) -> dict[str, Any]:
         """生成用户行为事件"""
         event_types = [
             'page_view', 'click', 'add_cart', 'remove_cart',
@@ -544,7 +543,7 @@ class BusinessDataGenerator:
         }
 
     @classmethod
-    def generate_behavior_events(cls, count: int) -> List[Dict[str, Any]]:
+    def generate_behavior_events(cls, count: int) -> list[dict[str, Any]]:
         """生成多个行为事件"""
         return [cls.generate_behavior_event() for _ in range(count)]
 

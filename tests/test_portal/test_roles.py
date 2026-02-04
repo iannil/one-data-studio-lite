@@ -3,27 +3,27 @@
 Tests for services/portal/routers/roles.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
+from services.common.auth import TokenPayload
+from services.portal.models import RoleCreate, RoleUpdate
 from services.portal.routers.roles import (
+    PREDEFINED_PERMISSIONS,
+    PREDEFINED_ROLES,
     _check_super_admin_permission,
     _ensure_permissions_exist,
     _orm_to_response,
-    PREDEFINED_PERMISSIONS,
-    PREDEFINED_ROLES,
-    router,
     create_role,
-    list_roles,
-    get_role,
-    update_role,
     delete_role,
+    get_role,
+    list_roles,
+    router,
+    update_role,
 )
-from services.common.auth import TokenPayload
-from services.portal.models import RoleCreate, RoleUpdate
 
 
 class TestRouter:

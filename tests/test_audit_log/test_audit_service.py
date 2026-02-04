@@ -3,28 +3,27 @@
 Tests for services/audit_log/main.py
 """
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
 from services.audit_log.main import (
-    app,
     _orm_to_pydantic,
     _pydantic_to_orm,
+    app,
     get_current_user,
 )
 from services.audit_log.models import (
     AuditEvent,
     AuditQuery,
     AuditStats,
-    ExportRequest,
     EventType,
+    ExportRequest,
     Subsystem,
 )
 from services.common.auth import TokenPayload
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(
@@ -71,7 +70,7 @@ class TestOrmToPydantic:
         mock_orm.ip_address = "127.0.0.1"
         mock_orm.user_agent = "test-agent"
         mock_orm.details = {"key": "value"}
-        mock_orm.created_at = datetime.now(timezone.utc)
+        mock_orm.created_at = datetime.now(UTC)
 
         result = _orm_to_pydantic(mock_orm)
 
@@ -254,7 +253,7 @@ class TestQueryLogsEndpoint:
         mock_orm.ip_address = None
         mock_orm.user_agent = None
         mock_orm.details = None
-        mock_orm.created_at = datetime.now(timezone.utc)
+        mock_orm.created_at = datetime.now(UTC)
 
         mock_repo = MagicMock()
         mock_repo.query = AsyncMock(return_value=[mock_orm])
@@ -314,7 +313,7 @@ class TestGetLogEndpoint:
         mock_orm.ip_address = None
         mock_orm.user_agent = None
         mock_orm.details = None
-        mock_orm.created_at = datetime.now(timezone.utc)
+        mock_orm.created_at = datetime.now(UTC)
 
         mock_repo = MagicMock()
         mock_repo.get_by_id = AsyncMock(return_value=mock_orm)
@@ -395,7 +394,7 @@ class TestExportLogsEndpoint:
         mock_orm.user = "admin"
         mock_orm.action = "test"
         mock_orm.status_code = 200
-        mock_orm.created_at = datetime.now(timezone.utc)
+        mock_orm.created_at = datetime.now(UTC)
         # Set other attributes to None explicitly
         mock_orm.resource = None
         mock_orm.duration_ms = None
@@ -436,7 +435,7 @@ class TestExportLogsEndpoint:
         mock_orm.user = "admin"
         mock_orm.action = "test"
         mock_orm.status_code = None
-        mock_orm.created_at = datetime.now(timezone.utc)
+        mock_orm.created_at = datetime.now(UTC)
         mock_orm.resource = None
         mock_orm.duration_ms = None
         mock_orm.ip_address = None

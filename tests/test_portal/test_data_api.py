@@ -3,25 +3,23 @@
 Tests for services/portal/routers/data_api.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import httpx
 
+from services.common.api_response import ErrorCode
+from services.common.auth import TokenPayload
 from services.portal.routers.data_api import (
-    router,
-    search_assets_v1,
+    QueryDatasetRequest,
     get_asset_detail_v1,
     get_dataset_schema_v1,
-    query_dataset_v1,
-    subscribe_dataset_v1,
     get_subscriptions_v1,
-    data_api_proxy,
-    QueryDatasetRequest,
+    query_dataset_v1,
+    router,
+    search_assets_v1,
+    subscribe_dataset_v1,
 )
-from services.common.auth import TokenPayload
-from services.common.api_response import ErrorCode
 
 
 class TestRouter:

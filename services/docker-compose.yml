@@ -16,7 +16,15 @@ x-service-common: &service-common
   networks:
     - ods-network
   environment: &service-env
-    DATABASE_URL: "${DATABASE_URL:-mysql+aiomysql://root:one-data-studio-2024@ods-mysql:3306/one_data_studio}"
+    DATABASE_URL: "${DATABASE_URL:-mysql+aiomysql://root:test_root_password@ods-mysql:3306/one_data_studio}"
+    MYSQL_HOST: "${MYSQL_HOST:-ods-mysql}"
+    MYSQL_PORT: "${MYSQL_PORT:-3306}"
+    MYSQL_USER: "${MYSQL_USER:-root}"
+    MYSQL_PASSWORD: "${MYSQL_PASSWORD:-test_root_password}"
+    MYSQL_DATABASE: "${MYSQL_DATABASE:-one_data_studio}"
+    REDIS_HOST: "${REDIS_HOST:-ods-redis}"
+    REDIS_PORT: "${REDIS_PORT:-6379}"
+    REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
     JWT_SECRET: "${JWT_SECRET:-dev-only-change-in-production}"
     LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:31434}"
     LLM_MODEL: "${LLM_MODEL:-qwen2.5:7b}"

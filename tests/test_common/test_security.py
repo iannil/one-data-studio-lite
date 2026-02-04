@@ -4,31 +4,30 @@ Tests for services/common/security.py
 """
 
 from unittest.mock import MagicMock, patch
-from collections import defaultdict
 
 import pytest
 from fastapi import Request
 
 from services.common.security import (
-    generate_password,
-    generate_jwt_secret,
-    generate_webhook_secret,
-    generate_api_key,
-    generate_internal_token,
     PasswordStrength,
-    check_password_strength,
-    is_strong_password,
-    mask_token,
-    mask_email,
-    mask_string,
-    get_env_secret,
-    validate_env_config,
-    get_allowed_origins,
-    SecurityHeadersMiddleware,
-    validate_sql,
-    sanitize_sql,
     RateLimiter,
     RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    check_password_strength,
+    generate_api_key,
+    generate_internal_token,
+    generate_jwt_secret,
+    generate_password,
+    generate_webhook_secret,
+    get_allowed_origins,
+    get_env_secret,
+    is_strong_password,
+    mask_email,
+    mask_string,
+    mask_token,
+    sanitize_sql,
+    validate_env_config,
+    validate_sql,
 )
 
 

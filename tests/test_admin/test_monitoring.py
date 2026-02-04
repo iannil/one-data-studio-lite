@@ -3,9 +3,10 @@ TC-ADM-04: 系统监控测试
 测试门户运行信息和服务响应时间
 """
 
+import time
+
 import pytest
 from httpx import AsyncClient
-import time
 
 
 class TestMonitoring:

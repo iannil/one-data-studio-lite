@@ -12,22 +12,20 @@ ONE-DATA-STUDIO-LITE 生产环境密钥生成脚本
 
 import argparse
 import json
-import os
 import secrets
 import sys
 from pathlib import Path
-
 
 # 添加项目根目录到路径
 repo_root = Path(__file__).parent.parent
 sys.path.insert(0, str(repo_root))
 
 from services.common.security import (
-    generate_password,
-    generate_jwt_secret,
-    generate_webhook_secret,
-    generate_internal_token,
     generate_api_key,
+    generate_internal_token,
+    generate_jwt_secret,
+    generate_password,
+    generate_webhook_secret,
 )
 
 

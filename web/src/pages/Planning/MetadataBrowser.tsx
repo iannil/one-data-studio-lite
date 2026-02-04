@@ -6,12 +6,30 @@ import { searchEntities, getEntityAspect } from '../../api/metadata';
 const { Title, Text } = Typography;
 
 const MetadataBrowser: React.FC = () => {
-  const [datasets, setDatasets] = useState<any[]>([]);
+  const [datasets, setDatasets] = useState<MetadataDataset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [selectedUrn, setSelectedUrn] = useState<string | null>(null);
-  const [schema, setSchema] = useState<any>(null);
+  const [schema, setSchema] = useState<MetadataSchema | null>(null);
   const [loadingSchema, setLoadingSchema] = useState(false);
+
+  interface MetadataDataset {
+    platform?: string;
+    name?: string;
+    urn?: string;
+  }
+
+  interface MetadataSchema {
+    fields?: SchemaField[];
+    schemaMetadata?: { fields?: SchemaField[] };
+  }
+
+  interface SchemaField {
+    fieldPath?: string;
+    nativeDataType?: string;
+    description?: string;
+    nullable?: boolean;
+  }
 
   const fetchDatasets = async (query?: string) => {
     setLoading(true);
@@ -44,7 +62,7 @@ const MetadataBrowser: React.FC = () => {
 
   // 构建树形数据：按 platform 分组
   const treeData = (() => {
-    const groups: Record<string, any[]> = {};
+    const groups: Record<string, MetadataDataset[]> = {};
     datasets.forEach((ds) => {
       const platform = ds.platform || 'unknown';
       if (!groups[platform]) groups[platform] = [];
@@ -53,11 +71,18 @@ const MetadataBrowser: React.FC = () => {
     return Object.entries(groups).map(([platform, items]) => ({
       title: platform,
       key: platform,
-      children: items.map((ds) => ({
-        title: ds.name || ds.urn?.split(',').pop()?.replace(')', '') || ds.urn,
-        key: ds.urn || ds.name,
-        isLeaf: true,
-      })),
+      children: items
+        .map((ds) => {
+          const name = ds.name || ds.urn?.split(',').pop()?.replace(')', '') || ds.urn;
+          const key = ds.urn || ds.name;
+          if (!name || !key) return null;
+          return {
+            title: name,
+            key,
+            isLeaf: true,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null),
     }));
   })();
 
@@ -122,7 +147,7 @@ const MetadataBrowser: React.FC = () => {
               ) : (
                 <Table
                   columns={schemaColumns}
-                  dataSource={schemaFields.map((f: any, i: number) => ({ ...f, key: i }))}
+                  dataSource={schemaFields.map((f: SchemaField, i: number) => ({ ...f, key: i }))}
                   pagination={false}
                   size="small"
                 />

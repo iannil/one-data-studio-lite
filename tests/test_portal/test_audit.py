@@ -31,9 +31,10 @@ class TestGetLogsV1:
     @pytest.mark.asyncio
     async def test_get_logs_v1_success(self):
         """测试获取日志成功"""
-        from services.portal.routers.audit import get_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -74,9 +75,10 @@ class TestGetLogsV1:
     @pytest.mark.asyncio
     async def test_get_logs_v1_default_params(self):
         """测试默认参数"""
-        from services.portal.routers.audit import get_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -104,9 +106,10 @@ class TestGetLogsV1:
     @pytest.mark.asyncio
     async def test_get_logs_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.audit import get_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -134,10 +137,12 @@ class TestGetLogsV1:
     @pytest.mark.asyncio
     async def test_get_logs_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.audit import get_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_logs_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -166,9 +171,10 @@ class TestGetLogV1:
     @pytest.mark.asyncio
     async def test_get_log_v1_success(self):
         """测试获取单条日志成功"""
-        from services.portal.routers.audit import get_log_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_log_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -202,9 +208,10 @@ class TestGetLogV1:
     @pytest.mark.asyncio
     async def test_get_log_v1_not_found(self):
         """测试日志不存在"""
-        from services.portal.routers.audit import get_log_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_log_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -231,10 +238,12 @@ class TestGetLogV1:
     @pytest.mark.asyncio
     async def test_get_log_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.audit import get_log_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_log_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -263,9 +272,10 @@ class TestGetStatsV1:
     @pytest.mark.asyncio
     async def test_get_stats_v1_success(self):
         """测试获取统计成功"""
-        from services.portal.routers.audit import get_stats_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_stats_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -302,9 +312,10 @@ class TestGetStatsV1:
     @pytest.mark.asyncio
     async def test_get_stats_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.audit import get_stats_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_stats_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 503
@@ -331,9 +342,10 @@ class TestGetStatsV1:
     @pytest.mark.asyncio
     async def test_get_stats_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.audit import get_stats_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import get_stats_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -362,9 +374,10 @@ class TestExportLogsV1:
     @pytest.mark.asyncio
     async def test_export_logs_v1_success(self):
         """测试导出日志成功"""
-        from services.portal.routers.audit import export_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import export_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -403,9 +416,10 @@ class TestExportLogsV1:
     @pytest.mark.asyncio
     async def test_export_logs_v1_default_params(self):
         """测试默认参数导出"""
-        from services.portal.routers.audit import export_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import export_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -433,9 +447,10 @@ class TestExportLogsV1:
     @pytest.mark.asyncio
     async def test_export_logs_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.audit import export_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import export_logs_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -462,10 +477,12 @@ class TestExportLogsV1:
     @pytest.mark.asyncio
     async def test_export_logs_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.audit import export_logs_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import export_logs_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -494,10 +511,12 @@ class TestAuditProxy:
     @pytest.mark.asyncio
     async def test_audit_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.audit import audit_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import audit_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -524,10 +543,12 @@ class TestAuditProxy:
     @pytest.mark.asyncio
     async def test_audit_proxy_post(self):
         """测试 POST 代理"""
-        from services.portal.routers.audit import audit_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import audit_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -554,10 +575,12 @@ class TestAuditProxy:
     @pytest.mark.asyncio
     async def test_audit_proxy_put(self):
         """测试 PUT 代理"""
-        from services.portal.routers.audit import audit_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import audit_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "PUT"
@@ -584,10 +607,12 @@ class TestAuditProxy:
     @pytest.mark.asyncio
     async def test_audit_proxy_delete(self):
         """测试 DELETE 代理"""
-        from services.portal.routers.audit import audit_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.audit import audit_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "DELETE"

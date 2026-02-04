@@ -3,35 +3,32 @@
 Tests for services/portal/routers/hop.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import httpx
 from fastapi import HTTPException
 
-from services.portal.routers.hop import (
-    router,
-    fetch_hop,
-    list_workflows_v1,
-    get_workflow_v1,
-    run_workflow_v1,
-    get_workflow_status_v1,
-    stop_workflow_v1,
-    list_pipelines_v1,
-    get_pipeline_v1,
-    run_pipeline_v1,
-    get_pipeline_status_v1,
-    stop_pipeline_v1,
-    server_status_v1,
-    server_info_v1,
-    list_run_configurations_v1,
-    RunRequest,
-    PipelineRequest,
-)
-from services.common.auth import TokenPayload
 from services.common.api_response import ErrorCode
+from services.common.auth import TokenPayload
+from services.portal.routers.hop import (
+    RunRequest,
+    fetch_hop,
+    get_pipeline_status_v1,
+    get_pipeline_v1,
+    get_workflow_status_v1,
+    get_workflow_v1,
+    list_pipelines_v1,
+    list_run_configurations_v1,
+    list_workflows_v1,
+    router,
+    run_pipeline_v1,
+    run_workflow_v1,
+    server_info_v1,
+    server_status_v1,
+    stop_pipeline_v1,
+    stop_workflow_v1,
+)
 
 
 class TestRouter:

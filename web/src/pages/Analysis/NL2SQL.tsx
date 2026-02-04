@@ -37,7 +37,7 @@ const NL2SQL: React.FC = () => {
       try {
         const resp = await getTablesV1();
         setTables(resp?.data || []);
-      } catch (error) {
+      } catch {
         message.error('获取表列表失败');
       } finally {
         setLoadingTables(false);
@@ -60,8 +60,8 @@ const NL2SQL: React.FC = () => {
       } else {
         message.error(resp?.message || '查询失败');
       }
-    } catch (error: any) {
-      message.error(error.response?.data?.detail || '查询失败');
+    } catch {
+      message.error('查询失败');
     } finally {
       setQuerying(false);
     }
@@ -103,9 +103,9 @@ const NL2SQL: React.FC = () => {
 
   // 结果数据
   const dataSource = result?.rows?.map((row, index) => {
-    const record: Record<string, any> = { key: index };
+    const record: Record<string, string | number | boolean | null> = { key: index };
     result?.columns?.forEach((col, colIndex) => {
-      record[col] = row[colIndex];
+      record[col] = row[colIndex] ?? null;
     });
     return record;
   }) || [];

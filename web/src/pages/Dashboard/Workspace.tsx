@@ -69,8 +69,8 @@ const DEMO_FAVORITES: RecentItem[] = [...WORKSPACE_CONFIG.DEMO_FAVORITES];
 
 const Workspace: React.FC = () => {
   const [todos, setTodos] = useState<TodoItem[]>(DEMO_TODOS);
-  const [recents, setRecents] = useState<RecentItem[]>(DEMO_RECENTS);
-  const [favorites, setFavorites] = useState<RecentItem[]>(DEMO_FAVORITES);
+  const [recents] = useState<RecentItem[]>(DEMO_RECENTS);
+  const [favorites] = useState<RecentItem[]>(DEMO_FAVORITES);
 
   const handleTodoComplete = (id: string) => {
     setTodos(todos.filter((t) => t.id !== id));

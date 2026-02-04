@@ -7,9 +7,10 @@ Tests audit logging system:
 - Audit log filtering
 - Permission boundaries
 """
+from datetime import datetime, timedelta
+
 import pytest
 from httpx import AsyncClient
-from datetime import datetime, timedelta
 
 
 @pytest.mark.p0

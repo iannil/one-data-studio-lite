@@ -3,22 +3,21 @@
 Tests for services/portal/main.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from services.common.auth import TokenPayload
+from services.common.orm_models import UserORM
 from services.portal.main import (
+    INTERNAL_SERVICES,
+    SUBSYSTEMS,
+    _get_permissions_for_role,
+    _get_user_from_db,
     _hash_password,
     _verify_password,
-    _get_user_from_db,
-    _get_permissions_for_role,
-    app,
-    SUBSYSTEMS,
-    INTERNAL_SERVICES,
 )
-from services.common.orm_models import UserORM
-from services.common.auth import TokenPayload
 
 
 class TestHashPassword:
@@ -302,8 +301,7 @@ class TestLoginEndpoint:
     @pytest.mark.asyncio
     async def test_login_success_db_user(self):
         """测试数据库用户登录成功"""
-        from services.portal.main import login, LoginRequest, Response
-        from services.common.auth import create_token
+        from services.portal.main import LoginRequest, Response, login
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.username = "testuser"
@@ -330,8 +328,9 @@ class TestLoginEndpoint:
     @pytest.mark.asyncio
     async def test_login_user_disabled(self):
         """测试已禁用用户登录失败"""
-        from services.portal.main import login, LoginRequest, Response
         from fastapi import HTTPException
+
+        from services.portal.main import LoginRequest, Response, login
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.is_active = False
@@ -350,8 +349,9 @@ class TestLoginEndpoint:
     @pytest.mark.asyncio
     async def test_login_user_locked(self):
         """测试已锁定用户登录失败"""
-        from services.portal.main import login, LoginRequest, Response
         from fastapi import HTTPException
+
+        from services.portal.main import LoginRequest, Response, login
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.is_active = True
@@ -371,8 +371,9 @@ class TestLoginEndpoint:
     @pytest.mark.asyncio
     async def test_login_wrong_password(self):
         """测试错误密码"""
-        from services.portal.main import login, LoginRequest, Response
         from fastapi import HTTPException
+
+        from services.portal.main import LoginRequest, Response, login
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.is_active = True
@@ -396,7 +397,7 @@ class TestLoginEndpoint:
     @pytest.mark.asyncio
     async def test_login_dev_user_success(self):
         """测试开发环境用户登录成功"""
-        from services.portal.main import login, LoginRequest, Response
+        from services.portal.main import LoginRequest, Response, login
 
         mock_db = AsyncMock()
 
@@ -451,8 +452,9 @@ class TestRefreshTokenEndpoint:
     @pytest.mark.asyncio
     async def test_refresh_token_success(self):
         """测试刷新令牌成功"""
-        from services.portal.main import refresh_user_token
         from fastapi import Request
+
+        from services.portal.main import refresh_user_token
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer old_token"}
@@ -466,8 +468,9 @@ class TestRefreshTokenEndpoint:
     @pytest.mark.asyncio
     async def test_refresh_token_no_auth_header(self):
         """测试无认证头"""
+        from fastapi import HTTPException, Request
+
         from services.portal.main import refresh_user_token
-        from fastapi import Request, HTTPException
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -480,8 +483,9 @@ class TestRefreshTokenEndpoint:
     @pytest.mark.asyncio
     async def test_refresh_token_invalid(self):
         """测试无效令牌"""
+        from fastapi import HTTPException, Request
+
         from services.portal.main import refresh_user_token
-        from fastapi import Request, HTTPException
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer invalid_token"}
@@ -499,8 +503,9 @@ class TestValidateTokenEndpoint:
     @pytest.mark.asyncio
     async def test_validate_token_success(self):
         """测试令牌验证成功"""
-        from services.portal.main import validate_token
         from fastapi import Request
+
+        from services.portal.main import validate_token
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer valid_token"}
@@ -528,8 +533,9 @@ class TestValidateTokenEndpoint:
     @pytest.mark.asyncio
     async def test_validate_token_no_auth_header(self):
         """测试无认证头"""
-        from services.portal.main import validate_token
         from fastapi import Request
+
+        from services.portal.main import validate_token
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -542,8 +548,9 @@ class TestValidateTokenEndpoint:
     @pytest.mark.asyncio
     async def test_validate_token_invalid(self):
         """测试无效令牌"""
-        from services.portal.main import validate_token
         from fastapi import Request
+
+        from services.portal.main import validate_token
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer invalid_token"}
@@ -621,8 +628,9 @@ class TestRevokeTokenEndpoint:
     @pytest.mark.asyncio
     async def test_revoke_token_success(self):
         """测试撤销令牌成功"""
-        from services.portal.main import revoke_token
         from fastapi import Request
+
+        from services.portal.main import revoke_token
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer test_token"}
@@ -646,9 +654,9 @@ class TestRevokeTokenEndpoint:
     @pytest.mark.asyncio
     async def test_revoke_token_no_auth_header(self):
         """测试无认证头"""
+        from fastapi import HTTPException, Request
+
         from services.portal.main import revoke_token
-        from fastapi import Request
-        from fastapi import HTTPException
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -668,9 +676,9 @@ class TestRevokeTokenEndpoint:
     @pytest.mark.asyncio
     async def test_revoke_token_blacklist_unavailable(self):
         """测试黑名单服务不可用"""
+        from fastapi import HTTPException, Request
+
         from services.portal.main import revoke_token
-        from fastapi import Request
-        from fastapi import HTTPException
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer test_token"}
@@ -698,8 +706,9 @@ class TestRevokeUserTokensEndpoint:
     @pytest.mark.asyncio
     async def test_revoke_user_tokens_admin(self):
         """测试管理员撤销用户令牌"""
-        from services.portal.main import revoke_user_tokens
         from fastapi import Request
+
+        from services.portal.main import revoke_user_tokens
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {"Authorization": "Bearer admin_token"}
@@ -724,9 +733,9 @@ class TestRevokeUserTokensEndpoint:
     @pytest.mark.asyncio
     async def test_revoke_user_tokens_forbidden(self):
         """测试非管理员无权限"""
+        from fastapi import HTTPException, Request
+
         from services.portal.main import revoke_user_tokens
-        from fastapi import Request
-        from fastapi import HTTPException
 
         mock_request = MagicMock(spec=Request)
         mock_payload = TokenPayload(
@@ -749,7 +758,7 @@ class TestRegisterEndpoint:
     @pytest.mark.asyncio
     async def test_register_success(self):
         """测试注册成功"""
-        from services.portal.main import register, RegisterRequest
+        from services.portal.main import RegisterRequest, register
 
         mock_db = AsyncMock()
         mock_db.add = MagicMock()
@@ -774,8 +783,9 @@ class TestRegisterEndpoint:
     @pytest.mark.asyncio
     async def test_register_user_exists(self):
         """测试用户已存在"""
-        from services.portal.main import register, RegisterRequest
         from fastapi import HTTPException
+
+        from services.portal.main import RegisterRequest, register
 
         mock_db = AsyncMock()
         mock_user = MagicMock(spec=UserORM)
@@ -799,7 +809,7 @@ class TestChangePasswordEndpoint:
     @pytest.mark.asyncio
     async def test_change_password_success(self):
         """测试修改密码成功"""
-        from services.portal.main import change_password, ChangePasswordRequest
+        from services.portal.main import ChangePasswordRequest, change_password
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.password_hash = _hash_password("old_password")
@@ -828,8 +838,9 @@ class TestChangePasswordEndpoint:
     @pytest.mark.asyncio
     async def test_change_password_wrong_old_password(self):
         """测试旧密码错误"""
-        from services.portal.main import change_password, ChangePasswordRequest
         from fastapi import HTTPException
+
+        from services.portal.main import ChangePasswordRequest, change_password
 
         mock_user = MagicMock(spec=UserORM)
         mock_user.password_hash = _hash_password("correct_old_password")
@@ -1005,7 +1016,7 @@ class TestHealthCheckAllEndpoint:
     @pytest.mark.asyncio
     async def test_health_check_all_degraded(self):
         """测试服务降级"""
-        from services.portal.main import health_check_all, SubsystemStatus
+        from services.portal.main import SubsystemStatus, health_check_all
 
         offline_subsystem = SubsystemStatus(
             name="test",
@@ -1050,8 +1061,9 @@ class TestShutdownEndpoint:
     @pytest.mark.asyncio
     async def test_shutdown(self):
         """测试优雅关闭"""
-        from services.portal.main import shutdown_service
         from fastapi import Request
+
+        from services.portal.main import shutdown_service
 
         mock_request = MagicMock(spec=Request)
         mock_request.client.host = "127.0.0.1"

@@ -8,9 +8,7 @@ import {
   Typography,
   Space,
   Tabs,
-  Switch,
   Empty,
-  Tooltip,
 } from 'antd';
 import {
   BellOutlined,
@@ -20,7 +18,6 @@ import {
   ExclamationCircleOutlined,
   DeleteOutlined,
   CheckOutlined,
-  CheckSquareOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;

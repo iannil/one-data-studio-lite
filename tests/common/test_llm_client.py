@@ -4,16 +4,17 @@ Tests for services/common/llm_client.py
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
+
 import httpx
+import pytest
 
 from services.common.llm_client import (
+    LLMClient,
     LLMConfig,
     LLMError,
     LLMResponse,
-    LLMClient,
-    get_llm_client,
     call_llm,
+    get_llm_client,
 )
 
 

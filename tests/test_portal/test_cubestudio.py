@@ -3,35 +3,35 @@
 Tests for services/portal/routers/cubestudio.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from services.common.api_response import ErrorCode
+from services.common.auth import TokenPayload
 from services.portal.routers.cubestudio import (
-    router,
-    get_pipelines_v1,
-    get_pipeline_v1,
-    run_pipeline_v1,
-    delete_pipeline_v1,
-    list_models_v1,
-    model_inference_v1,
-    chat_completion_v1,
-    list_data_sources_v1,
-    create_data_source_v1,
-    list_datasets_v1,
-    list_notebooks_v1,
-    create_notebook_v1,
-    get_metrics_v1,
-    list_alerts_v1,
-    get_services_status_v1,
-    PipelineRunRequest,
+    DataSourceRequest,
     ModelInferenceRequest,
     NotebookCreateRequest,
-    DataSourceRequest,
+    PipelineRunRequest,
+    chat_completion_v1,
+    create_data_source_v1,
+    create_notebook_v1,
+    delete_pipeline_v1,
+    get_metrics_v1,
+    get_pipeline_v1,
+    get_pipelines_v1,
+    get_services_status_v1,
+    list_alerts_v1,
+    list_data_sources_v1,
+    list_datasets_v1,
+    list_models_v1,
+    list_notebooks_v1,
+    model_inference_v1,
+    router,
+    run_pipeline_v1,
 )
-from services.common.auth import TokenPayload
-from services.common.api_response import ErrorCode
 
 
 class TestRouter:

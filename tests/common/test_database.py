@@ -4,24 +4,23 @@ Tests for services/common/database.py
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from contextlib import asynccontextmanager
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.common.database import (
+    DEFAULT_DATABASE_URL,
     Base,
-    get_database_url,
     create_engine,
-    reset_engine,
-    get_engine,
-    get_session_factory,
+    get_database_url,
     get_db,
     get_db_context,
+    get_engine,
+    get_session_factory,
+    get_table_columns,
+    reset_engine,
     validate_identifier,
     validate_table_exists,
-    get_table_columns,
-    DEFAULT_DATABASE_URL,
 )
 
 

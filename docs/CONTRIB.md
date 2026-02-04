@@ -1,7 +1,7 @@
 # 贡献者指南 (CONTRIBUTING)
 
-**更新日期**: 2026-02-03
-**版本**: 1.1
+**更新日期**: 2026-02-04
+**版本**: 1.2
 
 本文档为 ONE-DATA-STUDIO-LITE 项目的开发者提供开发工作流程、可用脚本、环境配置和测试程序的完整参考。
 
@@ -809,6 +809,7 @@ git commit -m "refactor(services): extract common database utilities"
 - [部署指南](./deployment.md) - 生产环境部署
 - [开发指南](./development.md) - 详细开发规范
 - [运维手册](./RUNBOOK.md) - 运维操作指南
+- [脚本参考](./SCRIPTS.md) - 完整脚本命令参考
 - [配置参考](./REFERENCE.md) - 完整配置参考
 - [文档状态](./STATUS.md) - 文档更新状态
 - [API 设计规范](./standards/api-design.md) - API 设计标准

@@ -13,9 +13,9 @@ from services.common.migrations import (
     _get_dev_users,
     _hash_password,
     create_tables,
+    insert_default_config,
     insert_permissions,
     insert_roles,
-    insert_default_config,
 )
 
 

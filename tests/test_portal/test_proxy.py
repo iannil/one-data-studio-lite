@@ -6,12 +6,13 @@ Tests for services/portal/routers/proxy.py
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import TimeoutException, ConnectError, HTTPError as HTTPXError
+from httpx import ConnectError, TimeoutException
+from httpx import HTTPError as HTTPXError
 
 from services.portal.routers.proxy import (
-    proxy_request,
-    SERVICE_SECRET,
     HOP_BY_HOP_HEADERS,
+    SERVICE_SECRET,
+    proxy_request,
 )
 
 
@@ -196,7 +197,7 @@ class TestProxyRequest:
     @pytest.mark.asyncio
     async def test_proxy_request_timeout(self):
         """测试请求超时"""
-        from fastapi import Request, HTTPException
+        from fastapi import HTTPException, Request
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -223,7 +224,7 @@ class TestProxyRequest:
     @pytest.mark.asyncio
     async def test_proxy_request_connect_error(self):
         """测试连接错误"""
-        from fastapi import Request, HTTPException
+        from fastapi import HTTPException, Request
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -250,7 +251,7 @@ class TestProxyRequest:
     @pytest.mark.asyncio
     async def test_proxy_request_http_error(self):
         """测试 HTTP 错误"""
-        from fastapi import Request, HTTPException
+        from fastapi import HTTPException, Request
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"

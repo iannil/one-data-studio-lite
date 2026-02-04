@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Button,
@@ -22,8 +22,6 @@ import {
   BellOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
-  CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 
@@ -34,6 +32,15 @@ type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
 type AlertStatus = 'active' | 'paused' | 'triggered';
 type NotifyChannel = 'email' | 'sms' | 'webhook' | 'dingtalk';
 type MetricType = 'data_quality' | 'task_failure' | 'data_volume' | 'latency' | 'custom';
+
+interface AlertHistory {
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  triggeredAt: string;
+  status: string;
+  message: string;
+}
 
 interface AlertRule {
   id: string;
@@ -122,7 +129,7 @@ const CHANNEL_OPTIONS = [
 
 const Alerts: React.FC = () => {
   const [rules, setRules] = useState<AlertRule[]>(DEMO_RULES);
-  const [histories, setHistories] = useState<any[]>([
+  const [histories] = useState<AlertHistory[]>([
     { id: '1', ruleId: '1', ruleName: '数据质量异常告警', triggeredAt: '2026-01-30 14:30:00', status: 'resolved', message: '表 user_data 完整度 85%' },
     { id: '2', ruleId: '2', ruleName: 'ETL 任务失败告警', triggeredAt: '2026-01-31 02:15:00', status: 'active', message: '任务 daily_sync 执行失败' },
   ]);
@@ -202,16 +209,6 @@ const Alerts: React.FC = () => {
       critical: { color: 'magenta', text: '紧急' },
     };
     const { color, text } = config[severity];
-    return <Tag color={color}>{text}</Tag>;
-  };
-
-  const getStatusTag = (status: AlertStatus) => {
-    const config = {
-      active: { color: 'success', text: '启用' },
-      paused: { color: 'default', text: '暂停' },
-      triggered: { color: 'error', text: '触发中' },
-    };
-    const { color, text } = config[status];
     return <Tag color={color}>{text}</Tag>;
   };
 

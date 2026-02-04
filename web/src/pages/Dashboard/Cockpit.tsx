@@ -39,7 +39,7 @@ const Cockpit: React.FC = () => {
       try {
         const data = await getSubsystems();
         setSubsystems(data);
-      } catch (error) {
+      } catch {
         message.error('获取子系统状态失败');
       } finally {
         setLoading(false);
@@ -83,7 +83,7 @@ const Cockpit: React.FC = () => {
                     {system.display_name}
                   </Title>
                   <div style={{ marginBottom: 8 }}>
-                    <Tag color={status.color as any} icon={status.icon}>
+                    <Tag color={status.color as 'success' | 'error' | 'processing' | 'default' | undefined} icon={status.icon}>
                       {status.text}
                     </Tag>
                   </div>

@@ -4,8 +4,9 @@ Tests authentication system initialization and configuration.
 Tests JWT token generation, validation, and lifecycle.
 """
 
+from datetime import datetime, timedelta
+
 import pytest
-from datetime import timedelta, datetime
 from httpx import AsyncClient
 
 
@@ -16,7 +17,7 @@ class TestAuthInitLifecycle:
     async def test_auth_01_system_configured(self, portal_client: AsyncClient):
         """Verify authentication system is properly configured"""
         # Check JWT settings are loaded
-        from services.common.auth import JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRE_HOURS
+        from services.common.auth import JWT_ALGORITHM, JWT_EXPIRE_HOURS, JWT_SECRET
 
         assert JWT_SECRET is not None
         assert JWT_ALGORITHM == "HS256"
@@ -57,8 +58,9 @@ class TestAuthInitLifecycle:
 
     async def test_auth_04_token_validation_invalid(self, portal_client: AsyncClient):
         """Test invalid token validation fails"""
-        from services.common.auth import verify_token
         from fastapi.exceptions import HTTPException
+
+        from services.common.auth import verify_token
 
         # Invalid token raises HTTPException
         try:
@@ -76,8 +78,9 @@ class TestAuthInitLifecycle:
 
     async def test_auth_05_token_expiration(self, portal_client: AsyncClient):
         """Test token expiration handling"""
-        from services.common.auth import create_token, verify_token
         from fastapi.exceptions import HTTPException
+
+        from services.common.auth import create_token, verify_token
 
         # Create expired token
         expired_token = create_token(
@@ -97,8 +100,9 @@ class TestAuthInitLifecycle:
 
     async def test_auth_06_token_claims(self, portal_client: AsyncClient):
         """Test token contains correct claims"""
-        from services.common.auth import create_token
         import jwt
+
+        from services.common.auth import create_token
 
         token = create_token(
             user_id="test_user",
@@ -107,7 +111,7 @@ class TestAuthInitLifecycle:
         )
 
         # Decode and verify claims
-        from services.common.auth import JWT_SECRET, JWT_ALGORITHM
+        from services.common.auth import JWT_ALGORITHM, JWT_SECRET
         decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
         assert decoded["sub"] == "test_user"
@@ -118,8 +122,9 @@ class TestAuthInitLifecycle:
 
     async def test_auth_07_default_expiry(self, portal_client: AsyncClient):
         """Test default token expiration time"""
-        from services.common.auth import create_token, JWT_EXPIRE_HOURS
         import jwt
+
+        from services.common.auth import JWT_EXPIRE_HOURS, create_token
 
         token = create_token(
             user_id="test_user",
@@ -127,7 +132,7 @@ class TestAuthInitLifecycle:
             role="analyst"
         )
 
-        from services.common.auth import JWT_SECRET, JWT_ALGORITHM
+        from services.common.auth import JWT_ALGORITHM, JWT_SECRET
         decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
         # Check expiration is approximately correct (within 60 seconds)
@@ -140,8 +145,9 @@ class TestAuthInitLifecycle:
 
     async def test_auth_08_custom_expiry(self, portal_client: AsyncClient):
         """Test custom token expiration time"""
-        from services.common.auth import create_token
         import jwt
+
+        from services.common.auth import create_token
 
         custom_hours = 48
         token = create_token(
@@ -151,7 +157,7 @@ class TestAuthInitLifecycle:
             expires_delta=timedelta(hours=custom_hours)
         )
 
-        from services.common.auth import JWT_SECRET, JWT_ALGORITHM
+        from services.common.auth import JWT_ALGORITHM, JWT_SECRET
         decoded = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
         exp = datetime.fromtimestamp(decoded["exp"])

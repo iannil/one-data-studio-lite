@@ -5,15 +5,15 @@
 
 import os
 import sys
+from collections.abc import AsyncGenerator
 from datetime import timedelta
-from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock, patch
-from sqlalchemy.ext.asyncio import AsyncSession
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # 设置环境变量（测试环境配置）
 os.environ.setdefault("JWT_SECRET", "test-secret-key-for-testing-only")
@@ -29,7 +29,7 @@ os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{test_db_path}")
 # 添加 services 目录到 Python 路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.common.auth import create_token, JWT_SECRET, JWT_ALGORITHM
+from services.common.auth import create_token
 from services.common.database import reset_engine
 
 # 重置数据库引擎，确保使用测试配置
@@ -219,9 +219,10 @@ def mock_external_services():
 @pytest.fixture(scope="session", autouse=True)
 async def init_test_database():
     """初始化测试数据库表结构"""
+    from sqlalchemy import select, text
+
     from services.common.database import get_engine
     from services.common.orm_models import Base, PermissionORM, RoleORM, RolePermissionORM
-    from sqlalchemy import select, text
 
     # 使用全局引擎（指向测试数据库）
     engine = get_engine()
@@ -682,10 +683,10 @@ async def lifecycle_init_data(portal_client: AsyncClient, super_admin_headers: d
 
     Ensures all required entities exist before running lifecycle tests.
     """
-    from services.common.seed_data import seed_all_data
-
     # Run seed data with business data included
     import asyncio
+
+    from services.common.seed_data import seed_all_data
     await asyncio.create_task(seed_all_data(
         environment="development",
         skip_users=False,
@@ -763,6 +764,7 @@ async def db_session():
     用于测试时直接操作数据库，绕过API层。
     """
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
     from services.common.database import get_database_url
 
     database_url = get_database_url()
@@ -789,7 +791,7 @@ async def clean_test_data(db_session: AsyncSession):
             # 测试逻辑
             # fixture会自动清理
     """
-    from services.common.orm_models import UserORM, ServiceAccountORM
+    from services.common.orm_models import ServiceAccountORM, UserORM
 
     # 记录测试前的数据
     user_result = await db_session.execute(select(UserORM))

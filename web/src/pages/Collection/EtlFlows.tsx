@@ -6,9 +6,19 @@ import { getProjects } from '../../api/dolphinscheduler';
 const { Title } = Typography;
 
 const EtlFlows: React.FC = () => {
-  const [flows, setFlows] = useState<any[]>([]);
+  const [flows, setFlows] = useState<DolphinSchedulerProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  interface DolphinSchedulerProject {
+    code?: number | string;
+    id?: number | string;
+    name?: string;
+    description?: string;
+    releaseState?: string;
+    createTime?: string;
+    updateTime?: string;
+  }
 
   const fetchFlows = async () => {
     setLoading(true);
@@ -18,8 +28,8 @@ const EtlFlows: React.FC = () => {
       // Hop 流程暂时从 DS 流程列表读取，后续对接 Hop REST API
       const list = data?.data?.totalList || data?.data || [];
       setFlows(Array.isArray(list) ? list : []);
-    } catch (err: any) {
-      const status = err?.response?.status;
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
         setError('认证失败，请重新登录');
       } else if (status === 503 || status === 502) {

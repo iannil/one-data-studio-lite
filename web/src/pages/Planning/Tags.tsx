@@ -6,11 +6,17 @@ import { searchTags, createTag } from '../../api/metadata';
 const { Title } = Typography;
 
 const Tags: React.FC = () => {
-  const [tags, setTags] = useState<any[]>([]);
+  const [tags, setTags] = useState<TagEntity[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [form] = Form.useForm();
+
+  interface TagEntity {
+    name?: string;
+    urn?: string;
+    description?: string;
+  }
 
   const fetchTags = async (query?: string) => {
     setLoading(true);
@@ -45,7 +51,7 @@ const Tags: React.FC = () => {
       title: '标签名称',
       dataIndex: 'name',
       key: 'name',
-      render: (text: string, record: any) => (
+      render: (text: string, record: TagEntity) => (
         <Tag color="blue">{text || record.urn?.split(':').pop() || '-'}</Tag>
       ),
     },

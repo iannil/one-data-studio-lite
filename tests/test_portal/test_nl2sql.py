@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.portal.routers.nl2sql import (
-    QueryRequest,
-    ExplainRequest,
     SERVICE_SECRET,
+    ExplainRequest,
+    QueryRequest,
     router,
 )
 
@@ -74,9 +74,10 @@ class TestQueryV1:
     @pytest.mark.asyncio
     async def test_query_v1_success(self):
         """测试查询成功"""
-        from services.portal.routers.nl2sql import query_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import query_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -106,9 +107,10 @@ class TestQueryV1:
     @pytest.mark.asyncio
     async def test_query_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.nl2sql import query_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import query_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -137,10 +139,12 @@ class TestQueryV1:
     @pytest.mark.asyncio
     async def test_query_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.nl2sql import query_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import query_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -170,9 +174,10 @@ class TestExplainV1:
     @pytest.mark.asyncio
     async def test_explain_v1_success(self):
         """测试解释成功"""
-        from services.portal.routers.nl2sql import explain_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import explain_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -202,9 +207,10 @@ class TestExplainV1:
     @pytest.mark.asyncio
     async def test_explain_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.nl2sql import explain_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import explain_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -232,10 +238,12 @@ class TestExplainV1:
     @pytest.mark.asyncio
     async def test_explain_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.nl2sql import explain_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import explain_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -265,9 +273,10 @@ class TestGetTablesV1:
     @pytest.mark.asyncio
     async def test_get_tables_v1_success(self):
         """测试获取表列表成功"""
-        from services.portal.routers.nl2sql import get_tables_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import get_tables_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -298,9 +307,10 @@ class TestGetTablesV1:
     @pytest.mark.asyncio
     async def test_get_tables_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.nl2sql import get_tables_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import get_tables_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 503
@@ -327,10 +337,10 @@ class TestGetTablesV1:
     @pytest.mark.asyncio
     async def test_get_tables_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.nl2sql import get_tables_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
-        import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import get_tables_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -359,10 +369,12 @@ class TestNL2SQLProxy:
     @pytest.mark.asyncio
     async def test_nl2sql_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.nl2sql import nl2sql_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import nl2sql_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -394,10 +406,12 @@ class TestNL2SQLProxy:
     @pytest.mark.asyncio
     async def test_nl2sql_proxy_post(self):
         """测试 POST 代理"""
-        from services.portal.routers.nl2sql import nl2sql_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import nl2sql_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -429,10 +443,12 @@ class TestNL2SQLProxy:
     @pytest.mark.asyncio
     async def test_nl2sql_proxy_put(self):
         """测试 PUT 代理"""
-        from services.portal.routers.nl2sql import nl2sql_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import nl2sql_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "PUT"
@@ -459,10 +475,12 @@ class TestNL2SQLProxy:
     @pytest.mark.asyncio
     async def test_nl2sql_proxy_delete(self):
         """测试 DELETE 代理"""
-        from services.portal.routers.nl2sql import nl2sql_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.nl2sql import nl2sql_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "DELETE"

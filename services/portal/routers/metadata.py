@@ -12,9 +12,10 @@ OpenMetadata API 映射:
 | 创建标签 | POST /entities?action=ingest | POST /api/v1/tags |
 """
 
+from urllib.parse import quote
+
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
-from urllib.parse import quote
 
 from services.common.api_response import ApiResponse, ErrorCode, error, success
 from services.common.auth import TokenPayload, get_current_user

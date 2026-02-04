@@ -202,7 +202,6 @@ class TestRolePermissions:
     async def test_role_11_admin_cannot_delete_role(self, portal_client: AsyncClient, admin_headers: dict):
         """Admin cannot delete roles (only super_admin)"""
         # First create a custom role as super_admin
-        from services.common.auth import create_token
 
         # Use super admin headers instead
         # This test just verifies admin cannot delete

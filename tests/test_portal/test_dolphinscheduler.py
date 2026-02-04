@@ -150,9 +150,10 @@ class TestGetProjectsV1:
     @pytest.mark.asyncio
     async def test_get_projects_v1_default(self):
         """测试默认参数"""
-        from services.portal.routers.dolphinscheduler import get_projects_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_projects_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -174,9 +175,10 @@ class TestGetProjectsV1:
     @pytest.mark.asyncio
     async def test_get_projects_v1_pagination(self):
         """测试分页参数"""
-        from services.portal.routers.dolphinscheduler import get_projects_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_projects_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -201,9 +203,10 @@ class TestGetProcessDefinitionsV1:
     @pytest.mark.asyncio
     async def test_get_process_definitions_v1(self):
         """测试获取流程定义"""
-        from services.portal.routers.dolphinscheduler import get_process_definitions_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_process_definitions_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -231,9 +234,10 @@ class TestGetSchedulesV1:
     @pytest.mark.asyncio
     async def test_get_schedules_v1(self):
         """测试获取调度列表"""
-        from services.portal.routers.dolphinscheduler import get_schedules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_schedules_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -257,9 +261,10 @@ class TestGetSchedulesV1:
     @pytest.mark.asyncio
     async def test_get_schedules_v1_with_filter(self):
         """测试带流程定义过滤"""
-        from services.portal.routers.dolphinscheduler import get_schedules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_schedules_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -288,9 +293,10 @@ class TestUpdateScheduleStateV1:
     @pytest.mark.asyncio
     async def test_update_schedule_state_v1_online(self):
         """测试上线调度"""
-        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -316,9 +322,10 @@ class TestUpdateScheduleStateV1:
     @pytest.mark.asyncio
     async def test_update_schedule_state_v1_offline(self):
         """测试下线调度"""
-        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -344,9 +351,10 @@ class TestUpdateScheduleStateV1:
     @pytest.mark.asyncio
     async def test_update_schedule_state_v1_invalid_state(self):
         """测试无效状态"""
-        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import update_schedule_state_v1
 
         mock_payload = TokenPayload(
             sub="testuser",
@@ -373,9 +381,10 @@ class TestGetTaskInstancesV1:
     @pytest.mark.asyncio
     async def test_get_task_instances_v1(self):
         """测试获取任务实例"""
-        from services.portal.routers.dolphinscheduler import get_task_instances_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_task_instances_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -399,9 +408,10 @@ class TestGetTaskInstancesV1:
     @pytest.mark.asyncio
     async def test_get_task_instances_v1_with_filters(self):
         """测试带过滤条件"""
-        from services.portal.routers.dolphinscheduler import get_task_instances_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_task_instances_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -431,9 +441,10 @@ class TestGetTaskLogV1:
     @pytest.mark.asyncio
     async def test_get_task_log_v1(self):
         """测试获取任务日志"""
-        from services.portal.routers.dolphinscheduler import get_task_log_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import get_task_log_v1
 
         with patch('services.portal.routers.dolphinscheduler._ds_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -463,10 +474,12 @@ class TestDSProxy:
     @pytest.mark.asyncio
     async def test_ds_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.dolphinscheduler import ds_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import ds_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -493,10 +506,12 @@ class TestDSProxy:
     @pytest.mark.asyncio
     async def test_ds_proxy_post(self):
         """测试 POST 代理"""
-        from services.portal.routers.dolphinscheduler import ds_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import ds_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -523,10 +538,12 @@ class TestDSProxy:
     @pytest.mark.asyncio
     async def test_ds_proxy_put(self):
         """测试 PUT 代理"""
-        from services.portal.routers.dolphinscheduler import ds_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import ds_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "PUT"
@@ -553,10 +570,12 @@ class TestDSProxy:
     @pytest.mark.asyncio
     async def test_ds_proxy_delete(self):
         """测试 DELETE 代理"""
-        from services.portal.routers.dolphinscheduler import ds_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.dolphinscheduler import ds_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "DELETE"

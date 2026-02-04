@@ -3,15 +3,14 @@
 Tests for services/portal/routers/superset.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 import asyncio
 import time
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from services.portal.routers.superset import (
-    _session_manager,
     SupersetSessionManager,
     _get_superset_session,
     _superset_request,
@@ -380,8 +379,8 @@ class TestGetDashboardsV1:
     @pytest.mark.asyncio
     async def test_get_dashboards_v1(self):
         """测试获取仪表板列表"""
-        from services.portal.routers.superset import get_dashboards_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_dashboards_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -406,8 +405,8 @@ class TestGetDashboardV1:
     @pytest.mark.asyncio
     async def test_get_dashboard_v1(self):
         """测试获取仪表板详情"""
-        from services.portal.routers.superset import get_dashboard_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_dashboard_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -432,8 +431,8 @@ class TestGetChartsV1:
     @pytest.mark.asyncio
     async def test_get_charts_v1(self):
         """测试获取图表列表"""
-        from services.portal.routers.superset import get_charts_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_charts_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -458,8 +457,8 @@ class TestGetChartV1:
     @pytest.mark.asyncio
     async def test_get_chart_v1(self):
         """测试获取图表详情"""
-        from services.portal.routers.superset import get_chart_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_chart_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -484,8 +483,8 @@ class TestGetDatasetsV1:
     @pytest.mark.asyncio
     async def test_get_datasets_v1(self):
         """测试获取数据集列表"""
-        from services.portal.routers.superset import get_datasets_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_datasets_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -510,8 +509,8 @@ class TestGetDatasetV1:
     @pytest.mark.asyncio
     async def test_get_dataset_v1(self):
         """测试获取数据集详情"""
-        from services.portal.routers.superset import get_dataset_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_dataset_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -536,8 +535,8 @@ class TestGetDatabasesV1:
     @pytest.mark.asyncio
     async def test_get_databases_v1(self):
         """测试获取数据库列表"""
-        from services.portal.routers.superset import get_databases_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_databases_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -562,8 +561,8 @@ class TestGetMeV1:
     @pytest.mark.asyncio
     async def test_get_me_v1(self):
         """测试获取当前用户信息"""
-        from services.portal.routers.superset import get_me_v1
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import get_me_v1
 
         with patch('services.portal.routers.superset._superset_request', new_callable=AsyncMock) as mock_request:
             from services.common.api_response import success
@@ -588,9 +587,10 @@ class TestSupersetProxy:
     @pytest.mark.asyncio
     async def test_superset_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.superset import superset_proxy
         from fastapi import Request
+
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import superset_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -622,9 +622,10 @@ class TestSupersetProxy:
     @pytest.mark.asyncio
     async def test_superset_proxy_with_session(self):
         """测试带会话的代理"""
-        from services.portal.routers.superset import superset_proxy
         from fastapi import Request
+
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import superset_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -655,9 +656,10 @@ class TestSupersetProxy:
     @pytest.mark.asyncio
     async def test_superset_proxy_post(self):
         """测试 POST 代理"""
-        from services.portal.routers.superset import superset_proxy
         from fastapi import Request
+
         from services.common.auth import TokenPayload
+        from services.portal.routers.superset import superset_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"

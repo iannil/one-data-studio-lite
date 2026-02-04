@@ -3,25 +3,25 @@
 Tests for services/common/telemetry.py
 """
 
-import sys
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 # Check if opentelemetry is available
 try:
     from services.common.telemetry import (
-        TraceContext,
-        trace_context,
-        setup_telemetry,
-        setup_fastapi_instrumentation,
-        TracingMiddleware,
         SpanHelper,
-        span_helper,
+        TraceContext,
+        TracingMiddleware,
+        get_trace_headers,
         get_trace_id,
         instrument_sqlalchemy,
-        get_trace_headers,
-        traced,
+        setup_fastapi_instrumentation,
+        setup_telemetry,
+        span_helper,
         timed,
+        trace_context,
+        traced,
     )
     OTEL_AVAILABLE = True
 except ImportError:

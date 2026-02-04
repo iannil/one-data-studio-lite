@@ -3,20 +3,19 @@
 Tests for services/portal/routers/hop.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from services.portal.routers.hop import (
-    router,
-    RunRequest,
-    PipelineRequest,
-    fetch_hop,
-)
 from services.common.auth import TokenPayload
-
+from services.portal.routers.hop import (
+    PipelineRequest,
+    RunRequest,
+    fetch_hop,
+    router,
+)
 
 # Mock user for testing
 MOCK_USER = TokenPayload(

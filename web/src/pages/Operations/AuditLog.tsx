@@ -24,8 +24,7 @@ import {
 import { getLogs, getStats, exportLogs, AuditQueryParams } from '../../api/audit';
 import { AuditEvent, AuditStats } from '../../types';
 
-const { Title, Text } = Typography;
-const { Option } = Select;
+const { Title } = Typography;
 
 const AuditLog: React.FC = () => {
   const [logs, setLogs] = useState<AuditEvent[]>([]);
@@ -40,17 +39,12 @@ const AuditLog: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<AuditEvent | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    fetchLogs();
-    fetchStats();
-  }, [filters]);
-
   const fetchLogs = async () => {
     setLoading(true);
     try {
       const data = await getLogs(filters);
       setLogs(data);
-    } catch (error) {
+    } catch {
       message.error('获取审计日志失败');
     } finally {
       setLoading(false);
@@ -61,12 +55,18 @@ const AuditLog: React.FC = () => {
     try {
       const data = await getStats();
       setStats(data);
-    } catch (error) {
+    } catch {
       message.error('获取统计信息失败');
     } finally {
       setLoadingStats(false);
     }
   };
+
+  useEffect(() => {
+    fetchLogs();
+    fetchStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const handleExport = async (format: 'csv' | 'json') => {
     setExporting(true);
@@ -81,7 +81,7 @@ const AuditLog: React.FC = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       message.success('导出成功');
-    } catch (error) {
+    } catch {
       message.error('导出失败');
     } finally {
       setExporting(false);
@@ -154,7 +154,7 @@ const AuditLog: React.FC = () => {
       title: '操作',
       key: 'actions',
       width: 80,
-      render: (_: any, record: AuditEvent) => (
+      render: (_: unknown, record: AuditEvent) => (
         <Button
           type="link"
           size="small"
@@ -241,9 +241,9 @@ const AuditLog: React.FC = () => {
             onChange={(v) => setFilters({ ...filters, subsystem: v, page: 1 })}
           >
             {subsystemOptions.map((s) => (
-              <Option key={s} value={s}>
+              <Select.Option key={s} value={s}>
                 {s}
-              </Option>
+              </Select.Option>
             ))}
           </Select>
           <Select
@@ -254,9 +254,9 @@ const AuditLog: React.FC = () => {
             onChange={(v) => setFilters({ ...filters, event_type: v, page: 1 })}
           >
             {eventTypeOptions.map((t) => (
-              <Option key={t} value={t}>
+              <Select.Option key={t} value={t}>
                 {t}
-              </Option>
+              </Select.Option>
             ))}
           </Select>
           <Button

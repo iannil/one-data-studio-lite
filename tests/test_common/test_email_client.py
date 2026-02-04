@@ -5,14 +5,13 @@ Tests for services/common/email_client.py
 Note: aiosmtplib is an optional dependency. Tests will be skipped if not installed.
 """
 
-import sys
 
 import pytest
 
 # Skip all tests if aiosmtplib is not installed
 pytest.importorskip("aiosmtplib", reason="aiosmtplib not installed")
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from services.common.email_client import (
     EmailClient,

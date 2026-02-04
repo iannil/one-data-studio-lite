@@ -32,8 +32,8 @@ const TaskMonitor: React.FC = () => {
       const data = await getProjects();
       const list = data?.data?.totalList || data?.data || [];
       setProjects(Array.isArray(list) ? list : []);
-    } catch (err: any) {
-      const status = err?.response?.status;
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       if (status === 401) {
         setError('认证失败，请重新登录');
       } else if (status === 503 || status === 502) {

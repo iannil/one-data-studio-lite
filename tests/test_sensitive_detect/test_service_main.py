@@ -3,36 +3,30 @@
 Tests for services/sensitive_detect/main.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from sqlalchemy import text
 from fastapi.testclient import TestClient
 
+from services.common.auth import TokenPayload
+from services.common.orm_models import DetectionRuleORM, ScanReportORM, SensitiveFieldORM
 from services.sensitive_detect.main import (
-    app,
+    _field_orm_to_pydantic,
+    _field_to_orm,
+    _level_order,
+    _report_orm_to_pydantic,
     _rule_orm_to_pydantic,
     _rule_pydantic_to_orm,
-    _field_to_orm,
-    _field_orm_to_pydantic,
-    _report_orm_to_pydantic,
-    _level_order,
+    app,
     get_current_user,
 )
 from services.sensitive_detect.models import (
-    ScanRequest,
+    DetectionRule,
     ScanReport,
     SensitiveField,
     SensitivityLevel,
-    DetectionRule,
-    ClassifyRequest,
 )
-from services.common.orm_models import DetectionRuleORM, ScanReportORM, SensitiveFieldORM
-from services.common.auth import TokenPayload
-from services.common.exceptions import AppException, NotFoundError
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(
@@ -200,7 +194,7 @@ class TestReportOrmToPydantic:
             id="report-789",
             table_name="users",
             database_name="test_db",
-            scan_time=datetime.now(timezone.utc),
+            scan_time=datetime.now(UTC),
             total_columns=10,
             sensitive_columns=2,
             risk_level="high",
@@ -278,7 +272,7 @@ class TestScanAndApplyResponse:
         report = ScanReport(
             id="report-123",
             table_name="users",
-            scan_time=datetime.now(timezone.utc),
+            scan_time=datetime.now(UTC),
             total_columns=5,
             sensitive_columns=1,
             fields=[],
@@ -513,7 +507,7 @@ class TestListReports:
             id="report-123",
             table_name="users",
             database_name="test_db",
-            scan_time=datetime.now(timezone.utc),
+            scan_time=datetime.now(UTC),
             total_columns=5,
             sensitive_columns=1,
             risk_level="medium",
@@ -552,7 +546,7 @@ class TestGetReport:
             id="report-123",
             table_name="users",
             database_name="test_db",
-            scan_time=datetime.now(timezone.utc),
+            scan_time=datetime.now(UTC),
             total_columns=5,
             sensitive_columns=1,
             risk_level="medium",

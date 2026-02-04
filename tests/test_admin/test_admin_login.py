@@ -3,10 +3,11 @@ TC-ADM-01: 管理员登录测试
 测试管理员账号初始化和用户信息获取
 """
 
-import pytest
-from httpx import AsyncClient
 import base64
 import json
+
+import pytest
+from httpx import AsyncClient
 
 
 class TestAdminLogin:

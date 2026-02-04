@@ -5,7 +5,6 @@ Tests for services/common/config_center.py
 Note: cryptography is an optional dependency. Tests will be skipped if not installed.
 """
 
-import sys
 
 import pytest
 
@@ -13,17 +12,15 @@ import pytest
 pytest.importorskip("cryptography", reason="cryptography not installed")
 
 from unittest.mock import AsyncMock, MagicMock, patch
-import base64
-from pathlib import Path
 
 from services.common.config_center import (
-    encrypt_value,
     decrypt_value,
+    encrypt_value,
+    get_config,
     get_config_center,
     reset_config_center,
-    watch_callback,
-    get_config,
     set_config,
+    watch_callback,
 )
 
 

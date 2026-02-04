@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Table,
@@ -19,8 +19,6 @@ import {
   ApiOutlined,
   ReloadOutlined,
   EyeOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;

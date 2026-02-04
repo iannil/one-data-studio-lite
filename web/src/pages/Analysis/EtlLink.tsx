@@ -21,17 +21,25 @@ import {
   LinkOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   PlayCircleOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 type LinkStatus = 'active' | 'paused' | 'error';
 type SourceType = 'datasource' | 'table' | 'task';
 type TargetType = 'seatunnel' | 'dolphinscheduler' | 'hop';
+
+interface EtlLinkHistory {
+  id: string;
+  linkId: string;
+  linkName: string;
+  triggeredAt: string;
+  status: string;
+  message: string;
+}
 
 interface EtlLink {
   id: string;
@@ -108,17 +116,9 @@ const TARGET_TYPE_OPTIONS = [
   { label: 'Apache Hop', value: 'hop' },
 ];
 
-const TRIGGER_CONDITIONS = [
-  { label: '表结构变更', value: 'schema_change' },
-  { label: '数据新增', value: 'data_insert' },
-  { label: '数据更新', value: 'data_update' },
-  { label: '数据删除', value: 'data_delete' },
-  { label: '自定义条件', value: 'custom' },
-];
-
 const EtlLink: React.FC = () => {
   const [links, setLinks] = useState<EtlLink[]>(DEMO_LINKS);
-  const [histories, setHistories] = useState<any[]>([
+  const [histories, setHistories] = useState<EtlLinkHistory[]>([
     { id: '1', linkId: '1', linkName: 'MySQL 用户表到 SeaTunnel', triggeredAt: '2026-01-31 10:30:00', status: 'success', message: '同步完成，处理 1523 条记录' },
     { id: '2', linkId: '2', linkName: 'DataHub 元数据到 DS', triggeredAt: '2026-01-30 18:45:00', status: 'success', message: '工作流定义已更新' },
   ]);
@@ -205,16 +205,6 @@ const EtlLink: React.FC = () => {
       }
       setModalVisible(false);
     });
-  };
-
-  const getStatusTag = (status: LinkStatus) => {
-    const config = {
-      active: { color: 'success', text: '启用' },
-      paused: { color: 'default', text: '暂停' },
-      error: { color: 'error', text: '错误' },
-    };
-    const { color, text } = config[status];
-    return <Tag color={color}>{text}</Tag>;
   };
 
   const columns = [

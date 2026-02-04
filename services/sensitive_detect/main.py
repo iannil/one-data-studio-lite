@@ -7,7 +7,6 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-import httpx
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel

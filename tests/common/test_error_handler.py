@@ -3,22 +3,21 @@
 Tests for services/common/error_handler.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock
 
+import httpx
 import pytest
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from starlette.requests import Request as StarletteRequest
-import httpx
 
+from services.common.api_response import ErrorCode
 from services.common.error_handler import (
-    UnifiedErrorMiddleware,
     ApiErrorHandler,
     ProxyErrorHandler,
+    UnifiedErrorMiddleware,
     handle_proxy_error,
 )
-from services.common.api_response import ErrorCode
 from services.common.exceptions import AppException
 
 

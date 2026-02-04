@@ -10,7 +10,6 @@
 import pytest
 from httpx import AsyncClient
 
-
 # ============================================================
 # 审计日志服务测试
 # ============================================================
@@ -323,9 +322,10 @@ class TestDataEncryption:
 
     async def test_encrypt_01_password_hashed(self, portal_client: AsyncClient):
         """测试密码哈希存储"""
+        from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
         from services.common.database import get_database_url
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-        from sqlalchemy import select, text
         from services.common.orm_models import UserORM
 
         engine = create_async_engine(get_database_url())
@@ -347,9 +347,10 @@ class TestDataEncryption:
 
     async def test_encrypt_02_api_key_encrypted(self, portal_client: AsyncClient):
         """测试API密钥加密存储"""
-        from services.common.database import get_database_url
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
         from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+        from services.common.database import get_database_url
         from services.common.orm_models import UserApiKeyORM
 
         engine = create_async_engine(get_database_url())
@@ -390,9 +391,10 @@ class TestSecurityAudit:
             })
 
         # 检查审计日志
-        from services.common.database import get_database_url
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
         from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+        from services.common.database import get_database_url
         from services.common.orm_models import AuditEventORM
 
         engine = create_async_engine(get_database_url())
@@ -418,9 +420,10 @@ class TestSecurityAudit:
         await portal_client.get("/api/users", headers=admin_headers)
 
         # 检查审计日志
-        from services.common.database import get_database_url
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
         from sqlalchemy import select
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+        from services.common.database import get_database_url
         from services.common.orm_models import AuditEventORM
 
         engine = create_async_engine(get_database_url())

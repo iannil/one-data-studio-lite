@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Tabs, Table, Tag, message, Typography, Spin, Descriptions, Button } from 'antd';
+import { Card, Tabs, Table, Tag, Typography, Spin, Descriptions, Button } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAssetDetailV1, getDatasetSchemaV1 } from '../../api/data-api';
@@ -7,12 +7,46 @@ import { getLineage } from '../../api/datahub';
 
 const { Title, Text } = Typography;
 
+interface AssetDetail {
+  id?: string;
+  name: string;
+  type?: string;
+  platform?: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface SchemaField {
+  name?: string;
+  fieldPath?: string;
+  type?: string;
+  nativeDataType?: string;
+  description?: string;
+  nullable?: boolean;
+}
+
+interface SchemaData {
+  fields?: SchemaField[];
+  columns?: SchemaField[];
+}
+
+interface LineageRelationship {
+  entity?: { urn?: string } | string;
+  type?: string;
+  urn?: string;
+}
+
+interface LineageData {
+  relationships?: LineageRelationship[];
+}
+
 const AssetDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [asset, setAsset] = useState<any>(null);
-  const [schema, setSchema] = useState<any>(null);
-  const [lineage, setLineage] = useState<any>(null);
+  const [asset, setAsset] = useState<AssetDetail | null>(null);
+  const [schema, setSchema] = useState<SchemaData | null>(null);
+  const [lineage, setLineage] = useState<LineageData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,8 +58,8 @@ const AssetDetail: React.FC = () => {
           getAssetDetailV1(id).catch(() => null),
           getDatasetSchemaV1(id).catch(() => null),
         ]);
-        setAsset(assetResp?.data);
-        setSchema(schemaResp?.data);
+        setAsset(assetResp?.data ?? null);
+        setSchema(schemaResp?.data ?? null);
         // 尝试获取血缘（需要 URN 格式）
         if (id.startsWith('urn:')) {
           const lineageData = await getLineage(id, 'OUTGOING').catch(() => null);
@@ -39,14 +73,14 @@ const AssetDetail: React.FC = () => {
   }, [id]);
 
   const schemaColumns = [
-    { title: '字段名', dataIndex: 'name', key: 'name', render: (t: string, r: any) => t || r.fieldPath || '-' },
-    { title: '类型', dataIndex: 'type', key: 'type', render: (t: string, r: any) => <Tag>{t || r.nativeDataType || '-'}</Tag> },
+    { title: '字段名', dataIndex: 'name', key: 'name', render: (_t: string, r: SchemaField) => r.name || r.fieldPath || '-' },
+    { title: '类型', dataIndex: 'type', key: 'type', render: (_t: string, r: SchemaField) => <Tag>{r.type || r.nativeDataType || '-'}</Tag> },
     { title: '描述', dataIndex: 'description', key: 'description', render: (t: string) => t || '-' },
   ];
 
   const lineageColumns = [
     { title: 'URN', dataIndex: 'urn', key: 'urn', ellipsis: true, render: (t: string) => <Text copyable style={{ fontSize: 12 }}>{t}</Text> },
-    { title: '类型', dataIndex: 'type', key: 'type', render: (t: string) => <Tag>{t}</Tag> },
+    { title: '类型', dataIndex: 'type', key: 'type', render: (_t: string, r: LineageRelationship) => <Tag>{r.type || '-'}</Tag> },
   ];
 
   if (loading) {
@@ -76,7 +110,7 @@ const AssetDetail: React.FC = () => {
       children: schema ? (
         <Table
           columns={schemaColumns}
-          dataSource={(schema.fields || schema.columns || []).map((f: any, i: number) => ({ ...f, key: i }))}
+          dataSource={(schema.fields || schema.columns || []).map((f: SchemaField, i: number) => ({ ...f, key: i }))}
           pagination={false}
           size="small"
         />
@@ -90,11 +124,11 @@ const AssetDetail: React.FC = () => {
       children: lineage?.relationships?.length ? (
         <Table
           columns={lineageColumns}
-          dataSource={lineage.relationships.map((r: any, i: number) => ({
-            urn: r.entity?.urn || r.entity || '-',
+          dataSource={lineage?.relationships?.map((r: LineageRelationship, i: number) => ({
+            urn: typeof r.entity === 'string' ? r.entity : r.entity?.urn || r.urn || '-',
             type: r.type || '-',
             key: i,
-          }))}
+          })) || []}
           pagination={false}
           size="small"
         />

@@ -3,32 +3,28 @@
 Tests for services/sensitive_detect/main.py
 """
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timezone
 
 import pytest
 from fastapi.testclient import TestClient
 
+from services.common.auth import TokenPayload
 from services.sensitive_detect.main import (
-    app,
+    _field_orm_to_pydantic,
+    _field_to_orm,
+    _level_order,
+    _report_orm_to_pydantic,
     _rule_orm_to_pydantic,
     _rule_pydantic_to_orm,
-    _field_to_orm,
-    _field_orm_to_pydantic,
-    _report_orm_to_pydantic,
-    _level_order,
+    app,
     get_current_user,
 )
 from services.sensitive_detect.models import (
-    ScanRequest,
-    ScanReport,
+    DetectionRule,
     SensitiveField,
     SensitivityLevel,
-    DetectionRule,
-    ClassifyRequest,
 )
-from services.common.auth import TokenPayload
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(
@@ -167,7 +163,7 @@ class TestReportOrmToPydantic:
         mock_report = MagicMock()
         mock_report.id = "report-123"
         mock_report.table_name = "users"
-        mock_report.scan_time = datetime.now(timezone.utc)
+        mock_report.scan_time = datetime.now(UTC)
         mock_report.total_columns = 10
         mock_report.sensitive_columns = 2
         mock_report.risk_level = "high"
@@ -490,7 +486,7 @@ class TestReportsEndpoints:
         mock_report = MagicMock()
         mock_report.id = "report-1"
         mock_report.table_name = "users"
-        mock_report.scan_time = datetime.now(timezone.utc)
+        mock_report.scan_time = datetime.now(UTC)
         mock_report.total_columns = 10
         mock_report.sensitive_columns = 2
         mock_report.risk_level = "high"
@@ -520,7 +516,7 @@ class TestReportsEndpoints:
         mock_report = MagicMock()
         mock_report.id = "report-1"
         mock_report.table_name = "users"
-        mock_report.scan_time = datetime.now(timezone.utc)
+        mock_report.scan_time = datetime.now(UTC)
         mock_report.total_columns = 10
         mock_report.sensitive_columns = 2
         mock_report.risk_level = "high"

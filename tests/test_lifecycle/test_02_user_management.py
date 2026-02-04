@@ -10,8 +10,6 @@ Tests complete user CRUD lifecycle:
 """
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.p0

@@ -3,29 +3,29 @@
 Tests for services/portal/routers/users.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
+from services.common.auth import TokenPayload
+from services.portal.models import DisableUserRequest, UserCreate, UserUpdate
 from services.portal.routers.users import (
     _check_admin_permission,
     _check_super_admin_permission,
-    _hash_password,
-    _verify_password,
     _get_user_by_username,
+    _hash_password,
     _orm_to_response,
-    router,
+    _verify_password,
     create_user,
-    list_users,
-    get_user,
-    update_user,
     delete_user,
     disable_user,
+    get_user,
+    list_users,
+    router,
+    update_user,
 )
-from services.common.auth import TokenPayload
-from services.portal.models import UserCreate, UserUpdate, DisableUserRequest
 
 
 class TestRouter:

@@ -2,9 +2,8 @@
  * Vitest 测试环境设置
  */
 
-import { expect, afterEach, vi, beforeEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import * as vitest from 'vitest';
 
 // 扩展 Vitest 的 expect 与 jest-dom matchers
 import '@testing-library/jest-dom/vitest';
@@ -34,7 +33,7 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
   disconnect: vi.fn(),
-})) as any;
+}));
 
 // Mock ResizeObserver
 class ResizeObserverMock {
@@ -42,7 +41,7 @@ class ResizeObserverMock {
   unobserve = vi.fn();
   disconnect = vi.fn();
 }
-global.ResizeObserver = ResizeObserverMock as any;
+global.ResizeObserver = ResizeObserverMock;
 
 // Mock localStorage
 const localStorageMock = {
@@ -51,7 +50,7 @@ const localStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 };
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock;
 
 // Mock sessionStorage
 const sessionStorageMock = {
@@ -60,4 +59,4 @@ const sessionStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 };
-global.sessionStorage = sessionStorageMock as any;
+global.sessionStorage = sessionStorageMock;

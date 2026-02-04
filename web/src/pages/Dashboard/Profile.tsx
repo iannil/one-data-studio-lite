@@ -14,7 +14,6 @@ import {
   Avatar,
   Switch,
   Select,
-  DatePicker,
   Table,
   Tag,
   Row,
@@ -32,7 +31,6 @@ import {
   PhoneOutlined,
   BankOutlined,
   EnvironmentOutlined,
-  UploadOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -167,10 +165,10 @@ const Profile: React.FC = () => {
     message.success('设置已保存');
   };
 
-  const handleAvatarUpload = (info: any) => {
+  const handleAvatarUpload = (info: { file: { status?: string; originFileObj?: Blob } }) => {
     if (info.file.status === 'done') {
       message.success('头像上传成功');
-      setUser({ ...user, avatar: URL.createObjectURL(info.file.originFileObj) });
+      setUser({ ...user, avatar: URL.createObjectURL(info.file.originFileObj!) });
     }
   };
 

@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from services.portal.routers.cleaning import (
-    AnalyzeRequest,
-    RecommendRequest,
-    GenerateConfigRequest,
     SERVICE_SECRET,
+    AnalyzeRequest,
+    GenerateConfigRequest,
+    RecommendRequest,
     router,
 )
 
@@ -100,9 +100,10 @@ class TestAnalyzeQualityV1:
     @pytest.mark.asyncio
     async def test_analyze_quality_v1_success(self):
         """测试分析质量成功"""
-        from services.portal.routers.cleaning import analyze_quality_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import analyze_quality_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -135,9 +136,10 @@ class TestAnalyzeQualityV1:
     @pytest.mark.asyncio
     async def test_analyze_quality_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.cleaning import analyze_quality_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import analyze_quality_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -166,10 +168,12 @@ class TestAnalyzeQualityV1:
     @pytest.mark.asyncio
     async def test_analyze_quality_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.cleaning import analyze_quality_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import analyze_quality_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -199,9 +203,10 @@ class TestRecommendRulesV1:
     @pytest.mark.asyncio
     async def test_recommend_rules_v1_success(self):
         """测试推荐规则成功"""
-        from services.portal.routers.cleaning import recommend_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import recommend_rules_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -236,9 +241,10 @@ class TestRecommendRulesV1:
     @pytest.mark.asyncio
     async def test_recommend_rules_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.cleaning import recommend_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import recommend_rules_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 503
@@ -266,10 +272,12 @@ class TestRecommendRulesV1:
     @pytest.mark.asyncio
     async def test_recommend_rules_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.cleaning import recommend_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import recommend_rules_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -299,9 +307,10 @@ class TestGetCleaningRulesV1:
     @pytest.mark.asyncio
     async def test_get_cleaning_rules_v1_success(self):
         """测试获取清洗规则成功"""
-        from services.portal.routers.cleaning import get_cleaning_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import get_cleaning_rules_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -335,9 +344,10 @@ class TestGetCleaningRulesV1:
     @pytest.mark.asyncio
     async def test_get_cleaning_rules_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.cleaning import get_cleaning_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import get_cleaning_rules_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -364,9 +374,10 @@ class TestGetCleaningRulesV1:
     @pytest.mark.asyncio
     async def test_get_cleaning_rules_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.cleaning import get_cleaning_rules_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import get_cleaning_rules_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -395,9 +406,10 @@ class TestGenerateConfigV1:
     @pytest.mark.asyncio
     async def test_generate_config_v1_success(self):
         """测试生成配置成功"""
-        from services.portal.routers.cleaning import generate_config_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import generate_config_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -438,9 +450,10 @@ class TestGenerateConfigV1:
     @pytest.mark.asyncio
     async def test_generate_config_v1_service_error(self):
         """测试服务返回错误"""
-        from services.portal.routers.cleaning import generate_config_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import generate_config_v1
 
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -471,10 +484,12 @@ class TestGenerateConfigV1:
     @pytest.mark.asyncio
     async def test_generate_config_v1_exception(self):
         """测试异常处理"""
-        from services.portal.routers.cleaning import generate_config_v1
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
         import httpx
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import generate_config_v1
 
         with patch('httpx.AsyncClient') as mock_client_class:
             mock_client = AsyncMock()
@@ -507,10 +522,12 @@ class TestCleaningProxy:
     @pytest.mark.asyncio
     async def test_cleaning_proxy_get(self):
         """测试 GET 代理"""
-        from services.portal.routers.cleaning import cleaning_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import cleaning_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -537,10 +554,12 @@ class TestCleaningProxy:
     @pytest.mark.asyncio
     async def test_cleaning_proxy_post(self):
         """测试 POST 代理"""
-        from services.portal.routers.cleaning import cleaning_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import cleaning_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -567,10 +586,12 @@ class TestCleaningProxy:
     @pytest.mark.asyncio
     async def test_cleaning_proxy_put(self):
         """测试 PUT 代理"""
-        from services.portal.routers.cleaning import cleaning_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import cleaning_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "PUT"
@@ -597,10 +618,12 @@ class TestCleaningProxy:
     @pytest.mark.asyncio
     async def test_cleaning_proxy_delete(self):
         """测试 DELETE 代理"""
-        from services.portal.routers.cleaning import cleaning_proxy
-        from fastapi import Request
-        from services.common.auth import TokenPayload
         from datetime import datetime
+
+        from fastapi import Request
+
+        from services.common.auth import TokenPayload
+        from services.portal.routers.cleaning import cleaning_proxy
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "DELETE"

@@ -4,13 +4,10 @@ Tests for services/common/security.py
 """
 
 import os
-import warnings
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-from fastapi import Request, Response
+from fastapi import Response
 
 
 class TestGeneratePassword:
@@ -111,7 +108,7 @@ class TestPasswordStrength:
 
     def test_check_strength_weak_too_short(self):
         """测试密码过短"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         score, issues = check_password_strength("Abc123")
         assert score == PasswordStrength.WEAK
@@ -119,7 +116,7 @@ class TestPasswordStrength:
 
     def test_check_strength_weak_common_password(self):
         """测试常见弱密码"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         score, issues = check_password_strength("password1")  # Actual weak password in the list
         assert score == PasswordStrength.WEAK
@@ -127,21 +124,21 @@ class TestPasswordStrength:
 
     def test_check_strength_moderate(self):
         """测试中等强度密码"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         score, issues = check_password_strength("Abcdef12")
         assert score == PasswordStrength.MODERATE
 
     def test_check_strength_strong(self):
         """测试强密码"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         score, issues = check_password_strength("Abcdef123456@")
         assert score == PasswordStrength.STRONG
 
     def test_check_strength_very_strong(self):
         """测试非常强密码"""
-        from services.common.security import check_password_strength, PasswordStrength
+        from services.common.security import PasswordStrength, check_password_strength
 
         # Note: Current implementation max score is 2.0 (16 chars + 3 types)
         # Test for STRONG instead since VERY_STRONG requires score >= 2.5
@@ -305,7 +302,6 @@ class TestSecurityHeadersMiddleware:
     async def test_security_headers_development(self):
         """测试开发环境安全头"""
         from services.common.security import SecurityHeadersMiddleware
-        from fastapi import Response
 
         middleware = SecurityHeadersMiddleware(app=None)
 
@@ -329,7 +325,6 @@ class TestSecurityHeadersMiddleware:
     async def test_security_headers_production(self):
         """测试生产环境安全头"""
         from services.common.security import SecurityHeadersMiddleware
-        from fastapi import Response
 
         middleware = SecurityHeadersMiddleware(app=None)
 
@@ -441,8 +436,8 @@ class TestRateLimiter:
 
     def test_check_rate_limit_under_limit(self):
         """测试未超过限制"""
+
         from services.common.security import RateLimiter
-        import time
 
         limiter = RateLimiter()
 
@@ -495,8 +490,9 @@ class TestRateLimiter:
 
     def test_clean_old_requests(self):
         """测试清理过期请求"""
-        from services.common.security import RateLimiter
         import time
+
+        from services.common.security import RateLimiter
 
         limiter = RateLimiter()
 

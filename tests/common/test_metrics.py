@@ -5,8 +5,6 @@ Tests for services/common/metrics.py
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from services.common.metrics import (
     PROMETHEUS_AVAILABLE,
     setup_metrics,

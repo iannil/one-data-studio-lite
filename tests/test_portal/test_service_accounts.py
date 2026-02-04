@@ -3,30 +3,30 @@
 Tests for services/portal/routers/service_accounts.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
 
+from services.common.auth import TokenPayload
+from services.portal.models import ServiceAccountCreate
 from services.portal.routers.service_accounts import (
     _check_admin_permission,
     _generate_secret,
     _hash_secret,
     _orm_to_response,
-    router,
     create_service_account,
-    list_service_accounts,
-    get_service_account,
     delete_service_account,
-    regenerate_secret,
     disable_service_account,
     enable_service_account,
+    get_service_account,
     get_service_account_call_history,
     get_service_account_call_stats,
+    list_service_accounts,
+    regenerate_secret,
+    router,
 )
-from services.common.auth import TokenPayload
-from services.portal.models import ServiceAccountCreate
 
 
 class TestRouter:

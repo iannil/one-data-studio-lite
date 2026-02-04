@@ -10,21 +10,18 @@ import {
   Space,
   Alert,
   Table,
-  Select,
   Button,
-  Tooltip,
 } from 'antd';
 import {
   MonitorOutlined,
   CloudServerOutlined,
-  DatabaseOutlined,
   ApiOutlined,
   ReloadOutlined,
   WarningOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 interface ServiceHealth {
   name: string;
@@ -107,9 +104,9 @@ const ALERTS = [
 ];
 
 const Monitor: React.FC = () => {
-  const [services, setServices] = useState<ServiceHealth[]>(SERVICE_HEALTH);
+  const [services] = useState<ServiceHealth[]>(SERVICE_HEALTH);
   const [metrics, setMetrics] = useState<SystemMetric[]>(SYSTEM_METRICS);
-  const [alerts, setAlerts] = useState(ALERTS);
+  const [alerts] = useState(ALERTS);
   const [loading, setLoading] = useState(false);
 
   const handleRefresh = () => {

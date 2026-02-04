@@ -7,11 +7,10 @@
 - 角色权限: 6种角色的权限边界
 """
 
-import pytest
 from datetime import timedelta
-from httpx import AsyncClient
-from sqlalchemy import select
 
+import pytest
+from httpx import AsyncClient
 
 # ============================================================
 # 认证系统测试

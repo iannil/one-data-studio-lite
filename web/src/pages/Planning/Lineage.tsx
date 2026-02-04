@@ -11,6 +11,12 @@ interface LineageNode {
   direction: string;
 }
 
+interface LineageRelationship {
+  entity?: { urn?: string } | string;
+  type?: string;
+  urn?: string;
+}
+
 const Lineage: React.FC = () => {
   const [urn, setUrn] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,15 +35,15 @@ const Lineage: React.FC = () => {
         getLineage(urn, 'OUTGOING').catch(() => ({ relationships: [] })),
       ]);
       setUpstreamNodes(
-        (incoming.relationships || []).map((r: any) => ({
-          urn: r.entity?.urn || r.entity || r.urn || '-',
+        (incoming.relationships || []).map((r: LineageRelationship) => ({
+          urn: typeof r.entity === 'string' ? r.entity : (r.entity?.urn || r.urn || '-'),
           type: r.type || '-',
           direction: '上游',
         }))
       );
       setDownstreamNodes(
-        (outgoing.relationships || []).map((r: any) => ({
-          urn: r.entity?.urn || r.entity || r.urn || '-',
+        (outgoing.relationships || []).map((r: LineageRelationship) => ({
+          urn: typeof r.entity === 'string' ? r.entity : (r.entity?.urn || r.urn || '-'),
           type: r.type || '-',
           direction: '下游',
         }))

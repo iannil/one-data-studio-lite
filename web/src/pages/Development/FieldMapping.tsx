@@ -33,7 +33,7 @@ import {
   type ChangeType,
 } from '../../api/metadata-sync';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const TASK_TYPE_OPTIONS = [
   { label: 'DolphinScheduler', value: 'dolphinscheduler' },

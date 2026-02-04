@@ -20,14 +20,11 @@ import {
   SafetyOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
-  UserOutlined,
-  TeamOutlined,
   DatabaseOutlined,
   LockOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 type PermissionType = 'row_level' | 'column_level' | 'table_level';
@@ -122,10 +119,9 @@ const ROLE_OPTIONS = [
 
 const Permissions: React.FC = () => {
   const [rules, setRules] = useState<PermissionRule[]>(DEMO_RULES);
-  const [templates, setTemplates] = useState<PermissionTemplate[]>(DEMO_TEMPLATES);
+  const [templates] = useState<PermissionTemplate[]>(DEMO_TEMPLATES);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRule, setEditingRule] = useState<PermissionRule | null>(null);
-  const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [form] = Form.useForm();
 
   const handleCreate = () => {
@@ -365,7 +361,7 @@ const Permissions: React.FC = () => {
           size="small"
           title="权限模板管理"
           extra={
-            <Button icon={<PlusOutlined />} onClick={() => setTemplateModalVisible(true)}>
+            <Button icon={<PlusOutlined />} onClick={() => {}}>
               新建模板
             </Button>
           }
@@ -395,7 +391,7 @@ const Permissions: React.FC = () => {
               showIcon
               defaultExpandAll
               treeData={treeData}
-              titleRender={(nodeData: any) => {
+              titleRender={(nodeData: { title: string }) => {
                 // Use a hash of the node title to determine "locked" state consistently
                 const hash = nodeData.title.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
                 const isLocked = hash % 2 === 0;

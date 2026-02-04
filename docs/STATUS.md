@@ -1,7 +1,7 @@
 # 文档状态 (STATUS)
 
-**更新日期**: 2026-02-03
-**版本**: 1.0
+**更新日期**: 2026-02-04
+**版本**: 1.1
 
 本文档记录项目所有文档的最新状态，包括最后修改日期和过时文档识别。
 
@@ -9,12 +9,12 @@
 
 ## 文档概览
 
-当前文档总数: **78 个**
+当前文档总数: **85 个** (含新增模板文档)
 
 | 状态 | 数量 | 百分比 |
 |------|------|--------|
-| 最新 (7天内) | 42 | 53.8% |
-| 近期 (30天内) | 36 | 46.2% |
+| 最新 (7天内) | 43 | 54.4% |
+| 近期 (30天内) | 36 | 45.6% |
 | 过时 (90+天) | 0 | 0% |
 
 ---
@@ -35,9 +35,11 @@
 |------|----------|------|------|
 | `architecture.md` | 2026-01-31 | 当前 | 系统架构设计 |
 | `changelog.md` | 2026-01-31 | 当前 | 变更日志 |
-| `CONTRIB.md` | 2026-02-03 | 最新 | 贡献者指南 |
+| `CONTRIB.md` | 2026-02-04 | 最新 | 贡献者指南 |
 | `RUNBOOK.md` | 2026-02-03 | 最新 | 运维手册 |
+| `SCRIPTS.md` | 2026-02-04 | 最新 | 脚本命令参考 |
 | `REFERENCE.md` | 2026-02-03 | 最新 | 配置参考手册 |
+| `STATUS.md` | 2026-02-04 | 最新 | 文档状态跟踪 |
 | `deployment.md` | 2026-01-31 | 当前 | 部署指南 |
 | `development.md` | 2026-01-31 | 当前 | 开发指南 |
 | `integration-status.md` | 2026-01-31 | 当前 | 集成状态 |
@@ -47,6 +49,8 @@
 | `tech-stack.md` | 2026-01-31 | 当前 | 技术栈 |
 | `technical-debt.md` | 2026-01-31 | 当前 | 技术债务 |
 | `progress.md` | 2026-02-01 | 当前 | 进度追踪 |
+| `PROJECT-SUMMARY.md` | 2026-02-04 | 最新 | 项目概览 (LLM友好) |
+| `QUICK-START.md` | 2026-02-04 | 最新 | 快速开始指南 |
 
 ---
 
@@ -106,9 +110,49 @@
 
 ---
 
+## 模板文档
+
+### docs/templates/
+
+| 文档 | 最后更新 | 状态 | 说明 |
+|------|----------|------|------|
+| `README.md` | 2026-02-04 | 最新 | 模板使用说明 |
+| `progress-report.md` | 2026-02-04 | 最新 | 进度报告模板 |
+| `test-report.md` | 2026-02-04 | 最新 | 测试报告模板 |
+| `implementation-plan.md` | 2026-02-04 | 最新 | 实施计划模板 |
+| `service-template.md` | 2026-02-04 | 最新 | 服务文档模板 |
+
+---
+
 ## 进度文档
 
 ### docs/progress/
+
+| 文档 | 最后更新 | 状态 | 说明 |
+|------|----------|------|------|
+| `2026-01-31-test-execution-progress.md` | 2026-01-31 | 当前 | 测试执行进度 |
+| `e2e-test-guide.md` | 2026-01-31 | 当前 | E2E 测试指南 |
+| `demo-dataset-design.md` | 2026-02-01 | 当前 | 演示数据集设计 |
+| `e2e-test-report-2026-02-01.md` | 2026-02-01 | 当前 | E2E 测试报告 |
+| `docs-update-summary-2026-02-03.md` | 2026-02-03 | 最新 | 文档更新摘要 |
+| `lifecycle-testing-implementation.md` | 2026-02-02 | 当前 | 生命周期测试实现 |
+| `remaining-issues-implementation-2026-02-01.md` | 2026-02-01 | 当前 | 剩余问题 |
+| `tdd-plan-all-features.md` | 2026-02-01 | 当前 | TDD 计划 |
+| `test-env-deployment-20260202.md` | 2026-02-02 | 当前 | 测试环境部署 |
+| `test-env-implementation-2026-02-02.md` | 2026-02-03 | 最新 | 测试环境实现 |
+| `test-phased-fixes-20260204.md` | 2026-02-04 | 最新 | 测试阶段修复 |
+| `test-script-fixes-20260204.md` | 2026-02-04 | 最新 | 测试脚本修复 |
+
+### docs/progress/ (已归档)
+
+以下文档已于 2026-02-04 归档至 `docs/archive/progress-2026-02-04/`:
+- 21个 `phased-testing-20260204_*.md` 文档 (重复测试进度)
+
+以下文档已于 2026-02-04 归档至 `docs/reports/completed/`:
+- `implementation-progress-2026-02-01*.md` (4个文件)
+- `init-test-implementation-2025-02-03.md`
+- `ops-script-fix-2026-02-03.md`
+- `test_coverage_analysis_2024-02-03.md`
 
 | 文档 | 最后更新 | 状态 | 说明 |
 |------|----------|------|------|
@@ -192,6 +236,12 @@
 |------|----------|------|------|
 | `original-requirements.md` | 2026-01-31 | 当前 | 原始需求文档 |
 
+### docs/archive/progress-2026-02-04/ (新增)
+
+| 数量 | 说明 |
+|------|------|
+| 21个 | 2026-02-04 的重复 phased-testing 进度文档 |
+
 ---
 
 ## 过时文档识别
@@ -205,6 +255,19 @@
 ---
 
 ## 文档更新记录
+
+### 2026-02-04 更新
+
+- 新增 `PROJECT-SUMMARY.md` - 项目概览 (LLM友好索引)
+- 新增 `QUICK-START.md` - 快速开始指南
+- 新增 `docs/templates/` 目录 - 文档模板
+  - `progress-report.md` - 进度报告模板
+  - `test-report.md` - 测试报告模板
+  - `implementation-plan.md` - 实施计划模板
+  - `service-template.md` - 服务文档模板
+- 归档 21 个重复的 phased-testing 文档至 `docs/archive/progress-2026-02-04/`
+- 归档 6 个已完成报告至 `docs/reports/completed/`
+- 更新 `STATUS.md` - 添加新文档记录和归档信息
 
 ### 2026-02-03 更新
 

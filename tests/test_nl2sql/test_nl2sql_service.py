@@ -3,29 +3,26 @@
 Tests for services/nl2sql/main.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
+from services.common.auth import TokenPayload
 from services.nl2sql.main import (
-    app,
     _call_llm_service,
     _get_schema_info,
+    app,
     get_current_user,
 )
 from services.nl2sql.models import (
+    ColumnInfo,
     NL2SQLRequest,
     NL2SQLResponse,
     SQLExplanationRequest,
-    SQLExplanation,
     TableInfo,
-    ColumnInfo,
 )
-from services.common.auth import TokenPayload
-
 
 # Mock user for testing
 MOCK_USER = TokenPayload(

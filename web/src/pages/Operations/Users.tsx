@@ -24,9 +24,7 @@ import {
   UserOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   TeamOutlined,
-  LockOutlined,
   SearchOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
@@ -380,16 +378,6 @@ const Users: React.FC = () => {
       }
       setRoleModalVisible(false);
     });
-  };
-
-  const getUserStatusTag = (status: UserStatus) => {
-    const config = {
-      active: { color: 'success', text: '启用' },
-      inactive: { color: 'default', text: '禁用' },
-      locked: { color: 'error', text: '锁定' },
-    };
-    const { color, text } = config[status];
-    return <Tag color={color}>{text}</Tag>;
   };
 
   const getRoleTag = (role: UserRole) => {

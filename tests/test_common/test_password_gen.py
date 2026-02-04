@@ -6,13 +6,13 @@ Tests for services/common/password_gen.py
 import pytest
 
 from services.common.password_gen import (
-    generate_password,
-    generate_api_token,
-    generate_jwt_secret,
-    generate_hex_token,
-    generate_webhook_secret,
-    generate_password_policy,
     PASSWORD_POLICIES,
+    generate_api_token,
+    generate_hex_token,
+    generate_jwt_secret,
+    generate_password,
+    generate_password_policy,
+    generate_webhook_secret,
 )
 
 

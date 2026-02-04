@@ -3,25 +3,30 @@
 Tests for services/portal/routers/system.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 
+from services.common.auth import TokenPayload
+from services.portal.models import (
+    EmergencyStopRequest,
+    RevokeAllTokensRequest,
+    SystemConfigUpdate,
+    SystemInitRequest,
+)
 from services.portal.routers.system import (
     _check_admin_permission,
     _check_super_admin_permission,
-    router,
-    get_system_config,
-    update_system_config,
-    initialize_system,
-    get_system_metrics,
     emergency_stop,
+    get_system_config,
+    get_system_metrics,
+    initialize_system,
     revoke_all_tokens,
+    router,
+    update_system_config,
 )
-from services.common.auth import TokenPayload
-from services.portal.models import SystemConfigUpdate, SystemInitRequest, EmergencyStopRequest, RevokeAllTokensRequest
 
 
 class TestRouter:

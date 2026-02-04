@@ -3,18 +3,16 @@
 Tests for services/common/token_blacklist.py
 """
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 import json
-
-import pytest
+from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 import jwt
+import pytest
 
 from services.common.token_blacklist import (
-    get_blacklist,
     TokenBlacklist,
-    _blacklist,
+    get_blacklist,
 )
 
 
@@ -144,7 +142,7 @@ class TestGetTokenTtl:
 
         # Create a token expiring in 1 hour
         secret = "test_secret"
-        exp_time = int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp())
+        exp_time = int((datetime.now(UTC) + timedelta(hours=1)).timestamp())
         token = jwt.encode(
             {"sub": "user", "exp": exp_time},
             secret,
@@ -164,7 +162,7 @@ class TestGetTokenTtl:
 
         # Create an expired token
         secret = "test_secret"
-        exp_time = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp())
+        exp_time = int((datetime.now(UTC) - timedelta(hours=1)).timestamp())
         token = jwt.encode(
             {"sub": "user", "exp": exp_time},
             secret,
@@ -247,7 +245,7 @@ class TestRevoke:
 
         # Create an expired token
         secret = "test_secret"
-        exp_time = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp())
+        exp_time = int((datetime.now(UTC) - timedelta(hours=1)).timestamp())
         token = jwt.encode(
             {"sub": "user", "exp": exp_time},
             secret,
@@ -270,7 +268,7 @@ class TestRevoke:
 
         # Create a valid token
         secret = "test_secret"
-        exp_time = int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp())
+        exp_time = int((datetime.now(UTC) + timedelta(hours=1)).timestamp())
         token = jwt.encode(
             {"sub": "user", "jti": "test-jti", "exp": exp_time},
             secret,

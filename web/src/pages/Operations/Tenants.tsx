@@ -25,7 +25,6 @@ import {
   TeamOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   DatabaseOutlined,
   SearchOutlined,
   ReloadOutlined,
@@ -33,7 +32,6 @@ import {
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
 
 type TenantStatus = 'active' | 'suspended' | 'expired';
 type TenantPlan = 'free' | 'basic' | 'professional' | 'enterprise';

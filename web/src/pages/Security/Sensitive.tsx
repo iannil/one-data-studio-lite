@@ -26,7 +26,7 @@ import {
 import { scan, getRules, addRule, getReports } from '../../api/sensitive';
 import { SensitiveScanReport, DetectionRule } from '../../types';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const riskLevelConfig = {
   low: { color: 'green', text: '低风险' },
@@ -55,7 +55,7 @@ const Sensitive: React.FC = () => {
     try {
       const data = await getRules();
       setRules(data);
-    } catch (error) {
+    } catch {
       message.error('获取规则列表失败');
     } finally {
       setLoadingRules(false);
@@ -66,7 +66,7 @@ const Sensitive: React.FC = () => {
     try {
       const data = await getReports();
       setReports(data);
-    } catch (error) {
+    } catch {
       message.error('获取扫描报告失败');
     } finally {
       setLoadingReports(false);
@@ -85,22 +85,25 @@ const Sensitive: React.FC = () => {
       setReport(data);
       message.success('扫描完成');
       fetchReports(); // 刷新报告列表
-    } catch (error: any) {
-      message.error(error.response?.data?.detail || '扫描失败');
+    } catch (error) {
+      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      message.error(detail || '扫描失败');
     } finally {
       setScanning(false);
     }
   };
 
-  const handleAddRule = async (values: any) => {
+  const handleAddRule = async (values: { name: string; pattern: string; sensitivity_level: 'low' | 'medium' | 'high' | 'critical'; description?: string }) => {
     try {
-      await addRule(values);
+      await addRule({ ...values, description: values.description ?? '', enabled: true });
       message.success('规则添加成功');
       setAddModalVisible(false);
       addForm.resetFields();
       fetchRules();
-    } catch (error: any) {
-      message.error(error.response?.data?.detail || '添加失败');
+    } catch (error) {
+      const err = error as { response?: { data?: { detail?: string } } };
+      const detail = err?.response?.data?.detail;
+      message.error(detail || '添加失败');
     }
   };
 

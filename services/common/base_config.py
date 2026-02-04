@@ -44,12 +44,40 @@ class BaseServiceConfig(BaseSettings):
     # ============================================================
     # 数据库配置
     # ============================================================
+    # 支持非标准端口以避免与其他项目冲突
+    MYSQL_PORT: int = int(os.environ.get("MYSQL_PORT", "13306"))
+    MYSQL_HOST: str = os.environ.get("MYSQL_HOST", "localhost")
+    MYSQL_USER: str = os.environ.get("MYSQL_USER", "root")
+    MYSQL_PASSWORD: str = os.environ.get("MYSQL_PASSWORD", "test_root_password")
+    MYSQL_DATABASE: str = os.environ.get("MYSQL_DATABASE", "one_data_studio")
+
+    @property
+    def DEFAULT_DATABASE_URL(self) -> str:
+        """构建默认数据库 URL"""
+        return (
+            f"mysql+aiomysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
+            f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
+        )
+
     DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
 
     # ============================================================
     # Redis 配置
     # ============================================================
-    REDIS_URL: str = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    # 支持非标准端口以避免与其他项目冲突
+    REDIS_PORT: int = int(os.environ.get("REDIS_PORT", "16379"))
+    REDIS_HOST: str = os.environ.get("REDIS_HOST", "localhost")
+    REDIS_PASSWORD: str = os.environ.get("REDIS_PASSWORD", "")
+    REDIS_DB: int = int(os.environ.get("REDIS_DB", "0"))
+
+    @property
+    def DEFAULT_REDIS_URL(self) -> str:
+        """构建默认 Redis URL"""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+
+    REDIS_URL: str = os.environ.get("REDIS_URL", "")
     REDIS_BLACKLIST_DB: int = int(os.environ.get("REDIS_BLACKLIST_DB", "0"))
 
     # ============================================================

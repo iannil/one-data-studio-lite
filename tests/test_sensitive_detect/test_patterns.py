@@ -3,13 +3,11 @@
 Tests for services/sensitive_detect/patterns.py
 """
 
-import pytest
 
 from services.sensitive_detect.patterns import (
     PATTERNS,
-    SENSITIVE_FIELD_KEYWORDS,
-    detect_by_pattern,
     detect_by_field_name,
+    detect_by_pattern,
 )
 
 

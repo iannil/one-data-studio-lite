@@ -3,29 +3,29 @@
 Tests for services/portal/routers/sensitive.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from services.common.api_response import ErrorCode
+from services.common.auth import TokenPayload
 from services.portal.routers.sensitive import (
-    router,
-    scan_v1,
-    classify_v1,
-    get_rules_v1,
-    get_rule_v1,
-    add_rule_v1,
-    delete_rule_v1,
-    get_reports_v1,
-    get_report_v1,
-    scan_and_apply_v1,
-    ScanRequest,
     ClassifyRequest,
     DetectionRuleBase,
     ScanAndApplyRequest,
+    ScanRequest,
+    add_rule_v1,
+    classify_v1,
+    delete_rule_v1,
+    get_report_v1,
+    get_reports_v1,
+    get_rule_v1,
+    get_rules_v1,
+    router,
+    scan_and_apply_v1,
+    scan_v1,
 )
-from services.common.auth import TokenPayload
-from services.common.api_response import ErrorCode
 
 
 class TestRouter:

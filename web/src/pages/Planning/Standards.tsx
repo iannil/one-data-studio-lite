@@ -20,7 +20,6 @@ import {
   FileProtectOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   SearchOutlined,
   ReloadOutlined,
   EyeOutlined,
@@ -236,10 +235,9 @@ const RULE_TYPE_OPTIONS = [
 const Standards: React.FC = () => {
   const [standards, setStandards] = useState<DataStandard[]>(DEMO_STANDARDS);
   const [validationRules, setValidationRules] = useState<ValidationRule[]>(DEMO_VALIDATION_RULES);
-  const [templates, setTemplates] = useState<StandardTemplate[]>(DEMO_TEMPLATES);
+  const [templates] = useState<StandardTemplate[]>(DEMO_TEMPLATES);
   const [standardModalVisible, setStandardModalVisible] = useState(false);
   const [ruleModalVisible, setRuleModalVisible] = useState(false);
-  const [templateModalVisible, setTemplateModalVisible] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editingStandard, setEditingStandard] = useState<DataStandard | null>(null);
   const [editingRule, setEditingRule] = useState<ValidationRule | null>(null);
@@ -634,7 +632,7 @@ const Standards: React.FC = () => {
           size="small"
           title="标准模板管理"
           extra={
-            <Button icon={<PlusOutlined />} onClick={() => setTemplateModalVisible(true)}>
+            <Button icon={<PlusOutlined />} onClick={() => setStandardModalVisible(true)}>
               新建模板
             </Button>
           }

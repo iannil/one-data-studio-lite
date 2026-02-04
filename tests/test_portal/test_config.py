@@ -3,24 +3,22 @@
 Tests for services/portal/config.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+# Import settings after setting up environment
+import importlib
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Import settings after setting up environment
-import importlib
-import sys
-
 from services.portal.config import (
-    _get_jwt_secret,
     _get_dev_users,
+    _get_jwt_secret,
+    get_config,
+    init_config_center,
     on_config_change,
     register_config_callback,
-    unregister_config_callback,
-    init_config_center,
-    get_config,
     set_config,
     settings,
+    unregister_config_callback,
 )
 
 
@@ -210,7 +208,6 @@ class TestConfigCenterIntegration:
     @pytest.mark.asyncio
     async def test_init_config_center_disabled(self):
         """测试配置中心禁用时初始化"""
-        from services.portal.config import init_config_center
 
         # Mock settings to disable config center
         with patch('services.portal.config.settings') as mock_settings:

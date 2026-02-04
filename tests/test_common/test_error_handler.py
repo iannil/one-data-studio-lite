@@ -3,20 +3,20 @@
 Tests for services/common/error_handler.py
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from services.common.api_response import ErrorCode
 from services.common.error_handler import (
-    UnifiedErrorMiddleware,
     ApiErrorHandler,
     ProxyErrorHandler,
+    UnifiedErrorMiddleware,
     handle_proxy_error,
 )
 from services.common.exceptions import AppException
-from services.common.api_response import ErrorCode
 
 
 class TestUnifiedErrorMiddleware:

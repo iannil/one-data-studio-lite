@@ -80,3 +80,10 @@ backup/
 **/playwright-report
 **/test-results
 **/visual-regression.spec.ts-snapshots
+
+# Build artifacts
+services/portal/static/assets/*.js
+services/portal/static/assets/*.css
+web/dist/
+web/coverage/
+web/.vite/
