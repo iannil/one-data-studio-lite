@@ -1,0 +1,69 @@
+# ============================================
+# 智能大数据平台 - 根目录 .gitignore
+# ============================================
+
+# ============ 系统文件 ============
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ============ IDE/编辑器 ============
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# ============ 日志文件 ============
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============ 环境变量 ============
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# ============ 敏感文件 ============
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials/
+*.credentials
+
+# ============ 临时文件 ============
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+.pids/
+
+# ============ Docker ============
+docker-compose.override.yml
+
+# ============ 测试截图 ============
+*.png
+!docs/**/*.png
+!frontend/public/**/*.png
+
+# ============ Playwright MCP ============
+.playwright-mcp/

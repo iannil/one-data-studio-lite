@@ -1,0 +1,119 @@
+# Smart Data Platform - Docker Compose (运维版)
+# 端口范围: 5500-5560
+# 使用方法: docker compose -f docker-compose.ops.yml up -d
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-postgres
+    ports:
+      - "5502:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_data}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - smart-data-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-redis
+    ports:
+      - "5503:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - smart-data-network
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-minio
+    ports:
+      - "5504:9000"   # API
+      - "5505:9001"   # Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - smart-data-network
+
+  # Apache Superset (BI)
+  superset:
+    image: apache/superset:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-superset
+    ports:
+      - "5506:8088"
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-your-secret-key-change-in-production}
+      SUPERSET_LOAD_EXAMPLES: "no"
+      DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-smart_data}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - supersetdata:/app/superset_home
+    command: >
+      bash -c "
+        superset db upgrade &&
+        superset fab create-admin --username admin --password admin --firstname Admin --lastname User --email admin@example.com || true &&
+        superset init &&
+        superset run -h 0.0.0.0 -p 8088
+      "
+    restart: unless-stopped
+    networks:
+      - smart-data-network
+
+  # Celery Worker (可选，按需启动)
+  celery-worker:
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-celery-worker
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-smart_data}"
+      REDIS_URL: "redis://redis:6379/0"
+      CELERY_BROKER_URL: "redis://redis:6379/1"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/2"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+    command: celery -A app.celery_worker worker --loglevel=info
+    restart: unless-stopped
+    networks:
+      - smart-data-network
+    profiles:
+      - worker  # 使用 docker compose --profile worker up 启动
+
+volumes:
+  pgdata:
+    name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}_pgdata
+  redisdata:
+    name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}_redisdata
+  miniodata:
+    name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}_miniodata
+  supersetdata:
+    name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}_supersetdata
+
+networks:
+  smart-data-network:
+    name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}_network
+    driver: bridge

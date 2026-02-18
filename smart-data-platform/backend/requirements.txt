@@ -1,0 +1,61 @@
+# Web framework
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+python-multipart==0.0.9
+
+# Database
+sqlalchemy==2.0.25
+alembic==1.13.1
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+greenlet>=3.0.0
+
+# Data processing
+pandas==2.2.0
+numpy==1.26.3
+openpyxl==3.1.2
+xlrd==2.0.1
+
+# AI/ML
+openai>=1.12.0
+langchain>=0.2.0
+langchain-openai>=0.1.0
+
+# Task scheduling
+celery[redis]==5.3.6
+apscheduler==3.10.4
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt<5.0.0
+pydantic[email]==2.6.1
+pydantic-settings==2.1.0
+eval_type_backport
+
+# Redis
+redis==5.0.1
+aioredis==2.0.1
+
+# MinIO/S3
+minio==7.2.3
+
+# OCR
+pytesseract==0.3.10
+pdf2image==1.17.0
+Pillow==10.2.0
+
+# Utilities
+python-dateutil==2.8.2
+httpx==0.26.0
+tenacity==8.2.3
+faker==22.5.1
+
+# Testing
+pytest>=8.2.0
+pytest-asyncio>=1.0.0
+pytest-cov>=4.1.0
+
+# Type checking & Linting
+mypy==1.8.0
+ruff==0.2.1
