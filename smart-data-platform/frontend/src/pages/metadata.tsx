@@ -12,11 +12,18 @@ import {
   Empty,
   Spin,
   message,
+  Row,
+  Col,
+  Input,
+  Tooltip,
+  Badge,
 } from 'antd';
 import {
   TableOutlined,
   KeyOutlined,
   DatabaseOutlined,
+  SearchOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import AuthGuard from '@/components/AuthGuard';
@@ -24,6 +31,7 @@ import { metadataApi, sourcesApi } from '@/services/api';
 import type { MetadataTable, MetadataColumn, DataSource } from '@/types';
 
 const { Title, Text } = Typography;
+const { Search } = Input;
 
 export default function MetadataPage() {
   const [tables, setTables] = useState<MetadataTable[]>([]);
@@ -31,6 +39,8 @@ export default function MetadataPage() {
   const [selectedSourceId, setSelectedSourceId] = useState<string | undefined>();
   const [selectedTable, setSelectedTable] = useState<MetadataTable | null>(null);
   const [loading, setLoading] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   const fetchSources = async () => {
     try {
@@ -65,11 +75,14 @@ export default function MetadataPage() {
   };
 
   const handleTableClick = async (table: MetadataTable) => {
+    setDetailLoading(true);
     try {
       const response = await metadataApi.getTable(table.id);
       setSelectedTable(response.data);
     } catch (error) {
       message.error('获取表详情失败');
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -77,6 +90,16 @@ export default function MetadataPage() {
     const source = sources.find(s => s.id === sourceId);
     return source?.name || sourceId;
   };
+
+  const filteredTables = tables.filter(table => {
+    if (!searchKeyword.trim()) return true;
+    const keyword = searchKeyword.toLowerCase();
+    return (
+      table.table_name.toLowerCase().includes(keyword) ||
+      table.schema_name?.toLowerCase().includes(keyword) ||
+      table.description?.toLowerCase().includes(keyword)
+    );
+  });
 
   const tableColumns: ColumnsType<MetadataTable> = [
     {
@@ -86,7 +109,9 @@ export default function MetadataPage() {
       render: (name, record) => (
         <Space>
           <TableOutlined />
-          <a onClick={() => handleTableClick(record)}>{name}</a>
+          <Tooltip title={record.description || record.ai_description}>
+            <a onClick={() => handleTableClick(record)}>{name}</a>
+          </Tooltip>
         </Space>
       ),
     },
@@ -94,12 +119,14 @@ export default function MetadataPage() {
       title: 'Schema',
       dataIndex: 'schema_name',
       key: 'schema_name',
-      render: (schema) => schema || 'public',
+      width: 100,
+      render: (schema) => <Text type="secondary">{schema || 'public'}</Text>,
     },
     {
       title: '数据源',
       dataIndex: 'source_id',
       key: 'source_id',
+      width: 140,
       render: (sourceId) => (
         <Tag icon={<DatabaseOutlined />} color="blue">
           {getSourceName(sourceId)}
@@ -107,32 +134,23 @@ export default function MetadataPage() {
       ),
     },
     {
-      title: '行数',
-      dataIndex: 'row_count',
-      key: 'row_count',
-      render: (count) => count?.toLocaleString() || '-',
-    },
-    {
       title: '列数',
       dataIndex: 'columns',
       key: 'column_count',
-      render: (columns) => columns?.length || 0,
-    },
-    {
-      title: '标签',
-      dataIndex: 'tags',
-      key: 'tags',
-      render: (tags: string[]) =>
-        tags?.map(tag => <Tag key={tag}>{tag}</Tag>) || '-',
+      width: 70,
+      render: (columns) => (
+        <Badge count={columns?.length || 0} showZero color="#8c8c8c" />
+      ),
     },
   ];
 
   const columnColumns: ColumnsType<MetadataColumn> = [
     {
-      title: '序号',
+      title: '#',
       dataIndex: 'ordinal_position',
       key: 'ordinal_position',
-      width: 60,
+      width: 45,
+      render: (pos) => <Text type="secondary">{pos}</Text>,
     },
     {
       title: '列名',
@@ -146,16 +164,17 @@ export default function MetadataPage() {
       ),
     },
     {
-      title: '数据类型',
+      title: '类型',
       dataIndex: 'data_type',
       key: 'data_type',
+      width: 120,
       render: (type) => <Tag color="purple">{type}</Tag>,
     },
     {
       title: '可空',
       dataIndex: 'nullable',
       key: 'nullable',
-      width: 80,
+      width: 60,
       render: (nullable) => (
         <Tag color={nullable ? 'default' : 'red'}>
           {nullable ? 'YES' : 'NO'}
@@ -166,96 +185,160 @@ export default function MetadataPage() {
       title: '主键',
       dataIndex: 'is_primary_key',
       key: 'is_primary_key',
-      width: 80,
+      width: 60,
       render: (isPK) => isPK ? <Tag color="gold">PK</Tag> : '-',
-    },
-    {
-      title: '默认值',
-      dataIndex: 'default_value',
-      key: 'default_value',
-      render: (value) => value || '-',
     },
     {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
-      render: (desc) => desc || '-',
+      render: (desc, record) => (
+        <Tooltip title={desc || record.ai_inferred_meaning}>
+          <Text type="secondary">{desc || record.ai_inferred_meaning || '-'}</Text>
+        </Tooltip>
+      ),
     },
   ];
 
   return (
     <AuthGuard>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Card
-          title={<Title level={4}>元数据浏览</Title>}
-          extra={
-            <Select
-              allowClear
-              placeholder="筛选数据源"
-              style={{ width: 200 }}
-              value={selectedSourceId}
-              onChange={handleSourceChange}
-              options={sources.map(s => ({ value: s.id, label: s.name }))}
-            />
-          }
-        >
-          <Spin spinning={loading}>
-            {tables.length > 0 ? (
-              <Table
-                columns={tableColumns}
-                dataSource={tables}
-                rowKey="id"
-                pagination={{ pageSize: 10 }}
-                onRow={(record) => ({
-                  onClick: () => handleTableClick(record),
-                  style: { cursor: 'pointer' },
-                })}
-              />
-            ) : (
-              <Empty description="暂无元数据，请先扫描数据源" />
-            )}
-          </Spin>
-        </Card>
-
-        {selectedTable && (
+      <Row gutter={16} style={{ height: 'calc(100vh - 120px)' }}>
+        {/* 左侧: 表列表 */}
+        <Col span={selectedTable ? 10 : 24} style={{ height: '100%' }}>
           <Card
             title={
               <Space>
-                <TableOutlined />
-                <span>表详情: {selectedTable.table_name}</span>
+                <DatabaseOutlined />
+                <span>元数据浏览</span>
+                <Badge count={filteredTables.length} showZero color="#1890ff" />
               </Space>
             }
+            extra={
+              <Select
+                allowClear
+                placeholder="筛选数据源"
+                style={{ width: 160 }}
+                value={selectedSourceId}
+                onChange={handleSourceChange}
+                options={sources.map(s => ({ value: s.id, label: s.name }))}
+              />
+            }
+            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+            bodyStyle={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
           >
-            <Descriptions bordered column={2} style={{ marginBottom: 24 }}>
-              <Descriptions.Item label="表名">
-                {selectedTable.table_name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Schema">
-                {selectedTable.schema_name || 'public'}
-              </Descriptions.Item>
-              <Descriptions.Item label="数据源">
-                {getSourceName(selectedTable.source_id)}
-              </Descriptions.Item>
-              <Descriptions.Item label="行数">
-                {selectedTable.row_count?.toLocaleString() || '-'}
-              </Descriptions.Item>
-              <Descriptions.Item label="描述" span={2}>
-                {selectedTable.description || selectedTable.ai_description || '-'}
-              </Descriptions.Item>
-            </Descriptions>
-
-            <Title level={5}>列信息</Title>
-            <Table
-              columns={columnColumns}
-              dataSource={selectedTable.columns}
-              rowKey="id"
-              pagination={false}
-              size="small"
+            <Search
+              placeholder="搜索表名..."
+              prefix={<SearchOutlined />}
+              allowClear
+              value={searchKeyword}
+              onChange={e => setSearchKeyword(e.target.value)}
+              style={{ marginBottom: 12 }}
             />
+
+            <Spin spinning={loading} style={{ flex: 1 }}>
+              {filteredTables.length > 0 ? (
+                <div style={{ flex: 1, overflow: 'auto' }}>
+                  <Table
+                    columns={tableColumns}
+                    dataSource={filteredTables}
+                    rowKey="id"
+                    size="small"
+                    pagination={{ pageSize: 15, size: 'small', showSizeChanger: false }}
+                    onRow={(record) => ({
+                      onClick: () => handleTableClick(record),
+                      style: {
+                        cursor: 'pointer',
+                        background: selectedTable?.id === record.id ? '#e6f7ff' : undefined,
+                      },
+                    })}
+                  />
+                </div>
+              ) : (
+                <Empty description="暂无元数据，请先扫描数据源" />
+              )}
+            </Spin>
           </Card>
+        </Col>
+
+        {/* 右侧: 表详情 */}
+        {selectedTable && (
+          <Col span={14} style={{ height: '100%' }}>
+            <Card
+              title={
+                <Space>
+                  <TableOutlined />
+                  <span>{selectedTable.table_name}</span>
+                  <Tag color="blue">{selectedTable.schema_name || 'public'}</Tag>
+                </Space>
+              }
+              extra={
+                <Text type="secondary">
+                  {getSourceName(selectedTable.source_id)}
+                </Text>
+              }
+              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+              bodyStyle={{ flex: 1, overflow: 'auto' }}
+            >
+              <Spin spinning={detailLoading}>
+                <Descriptions
+                  bordered
+                  size="small"
+                  column={2}
+                  style={{ marginBottom: 16 }}
+                >
+                  <Descriptions.Item label="表名">
+                    {selectedTable.table_name}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Schema">
+                    {selectedTable.schema_name || 'public'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="数据源">
+                    <Tag icon={<DatabaseOutlined />} color="blue">
+                      {getSourceName(selectedTable.source_id)}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="行数">
+                    {selectedTable.row_count?.toLocaleString() || '-'}
+                  </Descriptions.Item>
+                  {(selectedTable.description || selectedTable.ai_description) && (
+                    <Descriptions.Item label="描述" span={2}>
+                      {selectedTable.description || selectedTable.ai_description}
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
+
+                <div style={{ marginBottom: 12 }}>
+                  <Space>
+                    <Title level={5} style={{ margin: 0 }}>列信息</Title>
+                    <Badge
+                      count={selectedTable.columns?.length || 0}
+                      showZero
+                      color="#722ed1"
+                    />
+                  </Space>
+                </div>
+
+                <Table
+                  columns={columnColumns}
+                  dataSource={selectedTable.columns}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  scroll={{ y: 'calc(100vh - 400px)' }}
+                />
+              </Spin>
+            </Card>
+          </Col>
         )}
-      </Space>
+
+        {/* 右侧: 空状态提示 */}
+        {!selectedTable && (
+          <Col span={0}>
+            {/* Hidden when no table selected - left side expands to full width */}
+          </Col>
+        )}
+      </Row>
     </AuthGuard>
   );
 }
