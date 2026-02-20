@@ -5,7 +5,7 @@ from app.api.v1.metadata import router as sources_router, metadata_router
 from app.api.v1.collect import router as collect_router
 from app.api.v1.etl import router as etl_router, ai_router as etl_ai_router
 from app.api.v1.analysis import router as analysis_router
-from app.api.v1.asset import router as asset_router
+from app.api.v1.asset import router as asset_router, subscriptions_router
 from app.api.v1.security import router as security_router, alerts_router, audit_router
 from app.api.v1.bi import router as bi_router
 from app.api.v1.standard import router as standard_router
@@ -14,6 +14,8 @@ from app.api.v1.permission import router as permission_router
 from app.api.v1.ocr import router as ocr_router
 from app.api.v1.lineage import router as lineage_router
 from app.api.v1.report import router as report_router
+from app.api.v1.quality import router as quality_router
+from app.api.v1.celery import router as celery_router
 
 api_router = APIRouter()
 
@@ -35,8 +37,12 @@ api_router.include_router(etl_ai_router)
 # Analysis
 api_router.include_router(analysis_router)
 
+# Data Quality
+api_router.include_router(quality_router)
+
 # Assets
 api_router.include_router(asset_router)
+api_router.include_router(subscriptions_router)
 
 # Data Standards
 api_router.include_router(standard_router)
@@ -63,3 +69,6 @@ api_router.include_router(lineage_router)
 
 # Report Builder
 api_router.include_router(report_router)
+
+# Celery Task Management
+api_router.include_router(celery_router, prefix="/celery", tags=["Celery"])

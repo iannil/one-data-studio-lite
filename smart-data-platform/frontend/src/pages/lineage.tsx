@@ -545,6 +545,19 @@ export default function LineagePage() {
                         showSearch
                         showFilter
                         showNodeDetail
+                        onImpactAnalysis={async (nodeId) => {
+                          try {
+                            const node = globalGraphData.nodes.find(n => n.id === nodeId);
+                            if (node?.reference_table === 'data_assets') {
+                              const response = await lineageApi.impactAnalysis(node.reference_id);
+                              return response.data;
+                            }
+                            return null;
+                          } catch (error) {
+                            message.error('影响分析失败');
+                            return null;
+                          }
+                        }}
                       />
                     ) : (
                       <Empty
@@ -639,6 +652,19 @@ export default function LineagePage() {
                           showSearch
                           showFilter
                           showNodeDetail
+                          onImpactAnalysis={async (nodeId) => {
+                            try {
+                              const node = graphData.nodes.find(n => n.id === nodeId);
+                              if (node?.reference_table === 'data_assets') {
+                                const response = await lineageApi.impactAnalysis(node.reference_id);
+                                return response.data;
+                              }
+                              return null;
+                            } catch (error) {
+                              message.error('影响分析失败');
+                              return null;
+                            }
+                          }}
                         />
                       ) : (
                         <Empty

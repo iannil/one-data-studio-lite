@@ -134,3 +134,31 @@ class ReportChart(Base, TimestampMixin):
 
     # Relationships
     report: Mapped["Report"] = relationship(back_populates="charts")
+
+
+class ReportSchedule(Base, TimestampMixin):
+    """Scheduled report generation and delivery configuration."""
+    __tablename__ = "report_schedules"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("reports.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    # Schedule configuration
+    cron_expression: Mapped[str] = mapped_column(String(100))
+    recipients: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+    # Output format: pdf, csv, xlsx, html
+    format: Mapped[str] = mapped_column(String(20), default="pdf")
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    # Execution tracking
+    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), index=True)

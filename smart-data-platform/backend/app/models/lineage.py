@@ -9,6 +9,7 @@ from typing import Any, Optional
 from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
+    Float,
     ForeignKey,
     String,
     Text,
@@ -114,4 +115,59 @@ class LineageEdge(Base, TimestampMixin):
         "LineageNode",
         foreign_keys=[target_node_id],
         back_populates="incoming_edges",
+    )
+
+    # Column-level lineage
+    column_lineage: Mapped[list["LineageColumnNode"]] = relationship(
+        "LineageColumnNode",
+        back_populates="edge",
+        cascade="all, delete-orphan",
+    )
+
+
+class LineageColumnNode(Base, TimestampMixin):
+    """Represents column-level lineage tracking."""
+    __tablename__ = "lineage_column_nodes"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    # Reference to the parent edge
+    edge_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("lineage_edges.id", ondelete="CASCADE"),
+        index=True
+    )
+
+    # Source column information
+    source_column_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("metadata_columns.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    source_column_name: Mapped[str] = mapped_column(String(255))
+    source_table_name: Mapped[Optional[str]] = mapped_column(String(255))
+
+    # Target column information
+    target_column_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("metadata_columns.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    target_column_name: Mapped[str] = mapped_column(String(255))
+    target_table_name: Mapped[Optional[str]] = mapped_column(String(255))
+
+    # Transformation details
+    transformation_type: Mapped[Optional[str]] = mapped_column(String(100))
+    transformation_expression: Mapped[Optional[str]] = mapped_column(Text)
+    transformation_metadata: Mapped[Optional[dict[str, Any]]] = mapped_column(JSONB)
+
+    # Confidence score (for inferred lineage)
+    confidence: Mapped[float] = mapped_column(default=1.0)
+
+    # Relationship
+    edge: Mapped["LineageEdge"] = relationship(
+        "LineageEdge",
+        back_populates="column_lineage",
     )

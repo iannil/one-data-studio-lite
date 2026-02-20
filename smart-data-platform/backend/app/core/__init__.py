@@ -6,6 +6,8 @@ from app.core.security import (
     get_password_hash,
     create_access_token,
     decode_access_token,
+    SQLSecurityValidator,
+    SQLSecurityError,
 )
 from app.core.scheduler import scheduler
 
@@ -19,5 +21,7 @@ __all__ = [
     "get_password_hash",
     "create_access_token",
     "decode_access_token",
+    "SQLSecurityValidator",
+    "SQLSecurityError",
     "scheduler",
 ]

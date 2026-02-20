@@ -95,3 +95,19 @@ class MetadataScanResponse(BaseModel):
     tables_scanned: int
     columns_scanned: int
     duration_ms: int
+
+
+class BatchTagsRequest(BaseModel):
+    """Request for batch tag operations on tables or columns."""
+    table_ids: list[UUID] = Field(default_factory=list)
+    column_ids: list[UUID] = Field(default_factory=list)
+    tags_to_add: list[str] = Field(default_factory=list)
+    tags_to_remove: list[str] = Field(default_factory=list)
+
+
+class BatchTagsResponse(BaseModel):
+    """Response for batch tag operations."""
+    tables_updated: int
+    columns_updated: int
+    tags_added: list[str]
+    tags_removed: list[str]

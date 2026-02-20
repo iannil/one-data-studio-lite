@@ -281,3 +281,178 @@ async def discover_relations(
         source_ids=source_ids,
         confidence_threshold=confidence_threshold,
     )
+
+
+# Column-level lineage models
+class CreateColumnLineageRequest(BaseModel):
+    """Request to create column-level lineage."""
+    edge_id: uuid.UUID
+    source_column_name: str
+    target_column_name: str
+    source_column_id: uuid.UUID | None = None
+    target_column_id: uuid.UUID | None = None
+    source_table_name: str | None = None
+    target_table_name: str | None = None
+    transformation_type: str | None = None
+    transformation_expression: str | None = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class ColumnLineageNode(BaseModel):
+    """A node in the column lineage graph."""
+    id: str
+    column_name: str
+    table_name: str | None = None
+    column_id: str | None = None
+
+
+class ColumnLineageEdge(BaseModel):
+    """An edge in the column lineage graph."""
+    id: str
+    source: str
+    target: str
+    transformation_type: str | None = None
+    transformation_expression: str | None = None
+    confidence: float
+
+
+class ColumnLineageGraphResponse(BaseModel):
+    """Response containing column-level lineage graph."""
+    nodes: list[ColumnLineageNode]
+    edges: list[ColumnLineageEdge]
+    root_column: str
+    root_table: str | None = None
+    depth: int
+
+
+@router.post(
+    "/column",
+    summary="Create column lineage",
+)
+async def create_column_lineage(
+    request: CreateColumnLineageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Create a column-level lineage record.
+
+    Tracks how data flows at the column level between source and target.
+
+    Args:
+        request: Column lineage details
+
+    Returns:
+        Created column lineage record
+    """
+    service = LineageService(db)
+    column_lineage = await service.create_column_lineage(
+        edge_id=request.edge_id,
+        source_column_name=request.source_column_name,
+        target_column_name=request.target_column_name,
+        source_column_id=request.source_column_id,
+        target_column_id=request.target_column_id,
+        source_table_name=request.source_table_name,
+        target_table_name=request.target_table_name,
+        transformation_type=request.transformation_type,
+        transformation_expression=request.transformation_expression,
+        confidence=request.confidence,
+    )
+    return {
+        "id": str(column_lineage.id),
+        "edge_id": str(column_lineage.edge_id),
+        "source_column_name": column_lineage.source_column_name,
+        "target_column_name": column_lineage.target_column_name,
+    }
+
+
+@router.get(
+    "/column",
+    summary="Get column lineage",
+)
+async def get_column_lineage(
+    edge_id: uuid.UUID | None = None,
+    source_column_id: uuid.UUID | None = None,
+    target_column_id: uuid.UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    """Get column-level lineage records.
+
+    Args:
+        edge_id: Optional edge ID to filter by
+        source_column_id: Optional source column ID to filter by
+        target_column_id: Optional target column ID to filter by
+
+    Returns:
+        List of column lineage records
+    """
+    service = LineageService(db)
+    return await service.get_column_lineage(
+        edge_id=edge_id,
+        source_column_id=source_column_id,
+        target_column_id=target_column_id,
+    )
+
+
+@router.get(
+    "/column/upstream",
+    response_model=ColumnLineageGraphResponse,
+    summary="Get column upstream lineage",
+)
+async def get_column_upstream(
+    column_name: str,
+    table_name: str | None = None,
+    depth: int = 3,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get upstream column lineage for a specific column.
+
+    Traces back through the lineage graph to find all source columns
+    that contribute to this column.
+
+    Args:
+        column_name: The target column name
+        table_name: Optional table name to disambiguate
+        depth: Maximum depth to traverse (1-10)
+
+    Returns:
+        Column lineage graph with source columns and transformations
+    """
+    if not 1 <= depth <= 10:
+        depth = 3
+
+    service = LineageService(db)
+    return await service.get_column_upstream(column_name, table_name, depth)
+
+
+@router.get(
+    "/column/downstream",
+    response_model=ColumnLineageGraphResponse,
+    summary="Get column downstream lineage",
+)
+async def get_column_downstream(
+    column_name: str,
+    table_name: str | None = None,
+    depth: int = 3,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get downstream column lineage for a specific column.
+
+    Traces forward through the lineage graph to find all target columns
+    that depend on this column.
+
+    Args:
+        column_name: The source column name
+        table_name: Optional table name to disambiguate
+        depth: Maximum depth to traverse (1-10)
+
+    Returns:
+        Column lineage graph with target columns and transformations
+    """
+    if not 1 <= depth <= 10:
+        depth = 3
+
+    service = LineageService(db)
+    return await service.get_column_downstream(column_name, table_name, depth)

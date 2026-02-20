@@ -11,6 +11,14 @@ from app.services.standard_service import StandardService
 from app.services.data_service import DataService
 from app.services.permission_service import PermissionService
 from app.services.lineage_service import LineageService
+from app.services.quality_service import DataQualityService
+from app.services.report_service import ReportService
+# ML Utilities
+from app.services.ml_utils import (
+    TimeSeriesForecaster,
+    AnomalyDetector,
+    EnhancedClustering,
+)
 
 __all__ = [
     "MetadataEngine",
@@ -27,4 +35,9 @@ __all__ = [
     "DataService",
     "PermissionService",
     "LineageService",
+    "DataQualityService",
+    "ReportService",
+    "TimeSeriesForecaster",
+    "AnomalyDetector",
+    "EnhancedClustering",
 ]

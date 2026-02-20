@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1598.7275000000002 1230" width="1598.7275000000002" height="1230" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="852.4325000000001" y="40" width="619.1875" height="458" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="852.4325000000001" y="40" width="619.1875" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="864.4325000000001" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;数据管理层&quot;</text>
+<rect x="467.0625" y="386" width="365.37000000000006" height="285" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="467.0625" y="386" width="365.37000000000006" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="479.0625" y="400" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;数据加工层&quot;</text>
+<rect x="40" y="732" width="582.6500000000001" height="458" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="732" width="582.6500000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="746" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;数据服务层&quot;</text>
+<rect x="1016.4024999999999" y="1078" width="389.4" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="1016.4024999999999" y="1078" width="389.4" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="1028.4025" y="1092" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;数据分析层&quot;</text>
+<rect x="167.47250000000008" y="213" width="573.7600000000002" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="167.47250000000008" y="213" width="573.7600000000002" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="179.47250000000008" y="227" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;系统管理层&quot;</text>
+<rect x="1124.0975" y="905" width="434.6300000000001" height="112" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="1124.0975" y="905" width="434.6300000000001" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="1136.0975" y="919" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;仪表盘&quot;</text>
+<polyline points="1287.1475,132 1287.1475,152 1339.6075,152 1339.6075,269" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1339.6075,305 1339.6075,325 1295.5825000000002,325 1295.5825000000002,442" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1287.1475,132 1287.1475,152 1159.71,152 1159.71,460 1205.5325,460" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1128.7575,478 1128.7575,498 1049.9825,498 1049.9825,518 783.6725,518 783.6725,633 802.4375,633" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="722.6325,478 722.6325,633 802.4375,633" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="672.0375,651 672.0375,671 563.2625,671 563.2625,806 548.9775000000001,806" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1339.6075,305 1339.6075,325 951.2075000000001,325 951.2075000000001,442" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="951.2075000000001,478 951.2075000000001,518 672.0375,518 672.0375,615" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="472.20250000000004,824 472.20250000000004,844 413.30750000000006,844 413.30750000000006,979 414.55000000000007,979" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="472.20250000000004,824 472.20250000000004,844 145.925,844 145.925,961" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="145.925,997 145.925,1134" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="334.20000000000005,997 334.20000000000005,1152 1038.4025,1152" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="472.20250000000004,824 472.20250000000004,844 520.1025,844 520.1025,1152 1251.7025,1152" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="464.90750000000025,305 464.90750000000025,325 568.3400000000001,325 568.3400000000001,633 541.6375,633" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="464.90750000000025,305 464.90750000000025,325 349.06000000000006,325 349.06000000000006,979 414.55000000000007,979" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="276.63250000000016,305 276.63250000000016,325 235.20250000000001,325 235.20250000000001,979 253.85000000000002,979" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="276.63250000000016,305 276.63250000000016,325 413.30750000000006,325 413.30750000000006,806 395.4275,806" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="646.0325000000003,305 646.0325000000003,325 513.3775,325 513.3775,633 541.6375,633" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="646.0325000000003,305 646.0325000000003,325 601.7225000000001,325 601.7225000000001,345 1061.1325000000002,345 1061.1325000000002,460 1051.9824999999998,460" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1339.6075,305 1339.6075,325 1383.6325,325 1383.6325,518 1499.3400000000001,518 1499.3400000000001,979 1324.8500000000001,979" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline points="1128.7575,478 1128.7575,498 1246.195,498 1246.195,518 1461.0400000000002,518 1461.0400000000002,979 1324.8500000000001,979" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline points="672.0375,651 672.0375,671 746.2325000000001,671 746.2325000000001,691 1228.9250000000002,691 1228.9250000000002,979 1171.3,979" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline points="472.20250000000004,824 472.20250000000004,844 555.5425,844 555.5425,979 1171.3,979" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<polyline points="646.0325000000003,305 646.0325000000003,325 678.9025000000001,325 678.9025000000001,345 1491.6200000000001,345 1491.6200000000001,518 1387.6425000000002,518 1387.6425000000002,691 1193.4850000000001,691 1193.4850000000001,979 1171.3,979" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<rect x="1325.8875" y="187" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1339.6075" y="200.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">扫描</text>
+<rect x="1281.8625000000002" y="360" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1295.5825000000002" y="373.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">发现</text>
+<rect x="1145.99" y="273.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1159.71" y="287" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">抽取</text>
+<rect x="769.9525" y="533" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="783.6725" y="546.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">输入</text>
+<rect x="706.0525" y="533" width="33.16" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="722.6325" y="546.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">结构化</text>
+<rect x="549.5425" y="706" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="563.2625" y="719.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">输出</text>
+<rect x="934.6275" y="360" width="33.16" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="951.2075000000001" y="373.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">标准化</text>
+<rect x="658.3175" y="533" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="672.0375" y="546.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">校验</text>
+<rect x="399.58750000000003" y="879" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="413.30750000000006" y="892.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">发布</text>
+<rect x="132.205" y="879" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="145.925" y="892.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">同步</text>
+<rect x="129.34500000000003" y="1052" width="33.16" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="145.925" y="1065.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">数据源</text>
+<rect x="320.48" y="1052" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="334.20000000000005" y="1065.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">查询</text>
+<rect x="506.38249999999994" y="965.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="520.1025" y="979" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">分析</text>
+<rect x="554.6200000000001" y="446.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="568.3400000000001" y="460" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">保护</text>
+<rect x="335.34000000000003" y="619.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="349.06000000000006" y="633" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">保护</text>
+<rect x="221.48250000000002" y="619.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="235.20250000000001" y="633" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">控制</text>
+<rect x="399.58750000000003" y="533" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="413.30750000000006" y="546.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">控制</text>
+<rect x="499.6575" y="446.5" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="513.3775" y="460" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">监控</text>
+<rect x="1047.4125000000001" y="360" width="27.44" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1061.1325000000002" y="373.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">监控</text>
+<rect x="1477.0400000000002" y="619.5" width="44.6" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1499.3400000000001" y="633" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">元数据统计</text>
+<rect x="1441.6000000000001" y="706" width="38.88" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1461.0400000000002" y="719.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">采集状态</text>
+<rect x="1209.4850000000001" y="792.5" width="38.88" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1228.9250000000002" y="806" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">管道状态</text>
+<rect x="536.1025" y="879" width="38.88" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="555.5425" y="892.5" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">资产统计</text>
+<rect x="1368.2025" y="619.5" width="38.88" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1387.6425000000002" y="633" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">告警摘要</text>
+<rect x="1153.1725000000001" y="96" width="267.95000000000005" height="36" rx="0" ry="0" fill="#e1f5fe" stroke="#01579b" stroke-width="0.75" />
+<rect x="1266.4075" y="269" width="146.4" height="36" rx="0" ry="0" fill="#e1f5fe" stroke="#01579b" stroke-width="0.75" />
+<rect x="1051.9824999999998" y="442" width="153.55" height="36" rx="0" ry="0" fill="#e1f5fe" stroke="#01579b" stroke-width="0.75" />
+<rect x="874.4325000000001" y="442" width="153.55" height="36" rx="0" ry="0" fill="#e1f5fe" stroke="#01579b" stroke-width="0.75" />
+<rect x="1229.5325000000003" y="442" width="132.10000000000002" height="36" rx="0" ry="0" fill="#e1f5fe" stroke="#01579b" stroke-width="0.75" />
+<rect x="541.6375" y="615" width="260.8" height="36" rx="0" ry="0" fill="#fff3e0" stroke="#e65100" stroke-width="0.75" />
+<rect x="635.1325" y="442" width="175" height="36" rx="0" ry="0" fill="#fff3e0" stroke="#e65100" stroke-width="0.75" />
+<rect x="395.4275" y="788" width="153.55" height="36" rx="0" ry="0" fill="#e8f5e9" stroke="#1b5e20" stroke-width="0.75" />
+<rect x="253.85000000000002" y="961" width="160.70000000000002" height="36" rx="0" ry="0" fill="#e8f5e9" stroke="#1b5e20" stroke-width="0.75" />
+<rect x="62" y="961" width="167.85000000000002" height="36" rx="0" ry="0" fill="#e8f5e9" stroke="#1b5e20" stroke-width="0.75" />
+<rect x="76.30000000000001" y="1134" width="139.25" height="36" rx="0" ry="0" fill="#e8f5e9" stroke="#1b5e20" stroke-width="0.75" />
+<rect x="1038.4025" y="1134" width="189.3" height="36" rx="0" ry="0" fill="#f3e5f5" stroke="#4a148c" stroke-width="0.75" />
+<rect x="1251.7025" y="1134" width="132.10000000000002" height="36" rx="0" ry="0" fill="#f3e5f5" stroke="#4a148c" stroke-width="0.75" />
+<rect x="380.98250000000024" y="269" width="167.85000000000002" height="36" rx="0" ry="0" fill="#ffebee" stroke="#b71c1c" stroke-width="0.75" />
+<rect x="196.28250000000014" y="269" width="160.70000000000002" height="36" rx="0" ry="0" fill="#ffebee" stroke="#b71c1c" stroke-width="0.75" />
+<rect x="572.8325000000002" y="269" width="146.4" height="36" rx="0" ry="0" fill="#ffebee" stroke="#b71c1c" stroke-width="0.75" />
+<rect x="1171.3" y="961" width="153.55" height="36" rx="0" ry="0" fill="#fff9c4" stroke="#f57f17" stroke-width="0.75" />
+<text x="1287.1475" y="114" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据源管理&lt;br/&gt;PostgreSQL/MySQL/文件/API</text>
+<text x="1339.6075" y="287" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">元数据浏览&lt;br/&gt;表/列/关系</text>
+<text x="1128.7575" y="460" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据采集&lt;br/&gt;批量/增量/调度</text>
+<text x="951.2075000000001" y="460" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据标准&lt;br/&gt;规则/质量/合规</text>
+<text x="1295.5825000000002" y="460" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据血缘&lt;br/&gt;上下游追踪</text>
+<text x="672.0375" y="633" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">ETL管道&lt;br/&gt;过滤/转换/聚合&lt;br/&gt;AI填充/自动脱敏</text>
+<text x="722.6325" y="460" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">OCR文档识别&lt;br/&gt;票据/表格/合同</text>
+<text x="472.2025" y="806" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据资产&lt;br/&gt;编目/标签/价值</text>
+<text x="334.20000000000005" y="979" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">数据服务&lt;br/&gt;查询/导出/API</text>
+<text x="145.925" y="979" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">BI集成&lt;br/&gt;Superset同步</text>
+<text x="145.925" y="1152" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">报表设计&lt;br/&gt;图表/仪表盘</text>
+<text x="1133.0525" y="1152" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">自然语言查询&lt;br/&gt;Text-to-SQL</text>
+<text x="1317.7525" y="1152" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">AI预测&lt;br/&gt;时序/分类</text>
+<text x="464.90750000000025" y="287" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">安全管理&lt;br/&gt;敏感识别/脱敏/审计</text>
+<text x="276.63250000000016" y="287" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">权限管理&lt;br/&gt;RBAC/数据权限</text>
+<text x="646.0325000000003" y="287" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">告警中心&lt;br/&gt;异常检测/通知</text>
+<text x="1248.075" y="979" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">概览面板&lt;br/&gt;统计/趋势/健康</text>
+</svg>

@@ -169,3 +169,50 @@ class AssetApiConfig(Base, TimestampMixin):
 
     # Relationships
     asset: Mapped["DataAsset"] = relationship(back_populates="api_config")
+
+
+class SubscriptionEventType(str, enum.Enum):
+    """Types of events that can trigger subscription notifications."""
+    SCHEMA_CHANGE = "schema_change"
+    DATA_UPDATE = "data_update"
+    QUALITY_ALERT = "quality_alert"
+    ACCESS_CHANGE = "access_change"
+    CERTIFICATION = "certification"
+    ALL = "all"
+
+
+class AssetSubscription(Base, TimestampMixin):
+    """User subscriptions to asset change notifications."""
+
+    __tablename__ = "asset_subscriptions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("data_assets.id", ondelete="CASCADE"),
+        index=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        index=True,
+    )
+
+    # Subscription settings
+    event_types: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=["all"]
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Notification preferences
+    notify_email: Mapped[bool] = mapped_column(Boolean, default=True)
+    notify_in_app: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Metadata
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Unique constraint: one subscription per user per asset
+    __table_args__ = (
+        {"comment": "User subscriptions for asset change notifications"},
+    )

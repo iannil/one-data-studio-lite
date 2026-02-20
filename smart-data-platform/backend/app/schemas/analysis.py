@@ -59,3 +59,58 @@ class PredictionResponse(BaseModel):
     results: list[dict[str, Any]]
     metrics: dict[str, Any] | None = None
     visualization: dict[str, Any] | None = None
+
+
+# Data Quality Schemas
+
+class QualityScoreRequest(BaseModel):
+    source_id: UUID
+    table_name: str
+
+
+class QualityScoreResponse(BaseModel):
+    overall_score: float
+    completeness_score: float
+    uniqueness_score: float
+    validity_score: float
+    consistency_score: float
+    timeliness_score: float
+    row_count: int
+    column_count: int
+    assessment: str
+
+
+class QualityIssuesResponse(BaseModel):
+    issues: dict[str, list[dict[str, Any]]]
+    total_issues: int
+    critical_count: int
+    warning_count: int
+    info_count: int
+
+
+class QualityReportRequest(BaseModel):
+    source_id: UUID
+    table_name: str
+
+
+class QualityReportResponse(BaseModel):
+    table_name: str
+    generated_at: str
+    summary: dict[str, Any]
+    issues: dict[str, list[dict[str, Any]]]
+    trend: dict[str, Any]
+    recommendations: list[dict[str, Any]]
+
+
+class QualityTrendRequest(BaseModel):
+    source_id: UUID
+    table_name: str
+    days: int = 30
+
+
+class QualityTrendResponse(BaseModel):
+    table_name: str
+    period_days: int
+    trend: list[dict[str, Any]]
+    average_score: float
+    trend_direction: str

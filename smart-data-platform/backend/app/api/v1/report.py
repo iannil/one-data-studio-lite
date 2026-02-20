@@ -4,8 +4,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -24,8 +26,29 @@ from app.schemas.report import (
     ReportRefreshResponse,
 )
 from app.services.ai_service import AIService
+from app.services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+
+# Scheduled report schemas
+
+class ReportScheduleCreate(BaseModel):
+    """Request to create a scheduled report."""
+    cron_expression: str
+    recipients: list[str]
+    format: str = "pdf"
+
+
+class ReportScheduleResponse(BaseModel):
+    """Response for scheduled report."""
+    schedule_id: str
+    template_id: str
+    cron_expression: str
+    recipients: list[str]
+    format: str
+    status: str
+    next_run: str
 
 
 @router.get(
@@ -582,3 +605,146 @@ async def publish_report(
     await db.refresh(report)
 
     return report
+
+
+# Scheduled report endpoints
+
+@router.post(
+    "/{report_id}/schedule",
+    response_model=ReportScheduleResponse,
+    summary="Schedule report generation",
+)
+async def schedule_report(
+    report_id: uuid.UUID,
+    request: ReportScheduleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Schedule automatic generation and delivery of a report.
+
+    Args:
+        report_id: The report to schedule
+        request: Schedule configuration
+
+    Returns:
+        Schedule details
+    """
+    result = await db.execute(
+        select(Report).where(Report.id == report_id)
+    )
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
+    if report.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only schedule your own reports",
+        )
+
+    report_service = ReportService(db)
+    schedule_result = await report_service.schedule_report(
+        template_id=str(report_id),
+        cron_expression=request.cron_expression,
+        recipients=request.recipients,
+        format_type=request.format,
+    )
+
+    return schedule_result
+
+
+@router.get(
+    "/{report_id}/history",
+    summary="Get report generation history",
+)
+async def get_report_history(
+    report_id: uuid.UUID,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get history of generated reports.
+
+    Args:
+        report_id: The report template
+        limit: Maximum history records
+
+    Returns:
+        Report generation history
+    """
+    result = await db.execute(
+        select(Report).where(Report.id == report_id)
+    )
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
+    if not report.is_public and report.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this report",
+        )
+
+    report_service = ReportService(db)
+    history = await report_service.get_report_history(
+        template_id=str(report_id),
+        limit=limit,
+    )
+
+    return history
+
+
+@router.post(
+    "/{report_id}/generate",
+    summary="Generate report on demand",
+)
+async def generate_report_now(
+    report_id: uuid.UUID,
+    format: str = "json",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Generate a report immediately.
+
+    Args:
+        report_id: The report to generate
+        format: Output format
+
+    Returns:
+        Generated report data
+    """
+    result = await db.execute(
+        select(Report).where(Report.id == report_id)
+    )
+    report = result.scalar_one_or_none()
+
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
+    if not report.is_public and report.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this report",
+        )
+
+    report_service = ReportService(db)
+
+    # Generate report
+    generated_report = await report_service.generate_report(
+        template_id=str(report_id),
+        format_type=format,
+        parameters={"report_name": report.name},
+    )
+
+    return generated_report

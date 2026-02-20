@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DBSession
 from app.connectors import get_connector
-from app.models import DataSource, DataSourceStatus, MetadataTable
+from app.models import DataSource, DataSourceStatus, MetadataTable, MetadataColumn
 from app.schemas import (
     DataSourceCreate,
     DataSourceResponse,
@@ -18,6 +18,8 @@ from app.schemas import (
     MetadataScanRequest,
     MetadataScanResponse,
     MetadataTableResponse,
+    BatchTagsRequest,
+    BatchTagsResponse,
 )
 from app.services import MetadataEngine
 
@@ -227,3 +229,100 @@ async def ai_analyze_metadata(
 
     ai_service = AIService(db)
     return await ai_service.analyze_field_meanings(source_id, table_name)
+
+
+@metadata_router.post("/batch-tags", response_model=BatchTagsResponse)
+async def batch_update_tags(
+    request: BatchTagsRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> BatchTagsResponse:
+    """Batch add or remove tags from tables and columns."""
+    tables_updated = 0
+    columns_updated = 0
+
+    if request.table_ids:
+        for table_id in request.table_ids:
+            result = await db.execute(
+                select(MetadataTable).where(MetadataTable.id == table_id)
+            )
+            table = result.scalar_one_or_none()
+            if table:
+                current_tags = set(table.tags or [])
+                if request.tags_to_add:
+                    current_tags.update(request.tags_to_add)
+                if request.tags_to_remove:
+                    current_tags -= set(request.tags_to_remove)
+                table.tags = list(current_tags)
+                tables_updated += 1
+
+    if request.column_ids:
+        for column_id in request.column_ids:
+            result = await db.execute(
+                select(MetadataColumn).where(MetadataColumn.id == column_id)
+            )
+            column = result.scalar_one_or_none()
+            if column:
+                current_tags = set(column.tags or [])
+                if request.tags_to_add:
+                    current_tags.update(request.tags_to_add)
+                if request.tags_to_remove:
+                    current_tags -= set(request.tags_to_remove)
+                column.tags = list(current_tags)
+                columns_updated += 1
+
+    await db.commit()
+
+    return BatchTagsResponse(
+        tables_updated=tables_updated,
+        columns_updated=columns_updated,
+        tags_added=request.tags_to_add,
+        tags_removed=request.tags_to_remove,
+    )
+
+
+@metadata_router.get("/tags", response_model=list[str])
+async def list_all_tags(
+    db: DBSession,
+    current_user: CurrentUser,
+) -> list[str]:
+    """Get all unique tags used across tables and columns."""
+    from sqlalchemy import func
+
+    table_tags = await db.execute(
+        select(func.unnest(MetadataTable.tags).label('tag')).distinct()
+    )
+    column_tags = await db.execute(
+        select(func.unnest(MetadataColumn.tags).label('tag')).distinct()
+    )
+
+    all_tags = set()
+    for row in table_tags:
+        if row.tag:
+            all_tags.add(row.tag)
+    for row in column_tags:
+        if row.tag:
+            all_tags.add(row.tag)
+
+    return sorted(all_tags)
+
+
+@router.get("/{source_id}/tables", response_model=list[dict])
+async def get_source_tables(
+    source_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> list[dict]:
+    """Get list of tables from a data source directly (without scanning)."""
+    result = await db.execute(select(DataSource).where(DataSource.id == source_id))
+    source = result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="Data source not found")
+
+    try:
+        connector = get_connector(source.type, source.connection_config)
+        tables = await connector.get_tables()
+        return tables
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get tables: {str(e)}")

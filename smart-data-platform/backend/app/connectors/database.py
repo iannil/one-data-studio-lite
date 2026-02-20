@@ -108,7 +108,13 @@ class DatabaseConnector(BaseConnector):
     async def get_row_count(self, table_name: str) -> int:
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
+                # Handle schema.table format
+                if '.' in table_name:
+                    schema, table = table_name.split('.', 1)
+                    sql = f'SELECT COUNT(*) FROM "{schema}"."{table}"'
+                else:
+                    sql = f"SELECT COUNT(*) FROM {table_name}"
+                result = conn.execute(text(sql))
                 return result.scalar() or 0
         except SQLAlchemyError as e:
             raise RuntimeError(f"Failed to get row count: {e}") from e
@@ -123,7 +129,12 @@ class DatabaseConnector(BaseConnector):
             if query:
                 sql = query
             elif table_name:
-                sql = f"SELECT * FROM {table_name}"
+                # Handle schema.table format - quote properly for PostgreSQL
+                if '.' in table_name:
+                    schema, table = table_name.split('.', 1)
+                    sql = f'SELECT * FROM "{schema}"."{table}"'
+                else:
+                    sql = f"SELECT * FROM {table_name}"
                 if limit:
                     sql += f" LIMIT {limit}"
             else:

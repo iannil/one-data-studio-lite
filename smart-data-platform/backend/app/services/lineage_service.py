@@ -18,6 +18,7 @@ from app.models import (
 from app.models.lineage import (
     LineageNode,
     LineageEdge,
+    LineageColumnNode,
     LineageNodeType,
     LineageEdgeType,
 )
@@ -595,4 +596,280 @@ class LineageService:
                 for e in edges
             ],
             "depth": 0,
+        }
+
+    async def create_column_lineage(
+        self,
+        edge_id: uuid.UUID,
+        source_column_name: str,
+        target_column_name: str,
+        source_column_id: uuid.UUID | None = None,
+        target_column_id: uuid.UUID | None = None,
+        source_table_name: str | None = None,
+        target_table_name: str | None = None,
+        transformation_type: str | None = None,
+        transformation_expression: str | None = None,
+        confidence: float = 1.0,
+    ) -> LineageColumnNode:
+        """Create a column-level lineage record.
+
+        Args:
+            edge_id: The parent edge ID
+            source_column_name: Name of the source column
+            target_column_name: Name of the target column
+            source_column_id: Optional reference to MetadataColumn
+            target_column_id: Optional reference to MetadataColumn
+            source_table_name: Optional source table name
+            target_table_name: Optional target table name
+            transformation_type: Type of transformation (e.g., 'direct', 'computed', 'aggregated')
+            transformation_expression: SQL/expression describing the transformation
+            confidence: Confidence score for inferred lineage (0.0-1.0)
+
+        Returns:
+            The created LineageColumnNode
+        """
+        column_lineage = LineageColumnNode(
+            edge_id=edge_id,
+            source_column_id=source_column_id,
+            source_column_name=source_column_name,
+            source_table_name=source_table_name,
+            target_column_id=target_column_id,
+            target_column_name=target_column_name,
+            target_table_name=target_table_name,
+            transformation_type=transformation_type,
+            transformation_expression=transformation_expression,
+            confidence=confidence,
+        )
+        self.db.add(column_lineage)
+        await self.db.commit()
+        await self.db.refresh(column_lineage)
+        return column_lineage
+
+    async def get_column_lineage(
+        self,
+        edge_id: uuid.UUID | None = None,
+        source_column_id: uuid.UUID | None = None,
+        target_column_id: uuid.UUID | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get column-level lineage records.
+
+        Args:
+            edge_id: Optional edge ID to filter by
+            source_column_id: Optional source column ID to filter by
+            target_column_id: Optional target column ID to filter by
+
+        Returns:
+            List of column lineage records
+        """
+        query = select(LineageColumnNode)
+
+        conditions = []
+        if edge_id:
+            conditions.append(LineageColumnNode.edge_id == edge_id)
+        if source_column_id:
+            conditions.append(LineageColumnNode.source_column_id == source_column_id)
+        if target_column_id:
+            conditions.append(LineageColumnNode.target_column_id == target_column_id)
+
+        if conditions:
+            query = query.where(and_(*conditions))
+
+        result = await self.db.execute(query)
+        column_lineage = list(result.scalars())
+
+        return [
+            {
+                "id": str(cl.id),
+                "edge_id": str(cl.edge_id),
+                "source_column_id": str(cl.source_column_id) if cl.source_column_id else None,
+                "source_column_name": cl.source_column_name,
+                "source_table_name": cl.source_table_name,
+                "target_column_id": str(cl.target_column_id) if cl.target_column_id else None,
+                "target_column_name": cl.target_column_name,
+                "target_table_name": cl.target_table_name,
+                "transformation_type": cl.transformation_type,
+                "transformation_expression": cl.transformation_expression,
+                "confidence": cl.confidence,
+            }
+            for cl in column_lineage
+        ]
+
+    async def get_column_upstream(
+        self,
+        column_name: str,
+        table_name: str | None = None,
+        depth: int = 3,
+    ) -> dict[str, Any]:
+        """Get upstream column lineage for a specific column.
+
+        Traces back through the lineage graph to find all source columns
+        that contribute to this column.
+
+        Args:
+            column_name: The target column name
+            table_name: Optional table name to disambiguate
+            depth: Maximum depth to traverse
+
+        Returns:
+            Column lineage graph with source columns and transformations
+        """
+        column_nodes: list[dict[str, Any]] = []
+        column_edges: list[dict[str, Any]] = []
+        visited: set[str] = set()
+
+        async def traverse(col_name: str, tbl_name: str | None, current_depth: int) -> None:
+            if current_depth > depth:
+                return
+
+            key = f"{tbl_name or ''}.{col_name}"
+            if key in visited:
+                return
+            visited.add(key)
+
+            query = select(LineageColumnNode).where(
+                LineageColumnNode.target_column_name == col_name
+            )
+            if tbl_name:
+                query = query.where(LineageColumnNode.target_table_name == tbl_name)
+
+            result = await self.db.execute(query)
+            records = list(result.scalars())
+
+            for record in records:
+                target_key = f"{record.target_table_name or ''}.{record.target_column_name}"
+                source_key = f"{record.source_table_name or ''}.{record.source_column_name}"
+
+                target_node = {
+                    "id": target_key,
+                    "column_name": record.target_column_name,
+                    "table_name": record.target_table_name,
+                    "column_id": str(record.target_column_id) if record.target_column_id else None,
+                }
+                source_node = {
+                    "id": source_key,
+                    "column_name": record.source_column_name,
+                    "table_name": record.source_table_name,
+                    "column_id": str(record.source_column_id) if record.source_column_id else None,
+                }
+
+                if target_key not in [n["id"] for n in column_nodes]:
+                    column_nodes.append(target_node)
+                if source_key not in [n["id"] for n in column_nodes]:
+                    column_nodes.append(source_node)
+
+                edge = {
+                    "id": str(record.id),
+                    "source": source_key,
+                    "target": target_key,
+                    "transformation_type": record.transformation_type,
+                    "transformation_expression": record.transformation_expression,
+                    "confidence": record.confidence,
+                }
+                if edge["id"] not in [e["id"] for e in column_edges]:
+                    column_edges.append(edge)
+
+                await traverse(
+                    record.source_column_name,
+                    record.source_table_name,
+                    current_depth + 1
+                )
+
+        await traverse(column_name, table_name, 0)
+
+        return {
+            "nodes": column_nodes,
+            "edges": column_edges,
+            "root_column": column_name,
+            "root_table": table_name,
+            "depth": depth,
+        }
+
+    async def get_column_downstream(
+        self,
+        column_name: str,
+        table_name: str | None = None,
+        depth: int = 3,
+    ) -> dict[str, Any]:
+        """Get downstream column lineage for a specific column.
+
+        Traces forward through the lineage graph to find all target columns
+        that depend on this column.
+
+        Args:
+            column_name: The source column name
+            table_name: Optional table name to disambiguate
+            depth: Maximum depth to traverse
+
+        Returns:
+            Column lineage graph with target columns and transformations
+        """
+        column_nodes: list[dict[str, Any]] = []
+        column_edges: list[dict[str, Any]] = []
+        visited: set[str] = set()
+
+        async def traverse(col_name: str, tbl_name: str | None, current_depth: int) -> None:
+            if current_depth > depth:
+                return
+
+            key = f"{tbl_name or ''}.{col_name}"
+            if key in visited:
+                return
+            visited.add(key)
+
+            query = select(LineageColumnNode).where(
+                LineageColumnNode.source_column_name == col_name
+            )
+            if tbl_name:
+                query = query.where(LineageColumnNode.source_table_name == tbl_name)
+
+            result = await self.db.execute(query)
+            records = list(result.scalars())
+
+            for record in records:
+                source_key = f"{record.source_table_name or ''}.{record.source_column_name}"
+                target_key = f"{record.target_table_name or ''}.{record.target_column_name}"
+
+                source_node = {
+                    "id": source_key,
+                    "column_name": record.source_column_name,
+                    "table_name": record.source_table_name,
+                    "column_id": str(record.source_column_id) if record.source_column_id else None,
+                }
+                target_node = {
+                    "id": target_key,
+                    "column_name": record.target_column_name,
+                    "table_name": record.target_table_name,
+                    "column_id": str(record.target_column_id) if record.target_column_id else None,
+                }
+
+                if source_key not in [n["id"] for n in column_nodes]:
+                    column_nodes.append(source_node)
+                if target_key not in [n["id"] for n in column_nodes]:
+                    column_nodes.append(target_node)
+
+                edge = {
+                    "id": str(record.id),
+                    "source": source_key,
+                    "target": target_key,
+                    "transformation_type": record.transformation_type,
+                    "transformation_expression": record.transformation_expression,
+                    "confidence": record.confidence,
+                }
+                if edge["id"] not in [e["id"] for e in column_edges]:
+                    column_edges.append(edge)
+
+                await traverse(
+                    record.target_column_name,
+                    record.target_table_name,
+                    current_depth + 1
+                )
+
+        await traverse(column_name, table_name, 0)
+
+        return {
+            "nodes": column_nodes,
+            "edges": column_edges,
+            "root_column": column_name,
+            "root_table": table_name,
+            "depth": depth,
         }

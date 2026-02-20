@@ -152,3 +152,38 @@ class ReportRefreshResponse(BaseModel):
     failed_charts: int
     errors: list[dict[str, Any]]
     refreshed_at: datetime
+
+
+class ReportScheduleBase(BaseModel):
+    """Base schema for report schedules."""
+    cron_expression: str = Field(..., min_length=1, max_length=100)
+    recipients: dict[str, Any] = Field(default_factory=dict)
+    format: str = Field(default="pdf", pattern=r"^(pdf|csv|xlsx|html)$")
+
+
+class ReportScheduleCreate(ReportScheduleBase):
+    """Schema for creating a report schedule."""
+    report_id: uuid.UUID
+    is_active: bool = True
+
+
+class ReportScheduleUpdate(BaseModel):
+    """Schema for updating a report schedule."""
+    cron_expression: str | None = Field(None, min_length=1, max_length=100)
+    recipients: dict[str, Any] | None = None
+    format: str | None = Field(None, pattern=r"^(pdf|csv|xlsx|html)$")
+    is_active: bool | None = None
+
+
+class ReportScheduleResponse(ReportScheduleBase):
+    """Response schema for report schedules."""
+    id: uuid.UUID
+    report_id: uuid.UUID
+    is_active: bool
+    last_run_at: datetime | None
+    next_run_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -133,6 +133,12 @@ class AlertService:
                 await self._send_email_notification(rule, alert)
             elif channel == "webhook":
                 await self._send_webhook_notification(rule, alert)
+            elif channel == "dingtalk":
+                await self._send_dingtalk_notification(rule, alert)
+            elif channel == "wecom":
+                await self._send_wecom_notification(rule, alert)
+            elif channel == "feishu":
+                await self._send_feishu_notification(rule, alert)
 
     async def _send_email_notification(self, rule: AlertRule, alert: Alert) -> None:
         """Send email notification via SMTP."""
@@ -278,6 +284,274 @@ Smart Data Platform Alert System
 
         async with httpx.AsyncClient() as client:
             await client.post(webhook_url, json=payload, timeout=10)
+
+    async def _send_dingtalk_notification(self, rule: AlertRule, alert: Alert) -> None:
+        """Send DingTalk (钉钉) robot notification.
+
+        Config format:
+        {
+            "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=xxx",
+            "dingtalk_secret": "SEC...",  # Optional: for signed requests
+            "dingtalk_at_mobiles": ["138xxxx"],  # Optional: @ specific users
+            "dingtalk_at_all": false  # Optional: @ all members
+        }
+        """
+        import hashlib
+        import hmac
+        import base64
+        import time
+        import urllib.parse
+        import httpx
+
+        config = rule.notification_config or {}
+        webhook_url = config.get("dingtalk_webhook")
+
+        if not webhook_url:
+            return
+
+        secret = config.get("dingtalk_secret")
+        if secret:
+            timestamp = str(round(time.time() * 1000))
+            string_to_sign = f"{timestamp}\n{secret}"
+            hmac_code = hmac.new(
+                secret.encode("utf-8"),
+                string_to_sign.encode("utf-8"),
+                digestmod=hashlib.sha256,
+            ).digest()
+            sign = urllib.parse.quote_plus(base64.b64encode(hmac_code).decode("utf-8"))
+            webhook_url = f"{webhook_url}&timestamp={timestamp}&sign={sign}"
+
+        severity_emoji = {
+            "critical": "🔴",
+            "high": "🟠",
+            "medium": "🟡",
+            "low": "🔵",
+        }
+        emoji = severity_emoji.get(alert.severity.value, "⚪")
+
+        markdown_content = f"""### {emoji} 告警通知
+
+**规则名称**: {rule.name}
+
+**告警级别**: {alert.severity.value.upper()}
+
+**触发时间**: {alert.triggered_at.strftime('%Y-%m-%d %H:%M:%S')}
+
+**当前值**: {alert.current_value}
+
+**阈值**: {alert.threshold_value}
+
+**详情**: {alert.message}
+
+---
+*Smart Data Platform 告警系统*"""
+
+        payload: dict[str, Any] = {
+            "msgtype": "markdown",
+            "markdown": {
+                "title": f"[{alert.severity.value.upper()}] {rule.name}",
+                "text": markdown_content,
+            },
+        }
+
+        at_mobiles = config.get("dingtalk_at_mobiles", [])
+        at_all = config.get("dingtalk_at_all", False)
+        if at_mobiles or at_all:
+            payload["at"] = {
+                "atMobiles": at_mobiles,
+                "isAtAll": at_all,
+            }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(webhook_url, json=payload, timeout=10)
+                response.raise_for_status()
+                logger.info(f"DingTalk notification sent for alert {alert.id}")
+        except Exception as e:
+            logger.error(f"Failed to send DingTalk notification: {e}")
+
+    async def _send_wecom_notification(self, rule: AlertRule, alert: Alert) -> None:
+        """Send WeCom (企业微信) robot notification.
+
+        Config format:
+        {
+            "wecom_webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx",
+            "wecom_mentioned_list": ["userid1"],  # Optional: @ specific users
+            "wecom_mentioned_mobile_list": ["138xxxx"]  # Optional: @ by mobile
+        }
+        """
+        import httpx
+
+        config = rule.notification_config or {}
+        webhook_url = config.get("wecom_webhook")
+
+        if not webhook_url:
+            return
+
+        severity_emoji = {
+            "critical": "🔴",
+            "high": "🟠",
+            "medium": "🟡",
+            "low": "🔵",
+        }
+        emoji = severity_emoji.get(alert.severity.value, "⚪")
+
+        markdown_content = f"""{emoji} **告警通知**
+> **规则**: {rule.name}
+> **级别**: <font color="warning">{alert.severity.value.upper()}</font>
+> **时间**: {alert.triggered_at.strftime('%Y-%m-%d %H:%M:%S')}
+> **当前值**: {alert.current_value}
+> **阈值**: {alert.threshold_value}
+> **详情**: {alert.message}"""
+
+        payload: dict[str, Any] = {
+            "msgtype": "markdown",
+            "markdown": {
+                "content": markdown_content,
+            },
+        }
+
+        mentioned_list = config.get("wecom_mentioned_list", [])
+        mentioned_mobile_list = config.get("wecom_mentioned_mobile_list", [])
+        if mentioned_list or mentioned_mobile_list:
+            payload["markdown"]["mentioned_list"] = mentioned_list
+            payload["markdown"]["mentioned_mobile_list"] = mentioned_mobile_list
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(webhook_url, json=payload, timeout=10)
+                response.raise_for_status()
+                logger.info(f"WeCom notification sent for alert {alert.id}")
+        except Exception as e:
+            logger.error(f"Failed to send WeCom notification: {e}")
+
+    async def _send_feishu_notification(self, rule: AlertRule, alert: Alert) -> None:
+        """Send Feishu (飞书) robot notification.
+
+        Config format:
+        {
+            "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
+            "feishu_secret": "xxx"  # Optional: for signed requests
+        }
+        """
+        import hashlib
+        import hmac
+        import base64
+        import time
+        import httpx
+
+        config = rule.notification_config or {}
+        webhook_url = config.get("feishu_webhook")
+
+        if not webhook_url:
+            return
+
+        timestamp = str(int(time.time()))
+        secret = config.get("feishu_secret")
+        sign = ""
+
+        if secret:
+            string_to_sign = f"{timestamp}\n{secret}"
+            hmac_code = hmac.new(
+                string_to_sign.encode("utf-8"),
+                digestmod=hashlib.sha256,
+            ).digest()
+            sign = base64.b64encode(hmac_code).decode("utf-8")
+
+        severity_color = {
+            "critical": "red",
+            "high": "orange",
+            "medium": "yellow",
+            "low": "blue",
+        }
+        color = severity_color.get(alert.severity.value, "grey")
+
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": f"🔔 告警: {rule.name}",
+                },
+                "template": color,
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "fields": [
+                        {
+                            "is_short": True,
+                            "text": {
+                                "tag": "lark_md",
+                                "content": f"**级别**: {alert.severity.value.upper()}",
+                            },
+                        },
+                        {
+                            "is_short": True,
+                            "text": {
+                                "tag": "lark_md",
+                                "content": f"**时间**: {alert.triggered_at.strftime('%Y-%m-%d %H:%M:%S')}",
+                            },
+                        },
+                    ],
+                },
+                {
+                    "tag": "div",
+                    "fields": [
+                        {
+                            "is_short": True,
+                            "text": {
+                                "tag": "lark_md",
+                                "content": f"**当前值**: {alert.current_value}",
+                            },
+                        },
+                        {
+                            "is_short": True,
+                            "text": {
+                                "tag": "lark_md",
+                                "content": f"**阈值**: {alert.threshold_value}",
+                            },
+                        },
+                    ],
+                },
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**详情**: {alert.message}",
+                    },
+                },
+                {
+                    "tag": "hr",
+                },
+                {
+                    "tag": "note",
+                    "elements": [
+                        {
+                            "tag": "plain_text",
+                            "content": "Smart Data Platform 告警系统",
+                        },
+                    ],
+                },
+            ],
+        }
+
+        payload: dict[str, Any] = {
+            "msg_type": "interactive",
+            "card": card,
+        }
+
+        if sign:
+            payload["timestamp"] = timestamp
+            payload["sign"] = sign
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(webhook_url, json=payload, timeout=10)
+                response.raise_for_status()
+                logger.info(f"Feishu notification sent for alert {alert.id}")
+        except Exception as e:
+            logger.error(f"Failed to send Feishu notification: {e}")
 
     async def acknowledge_alert(
         self,

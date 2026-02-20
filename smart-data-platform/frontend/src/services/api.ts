@@ -49,15 +49,23 @@ export const sourcesApi = {
   delete: (id: string) => api.delete(`/sources/${id}`),
   test: (id: string) => api.post(`/sources/${id}/test`),
   scan: (id: string, data?: any) => api.post(`/sources/${id}/scan`, data || {}),
+  getTables: (id: string) => api.get(`/sources/${id}/tables`),
 };
 
 // Metadata
 export const metadataApi = {
-  listTables: (sourceId?: string, skip = 0, limit = 100) =>
+  listTables: (sourceId?: string, skip = 0, limit = 1000) =>
     api.get('/metadata/tables', { params: { source_id: sourceId, skip, limit } }),
   getTable: (id: string) => api.get(`/metadata/tables/${id}`),
   aiAnalyze: (sourceId: string, tableName: string) =>
     api.post('/metadata/ai-analyze', null, { params: { source_id: sourceId, table_name: tableName } }),
+  batchUpdateTags: (data: {
+    table_ids?: string[];
+    column_ids?: string[];
+    tags_to_add?: string[];
+    tags_to_remove?: string[];
+  }) => api.post('/metadata/batch-tags', data),
+  listAllTags: () => api.get('/metadata/tags'),
 };
 
 // ETL
@@ -108,6 +116,66 @@ export const analysisApi = {
   dataQuality: (sourceId: string, tableName: string, sampleSize = 10000) =>
     api.post('/analysis/data-quality', { source_id: sourceId, table_name: tableName, sample_size: sampleSize }),
   predict: (data: any) => api.post('/analysis/predict', data),
+  // Time series prediction
+  predictTimeSeries: (data: {
+    source_table: string;
+    target_column: string;
+    config?: Record<string, unknown>;
+  }) => api.post('/analysis/predict', {
+    model_type: 'timeseries',
+    source_table: data.source_table,
+    target_column: data.target_column,
+    config: data.config || {},
+  }),
+  // Clustering analysis
+  clusterAnalysis: (data: {
+    source_table: string;
+    features?: string[];
+    n_clusters?: number;
+  }) => api.post('/analysis/predict', {
+    model_type: 'clustering',
+    source_table: data.source_table,
+    target_column: data.features?.[0] || '',
+    config: {
+      n_clusters: data.n_clusters || 3,
+      features: data.features || [],
+    },
+  }),
+  // Anomaly detection
+  detectAnomalies: (data: {
+    data: Record<string, unknown>[];
+    features: string[];
+    method?: string;
+  }) => api.post('/analysis/anomalies', data),
+  // Forecasting
+  forecast: (data: {
+    data: Array<{ date: string; value: number }>;
+    date_column: string;
+    value_column: string;
+    periods?: number;
+    method?: string;
+  }) => api.post('/analysis/forecast', data),
+  // Enhanced clustering
+  clusterEnhanced: (data: {
+    data: Record<string, unknown>[];
+    features: string[];
+    algorithm?: string;
+    n_clusters?: number;
+  }) => api.post('/analysis/cluster-enhanced', data),
+};
+
+// Data Quality
+export const qualityApi = {
+  getAssessment: (assetId: string) =>
+    api.get(`/quality/assessment/${assetId}`),
+  getIssues: (params?: { asset_id?: string; source_id?: string; table_name?: string; severity?: string; skip?: number; limit?: number }) =>
+    api.get('/quality/issues', { params }),
+  getTrend: (assetId: string, days = 30) =>
+    api.get(`/quality/trend/${assetId}`, { params: { days } }),
+  getReport: (assetId: string) =>
+    api.get(`/quality/report/${assetId}`),
+  runAssessment: (sourceId: string, tableName: string) =>
+    api.post('/quality/assessment', { source_id: sourceId, table_name: tableName }),
 };
 
 // Assets
@@ -151,6 +219,33 @@ export const assetsApi = {
   }) => api.put(`/assets/${id}/api-config`, data),
   deleteApiConfig: (id: string) => api.delete(`/assets/${id}/api-config`),
   getApiDocs: (id: string) => api.get(`/assets/${id}/api-docs`),
+  // Subscriptions
+  subscribe: (id: string, data?: {
+    event_types?: string[];
+    notify_email?: boolean;
+    notify_in_app?: boolean;
+    notes?: string;
+  }) => api.post(`/assets/${id}/subscribe`, data || {}),
+  unsubscribe: (id: string) => api.delete(`/assets/${id}/subscribe`),
+  getSubscription: (id: string) => api.get(`/assets/${id}/subscription`),
+  updateSubscription: (id: string, data: {
+    event_types?: string[];
+    is_active?: boolean;
+    notify_email?: boolean;
+    notify_in_app?: boolean;
+    notes?: string;
+  }) => api.patch(`/assets/${id}/subscription`, data),
+  getSubscribers: (id: string) => api.get(`/assets/${id}/subscribers`),
+};
+
+// User Subscriptions
+export const subscriptionsApi = {
+  list: (isActive?: boolean) =>
+    api.get('/subscriptions', { params: { is_active: isActive } }),
+  delete: (subscriptionId: string) =>
+    api.delete(`/subscriptions/${subscriptionId}`),
+  batchUnsubscribe: (assetIds: string[]) =>
+    api.post('/subscriptions/batch-unsubscribe', assetIds),
 };
 
 // Alerts
@@ -406,6 +501,19 @@ export const reportsApi = {
     api.delete(`/reports/${reportId}/charts/${chartId}`),
   refresh: (id: string) => api.post(`/reports/${id}/refresh`),
   publish: (id: string) => api.post(`/reports/${id}/publish`),
+};
+
+// Celery Task Management
+export const celeryApi = {
+  getStatus: () => api.get('/celery/status'),
+  getWorkers: () => api.get('/celery/workers'),
+  getTaskStatus: (taskId: string) => api.get(`/celery/task/${taskId}`),
+  cancelTask: (taskId: string) => api.post(`/celery/task/${taskId}/cancel`),
+  getQueues: () => api.get('/celery/queues'),
+  getFlowerUrl: () => api.get('/celery/flower/url'),
+  // Admin only
+  shutdownWorkers: () => api.post('/celery/worker/shutdown'),
+  restartPools: () => api.post('/celery/worker/pool/restart'),
 };
 
 export default api;

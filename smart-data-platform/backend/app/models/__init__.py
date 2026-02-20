@@ -25,8 +25,10 @@ from app.models.asset import (
     DataAsset,
     AssetAccess,
     AssetApiConfig,
+    AssetSubscription,
     AccessLevel,
     AssetType,
+    SubscriptionEventType,
 )
 from app.models.alert import (
     AlertRule,
@@ -46,12 +48,19 @@ from app.models.standard import (
 from app.models.lineage import (
     LineageNode,
     LineageEdge,
+    LineageColumnNode,
     LineageNodeType,
     LineageEdgeType,
+)
+from app.models.quality import (
+    DataQualityIssue,
+    QualityAssessmentHistory,
+    QualityIssueSeverity,
 )
 from app.models.report import (
     Report,
     ReportChart,
+    ReportSchedule,
     ReportStatus,
     ChartType,
 )
@@ -83,8 +92,10 @@ __all__ = [
     "DataAsset",
     "AssetAccess",
     "AssetApiConfig",
+    "AssetSubscription",
     "AccessLevel",
     "AssetType",
+    "SubscriptionEventType",
     # Alert
     "AlertRule",
     "Alert",
@@ -103,11 +114,17 @@ __all__ = [
     # Lineage
     "LineageNode",
     "LineageEdge",
+    "LineageColumnNode",
     "LineageNodeType",
     "LineageEdgeType",
+    # Quality
+    "DataQualityIssue",
+    "QualityAssessmentHistory",
+    "QualityIssueSeverity",
     # Report
     "Report",
     "ReportChart",
+    "ReportSchedule",
     "ReportStatus",
     "ChartType",
 ]

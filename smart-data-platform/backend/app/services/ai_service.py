@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from typing import Any
 
@@ -12,103 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector
 from app.core.config import settings
+from app.core.observability import LifecycleTracker, track_operation, get_execution_trace
+from app.core.security import SQLSecurityValidator, SQLSecurityError
 from app.models import DataSource, MetadataColumn, MetadataTable, DataAsset
-
-
-class SQLSecurityError(Exception):
-    """Exception raised when SQL contains dangerous operations."""
-
-    def __init__(self, message: str, dangerous_patterns: list[str]):
-        self.message = message
-        self.dangerous_patterns = dangerous_patterns
-        super().__init__(self.message)
-
-
-class SQLSecurityValidator:
-    """Validates SQL queries for dangerous operations."""
-
-    # Dangerous SQL patterns that should be blocked
-    DANGEROUS_PATTERNS = [
-        (r'\bDROP\s+(TABLE|DATABASE|INDEX|VIEW|SCHEMA)\b', 'DROP statement'),
-        (r'\bTRUNCATE\s+TABLE\b', 'TRUNCATE TABLE'),
-        (r'\bDELETE\s+FROM\b', 'DELETE FROM'),
-        (r'\bALTER\s+(TABLE|DATABASE)\b', 'ALTER statement'),
-        (r'\bCREATE\s+(TABLE|DATABASE|INDEX)\b', 'CREATE statement'),
-        (r'\bINSERT\s+INTO\b', 'INSERT INTO'),
-        (r'\bUPDATE\s+\w+\s+SET\b', 'UPDATE statement'),
-        (r'\bGRANT\b', 'GRANT statement'),
-        (r'\bREVOKE\b', 'REVOKE statement'),
-        (r'\bEXEC(UTE)?\s*\(', 'EXECUTE/EXEC function'),
-        (r'\bxp_\w+', 'Extended stored procedures'),
-        (r'\bsp_\w+', 'System stored procedures'),
-        (r';\s*--', 'SQL comment injection'),
-        (r'\bUNION\s+(ALL\s+)?SELECT\b.*\bFROM\s+information_schema\b', 'Information schema access via UNION'),
-        (r'\bSLEEP\s*\(', 'SLEEP function (timing attack)'),
-        (r'\bBENCHMARK\s*\(', 'BENCHMARK function'),
-        (r'\bLOAD_FILE\s*\(', 'LOAD_FILE function'),
-        (r'\bINTO\s+(OUT|DUMP)FILE\b', 'INTO OUTFILE/DUMPFILE'),
-    ]
-
-    # Allowed patterns (whitelist approach for read-only operations)
-    ALLOWED_PATTERNS = [
-        r'^\s*SELECT\b',
-        r'^\s*WITH\b.*\bSELECT\b',  # CTE queries
-        r'^\s*EXPLAIN\b',
-        r'^\s*SHOW\b',
-        r'^\s*DESCRIBE\b',
-    ]
-
-    @classmethod
-    def validate(cls, sql: str) -> tuple[bool, list[str]]:
-        """Validate SQL query for dangerous operations.
-
-        Args:
-            sql: SQL query string to validate.
-
-        Returns:
-            Tuple of (is_safe, list_of_violations).
-        """
-        if not sql or not sql.strip():
-            return False, ['Empty SQL query']
-
-        sql_upper = sql.upper().strip()
-        violations = []
-
-        # Check for dangerous patterns
-        for pattern, description in cls.DANGEROUS_PATTERNS:
-            if re.search(pattern, sql_upper, re.IGNORECASE):
-                violations.append(description)
-
-        # If violations found, return immediately
-        if violations:
-            return False, violations
-
-        # Check if it matches allowed patterns (read-only operations)
-        is_allowed = any(
-            re.match(pattern, sql_upper, re.IGNORECASE)
-            for pattern in cls.ALLOWED_PATTERNS
-        )
-
-        if not is_allowed:
-            violations.append('Query does not start with allowed statement (SELECT, WITH, EXPLAIN, SHOW, DESCRIBE)')
-
-        return len(violations) == 0, violations
-
-    @classmethod
-    def sanitize(cls, sql: str) -> str:
-        """Basic SQL sanitization (removes comments, normalizes whitespace).
-
-        Note: This is NOT a substitute for parameterized queries.
-        For user input in WHERE clauses, always use parameterized queries.
-        """
-        # Remove SQL comments
-        sql = re.sub(r'--[^\n]*', '', sql)
-        sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)
-
-        # Normalize whitespace
-        sql = ' '.join(sql.split())
-
-        return sql.strip()
 
 
 class AIService:
@@ -119,6 +24,7 @@ class AIService:
         self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = settings.OPENAI_MODEL
 
+    @LifecycleTracker(name="AI.analyze_field_meanings", log_result=False)
     async def analyze_field_meanings(
         self,
         source_id: uuid.UUID,
@@ -219,6 +125,7 @@ Respond in JSON format:
             "results": analysis.get("columns", []),
         }
 
+    @LifecycleTracker(name="AI.suggest_cleaning_rules")
     async def suggest_cleaning_rules(
         self,
         source_id: uuid.UUID,
@@ -320,6 +227,7 @@ Suggest cleaning rules in JSON format:
 
         return stats
 
+    @LifecycleTracker(name="AI.natural_language_to_sql", log_result=False)
     async def natural_language_to_sql(
         self,
         query: str,
@@ -490,6 +398,7 @@ Respond in JSON format:
             "preview": result.get("predictions", [])[:10],
         }
 
+    @LifecycleTracker(name="AI.search_assets")
     async def search_assets(
         self,
         query: str,
@@ -1250,3 +1159,97 @@ Respond in JSON format:
                 "summary": f"AI analysis unavailable: {e}",
                 "recommendations": [],
             }
+
+    async def predict_time_series_enhanced(
+        self,
+        data: list[dict],
+        date_column: str,
+        value_column: str,
+        periods: int = 7,
+        method: str = "auto",
+    ) -> dict[str, Any]:
+        """Predict future values using statistical time series forecasting.
+
+        Uses real ML/statistical methods instead of AI generation for more accuracy.
+
+        Args:
+            data: Historical data points
+            date_column: Name of date/time column
+            value_column: Name of value column to predict
+            periods: Number of future periods to predict
+            method: Forecasting method (auto, moving_average, exponential_smooth, trend)
+        """
+        from app.services.ml_utils import TimeSeriesForecaster
+
+        forecaster = TimeSeriesForecaster()
+        result = forecaster.forecast(
+            data=data,
+            date_column=date_column,
+            value_column=value_column,
+            periods=periods,
+            method=method,
+        )
+
+        return result
+
+    async def detect_anomalies(
+        self,
+        data: list[dict],
+        features: list[str],
+        method: str = "isolation_forest",
+        contamination: float = 0.1,
+    ) -> dict[str, Any]:
+        """Detect anomalies in data using ML algorithms.
+
+        Args:
+            data: Data points to analyze
+            features: Feature columns to use for detection
+            method: Detection method (isolation_forest, statistical)
+            contamination: Expected proportion of outliers
+
+        Returns:
+            Anomaly detection results with flagged anomalies
+        """
+        from app.services.ml_utils import AnomalyDetector
+
+        detector = AnomalyDetector(contamination=contamination)
+        result = detector.detect(
+            data=data,
+            features=features,
+            method=method,
+        )
+
+        return result
+
+    async def cluster_analysis_enhanced(
+        self,
+        data: list[dict],
+        features: list[str],
+        algorithm: str = "kmeans",
+        n_clusters: int = 3,
+        **kwargs,
+    ) -> dict[str, Any]:
+        """Perform clustering analysis using ML algorithms.
+
+        Args:
+            data: Data points to cluster
+            features: Feature columns to use
+            algorithm: Clustering algorithm (kmeans, dbscan)
+            n_clusters: Number of clusters (for KMeans)
+            **kwargs: Additional algorithm parameters
+
+        Returns:
+            Clustering results with assignments and statistics
+        """
+        from app.services.ml_utils import EnhancedClustering
+
+        clusterer = EnhancedClustering()
+        result = clusterer.cluster(
+            data=data,
+            features=features,
+            algorithm=algorithm,
+            n_clusters=n_clusters,
+            **kwargs,
+        )
+
+        return result

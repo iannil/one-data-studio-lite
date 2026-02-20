@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   Card,
@@ -126,7 +126,7 @@ export default function StandardPage() {
   const [suggestForm] = Form.useForm();
   const [complianceForm] = Form.useForm();
 
-  const fetchStandards = async () => {
+  const fetchStandards = useCallback(async () => {
     setLoading(true);
     try {
       const response = await standardsApi.list({
@@ -139,16 +139,16 @@ export default function StandardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterType, filterStatus]);
 
-  const fetchDataSources = async () => {
+  const fetchDataSources = useCallback(async () => {
     try {
       const response = await sourcesApi.list();
       setDataSources(response.data);
     } catch (error) {
       message.error('获取数据源列表失败');
     }
-  };
+  }, []);
 
   const fetchTables = async (sourceId: string) => {
     try {
@@ -162,7 +162,7 @@ export default function StandardPage() {
   useEffect(() => {
     fetchStandards();
     fetchDataSources();
-  }, [filterType, filterStatus]);
+  }, [fetchStandards, fetchDataSources]);
 
   const handleCreate = async (values: Record<string, unknown>) => {
     try {

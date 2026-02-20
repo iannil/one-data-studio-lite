@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   Card,
   Empty,
@@ -18,6 +18,10 @@ import {
   Descriptions,
   Divider,
   Badge,
+  Button,
+  Statistic,
+  Alert,
+  Switch,
 } from 'antd';
 import {
   ApartmentOutlined,
@@ -26,9 +30,13 @@ import {
   ReloadOutlined,
   SearchOutlined,
   FilterOutlined,
-  InfoCircleOutlined,
-  CloseOutlined,
+  AimOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined,
+  NodeExpandOutlined,
+  CompressOutlined,
 } from '@ant-design/icons';
+import { Graph, NodeEvent, GraphEvent } from '@antv/g6';
 
 const { Text, Title } = Typography;
 const { Search } = Input;
@@ -70,6 +78,14 @@ export interface LineageGraphProps {
   showSearch?: boolean;
   showFilter?: boolean;
   showNodeDetail?: boolean;
+  onImpactAnalysis?: (nodeId: string) => Promise<ImpactAnalysisResult | null>;
+}
+
+interface ImpactAnalysisResult {
+  impacted_assets: Array<{ id: string; name: string; type: string }>;
+  impacted_pipelines: Array<{ id: string; name: string; type: string }>;
+  impacted_tasks: Array<{ id: string; name: string; type: string }>;
+  total_impacted: number;
 }
 
 const NODE_TYPE_COLORS: Record<string, string> = {
@@ -95,92 +111,6 @@ const EDGE_TYPE_LABELS: Record<string, string> = {
   depends_on: 'Depends On',
 };
 
-interface NodePosition {
-  x: number;
-  y: number;
-}
-
-const calculateNodePositions = (
-  nodes: LineageNode[],
-  edges: LineageEdge[],
-  width: number,
-  height: number,
-  rootNodeId?: string
-): Map<string, NodePosition> => {
-  const positions = new Map<string, NodePosition>();
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-  const adjacencyList = new Map<string, string[]>();
-  const reverseAdjacencyList = new Map<string, string[]>();
-
-  nodes.forEach(n => {
-    adjacencyList.set(n.id, []);
-    reverseAdjacencyList.set(n.id, []);
-  });
-
-  edges.forEach(e => {
-    if (adjacencyList.has(e.source) && adjacencyList.has(e.target)) {
-      adjacencyList.get(e.source)?.push(e.target);
-      reverseAdjacencyList.get(e.target)?.push(e.source);
-    }
-  });
-
-  const levels = new Map<string, number>();
-  const visited = new Set<string>();
-
-  const assignLevel = (nodeId: string, level: number): void => {
-    if (visited.has(nodeId)) return;
-    visited.add(nodeId);
-
-    const currentLevel = levels.get(nodeId) ?? -1;
-    levels.set(nodeId, Math.max(currentLevel, level));
-
-    adjacencyList.get(nodeId)?.forEach(targetId => {
-      assignLevel(targetId, level + 1);
-    });
-  };
-
-  const rootNodes = nodes.filter(n => {
-    const incoming = reverseAdjacencyList.get(n.id) ?? [];
-    return incoming.length === 0;
-  });
-
-  if (rootNodes.length === 0 && rootNodeId && nodeMap.has(rootNodeId)) {
-    assignLevel(rootNodeId, 0);
-  } else {
-    rootNodes.forEach((n) => assignLevel(n.id, 0));
-  }
-
-  nodes.forEach(n => {
-    if (!levels.has(n.id)) {
-      levels.set(n.id, 0);
-    }
-  });
-
-  const levelGroups = new Map<number, string[]>();
-  levels.forEach((level, nodeId) => {
-    if (!levelGroups.has(level)) {
-      levelGroups.set(level, []);
-    }
-    levelGroups.get(level)!.push(nodeId);
-  });
-
-  const maxLevel = Math.max(...Array.from(levels.values()), 0);
-  const levelWidth = width / (maxLevel + 2);
-
-  levelGroups.forEach((nodeIds, level) => {
-    const levelHeight = height / (nodeIds.length + 1);
-    nodeIds.forEach((nodeId, index) => {
-      positions.set(nodeId, {
-        x: levelWidth * (level + 1),
-        y: levelHeight * (index + 1),
-      });
-    });
-  });
-
-  return positions;
-};
-
 const getConnectedNodes = (
   nodeId: string,
   edges: LineageEdge[],
@@ -204,6 +134,23 @@ const getConnectedNodes = (
   return connected;
 };
 
+const collectDownstreamIds = (
+  startId: string,
+  edges: LineageEdge[],
+  visited: Set<string> = new Set()
+): Set<string> => {
+  if (visited.has(startId)) return visited;
+  visited.add(startId);
+
+  edges.forEach(edge => {
+    if (edge.source === startId && !visited.has(edge.target)) {
+      collectDownstreamIds(edge.target, edges, visited);
+    }
+  });
+
+  return visited;
+};
+
 export default function LineageGraph({
   data,
   loading = false,
@@ -215,17 +162,26 @@ export default function LineageGraph({
   showSearch = true,
   showFilter = true,
   showNodeDetail = true,
+  onImpactAnalysis,
 }: LineageGraphProps) {
-  const [zoom, setZoom] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const graphRef = useRef<Graph | null>(null);
+
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [detailNode, setDetailNode] = useState<LineageNode | null>(null);
+  const [impactMode, setImpactMode] = useState(false);
+  const [impactNodeIds, setImpactNodeIds] = useState<Set<string>>(new Set());
+  const [impactStats, setImpactStats] = useState<ImpactAnalysisResult | null>(null);
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [graphReady, setGraphReady] = useState(false);
 
-  const svgWidth = 800;
-  const svgHeight = height - 100;
+  const graphHeight = isFullscreen ? window.innerHeight - 200 : height - 100;
 
   const availableTypes = useMemo(() => {
     const types = new Set(data.nodes.map(n => n.type));
@@ -266,18 +222,277 @@ export default function LineageGraph({
     );
   }, [filteredData.nodes, searchKeyword]);
 
-  const nodePositions = useMemo(() => {
-    if (!filteredData.nodes.length) return new Map<string, NodePosition>();
-    return calculateNodePositions(
-      filteredData.nodes,
-      filteredData.edges,
-      svgWidth,
-      svgHeight,
-      filteredData.root_node_id
-    );
-  }, [filteredData.nodes, filteredData.edges, filteredData.root_node_id, svgWidth, svgHeight]);
+  const transformDataForG6 = useCallback(() => {
+    const nodeMap = new Map(filteredData.nodes.map(n => [n.id, n]));
 
-  const handleNodeClick = useCallback((node: LineageNode) => {
+    const visibleNodeIds = new Set<string>();
+    filteredData.nodes.forEach(n => {
+      if (!collapsedNodes.has(n.id)) {
+        visibleNodeIds.add(n.id);
+      } else {
+        visibleNodeIds.add(n.id);
+      }
+    });
+
+    const hiddenByCollapse = new Set<string>();
+    collapsedNodes.forEach(collapsedId => {
+      const downstreamIds = collectDownstreamIds(collapsedId, filteredData.edges);
+      downstreamIds.forEach(id => {
+        if (id !== collapsedId) {
+          hiddenByCollapse.add(id);
+        }
+      });
+    });
+
+    const finalVisibleIds = new Set(
+      Array.from(visibleNodeIds).filter(id => !hiddenByCollapse.has(id))
+    );
+
+    const nodes = filteredData.nodes
+      .filter(n => finalVisibleIds.has(n.id))
+      .map(node => {
+        const isRoot = node.id === filteredData.root_node_id;
+        const isSelected = selectedNode === node.id;
+        const isMatched = matchedNodeIds.has(node.id);
+        const isImpacted = impactMode && impactNodeIds.has(node.id);
+        const isCollapsed = collapsedNodes.has(node.id);
+        const dimmed = searchKeyword.trim() && !isMatched;
+        const hasChildren = filteredData.edges.some(e => e.source === node.id);
+
+        const baseColor = NODE_TYPE_COLORS[node.type] || '#8c8c8c';
+
+        return {
+          id: node.id,
+          data: {
+            originalNode: node,
+            label: node.name.length > 12 ? node.name.slice(0, 12) + '...' : node.name,
+            fullLabel: node.name,
+            nodeType: node.type,
+            typeLabel: NODE_TYPE_LABELS[node.type] || node.type,
+            isRoot,
+            isSelected,
+            isMatched,
+            isImpacted,
+            isCollapsed,
+            hasChildren,
+          },
+          style: {
+            fill: baseColor,
+            stroke: isSelected
+              ? '#1890ff'
+              : isMatched
+                ? '#faad14'
+                : isImpacted
+                  ? '#ff4d4f'
+                  : isRoot
+                    ? '#faad14'
+                    : '#fff',
+            lineWidth: isSelected || isMatched || isImpacted || isRoot ? 4 : 2,
+            opacity: dimmed ? 0.4 : impactMode && !isImpacted && selectedNode !== node.id ? 0.3 : 1,
+            cursor: 'pointer' as const,
+            labelText: node.name.length > 12 ? node.name.slice(0, 12) + '...' : node.name,
+            labelFill: '#fff',
+            labelFontSize: 11,
+            labelFontWeight: 'bold' as const,
+            badges: isCollapsed && hasChildren
+              ? [{ text: '+', position: 'right-bottom', fill: '#52c41a' }]
+              : [],
+          },
+        };
+      });
+
+    const edges = filteredData.edges
+      .filter(e => finalVisibleIds.has(e.source) && finalVisibleIds.has(e.target))
+      .map(edge => {
+        const isHighlighted = selectedNode &&
+          (edge.source === selectedNode || edge.target === selectedNode);
+        const isImpactPath = impactMode &&
+          impactNodeIds.has(edge.source) &&
+          impactNodeIds.has(edge.target);
+
+        return {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          data: {
+            originalEdge: edge,
+            edgeType: edge.type,
+            description: edge.description,
+          },
+          style: {
+            stroke: isImpactPath
+              ? '#ff4d4f'
+              : isHighlighted
+                ? '#1890ff'
+                : '#8c8c8c',
+            lineWidth: isImpactPath ? 3 : isHighlighted ? 2 : 1,
+            opacity: impactMode && !isImpactPath ? 0.2 : 1,
+            endArrow: true,
+            endArrowSize: 8,
+            labelText: EDGE_TYPE_LABELS[edge.type] || edge.type,
+            labelFontSize: 10,
+            labelFill: isHighlighted ? '#1890ff' : '#8c8c8c',
+            labelBackground: true,
+            labelBackgroundFill: '#fff',
+            labelBackgroundOpacity: 0.8,
+            labelBackgroundLineWidth: 0,
+            labelBackgroundRadius: 2,
+          },
+        };
+      });
+
+    return { nodes, edges };
+  }, [
+    filteredData,
+    selectedNode,
+    matchedNodeIds,
+    searchKeyword,
+    impactMode,
+    impactNodeIds,
+    collapsedNodes,
+  ]);
+
+  useEffect(() => {
+    if (viewMode !== 'graph' || !containerRef.current || !filteredData.nodes.length) {
+      return;
+    }
+
+    const g6Data = transformDataForG6();
+
+    if (!graphRef.current) {
+      const graph = new Graph({
+        container: containerRef.current,
+        width: containerRef.current.clientWidth,
+        height: graphHeight,
+        autoFit: 'view',
+        padding: [40, 40, 40, 40],
+        layout: {
+          type: 'dagre',
+          rankdir: 'LR',
+          nodesep: 50,
+          ranksep: 80,
+        },
+        node: {
+          type: 'circle',
+          style: {
+            size: 60,
+          },
+        },
+        edge: {
+          type: 'polyline',
+          style: {
+            radius: 10,
+          },
+        },
+        behaviors: [
+          'drag-canvas',
+          'zoom-canvas',
+          'drag-element',
+          'click-select',
+        ],
+        plugins: [
+          {
+            type: 'minimap',
+            key: 'minimap',
+            position: 'right-bottom',
+            size: [150, 100],
+          },
+          {
+            type: 'tooltip',
+            key: 'tooltip',
+            getContent: (e: any, items: any[]) => {
+              if (!items.length) return '';
+              const item = items[0];
+              if (item.data?.originalNode) {
+                const node = item.data.originalNode;
+                return `
+                  <div style="padding: 8px; max-width: 200px;">
+                    <div style="font-weight: bold;">${node.name}</div>
+                    <div style="color: #8c8c8c; font-size: 12px;">${NODE_TYPE_LABELS[node.type] || node.type}</div>
+                    ${node.description ? `<div style="margin-top: 4px; font-size: 12px;">${node.description}</div>` : ''}
+                  </div>
+                `;
+              }
+              return '';
+            },
+          },
+        ],
+        animation: true,
+      });
+
+      graph.on(NodeEvent.CLICK, (e: any) => {
+        const nodeId = e.target?.id;
+        if (nodeId) {
+          const nodeData = filteredData.nodes.find(n => n.id === nodeId);
+          if (nodeData) {
+            handleNodeClickInternal(nodeData);
+          }
+        }
+      });
+
+      graph.on(NodeEvent.DBLCLICK, (e: any) => {
+        const nodeId = e.target?.id;
+        if (nodeId) {
+          handleToggleCollapse(nodeId);
+        }
+      });
+
+      graph.on(GraphEvent.AFTER_RENDER, () => {
+        const zoom = graph.getZoom();
+        setZoomLevel(Math.round(zoom * 100));
+        setGraphReady(true);
+      });
+
+      graphRef.current = graph;
+    }
+
+    const graph = graphRef.current;
+    graph.setData(g6Data);
+    graph.render().catch((err: Error) => {
+      console.error('Graph render error:', err);
+    });
+
+    return () => {
+      // Cleanup handled by component unmount
+    };
+  }, [viewMode, filteredData.nodes.length, graphHeight, transformDataForG6]);
+
+  useEffect(() => {
+    if (graphRef.current && viewMode === 'graph' && graphReady) {
+      const g6Data = transformDataForG6();
+      graphRef.current.setData(g6Data);
+      graphRef.current.draw().catch((err: Error) => {
+        console.error('Graph draw error:', err);
+      });
+    }
+  }, [
+    transformDataForG6,
+    viewMode,
+    selectedNode,
+    searchKeyword,
+    impactMode,
+    impactNodeIds,
+    collapsedNodes,
+    graphReady,
+  ]);
+
+  useEffect(() => {
+    if (graphRef.current && containerRef.current) {
+      graphRef.current.setSize(containerRef.current.clientWidth, graphHeight);
+    }
+  }, [graphHeight, isFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (graphRef.current) {
+        graphRef.current.destroy();
+        graphRef.current = null;
+        setGraphReady(false);
+      }
+    };
+  }, []);
+
+  const handleNodeClickInternal = useCallback((node: LineageNode) => {
     const newSelectedId = node.id === selectedNode ? null : node.id;
     setSelectedNode(newSelectedId);
     onNodeClick?.(node);
@@ -287,6 +502,7 @@ export default function LineageGraph({
       setDetailDrawerOpen(true);
       onNodeSelect?.(node);
     } else {
+      setDetailDrawerOpen(false);
       onNodeSelect?.(null);
     }
   }, [selectedNode, onNodeClick, onNodeSelect, showNodeDetail]);
@@ -297,12 +513,90 @@ export default function LineageGraph({
     onNodeSelect?.(null);
   }, [onNodeSelect]);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 2));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5));
-  const handleReset = () => setZoom(1);
+  const handleToggleCollapse = useCallback((nodeId: string) => {
+    setCollapsedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleImpactAnalysis = useCallback(async (nodeId: string) => {
+    if (!onImpactAnalysis) {
+      const downstreamIds = collectDownstreamIds(nodeId, filteredData.edges);
+      setImpactNodeIds(downstreamIds);
+      setImpactMode(true);
+      setImpactStats({
+        impacted_assets: [],
+        impacted_pipelines: [],
+        impacted_tasks: [],
+        total_impacted: downstreamIds.size - 1,
+      });
+      return;
+    }
+
+    const result = await onImpactAnalysis(nodeId);
+    if (result) {
+      const impactedIds = new Set<string>([nodeId]);
+      result.impacted_assets.forEach(a => impactedIds.add(a.id));
+      result.impacted_pipelines.forEach(p => impactedIds.add(p.id));
+      result.impacted_tasks.forEach(t => impactedIds.add(t.id));
+      setImpactNodeIds(impactedIds);
+      setImpactStats(result);
+      setImpactMode(true);
+    }
+  }, [onImpactAnalysis, filteredData.edges]);
+
+  const handleExitImpactMode = useCallback(() => {
+    setImpactMode(false);
+    setImpactNodeIds(new Set());
+    setImpactStats(null);
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    if (graphRef.current) {
+      const currentZoom = graphRef.current.getZoom();
+      graphRef.current.zoomTo(Math.min(currentZoom * 1.2, 3));
+      setZoomLevel(Math.round(graphRef.current.getZoom() * 100));
+    }
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    if (graphRef.current) {
+      const currentZoom = graphRef.current.getZoom();
+      graphRef.current.zoomTo(Math.max(currentZoom / 1.2, 0.3));
+      setZoomLevel(Math.round(graphRef.current.getZoom() * 100));
+    }
+  }, []);
+
+  const handleReset = useCallback(() => {
+    if (graphRef.current) {
+      graphRef.current.fitView();
+      setZoomLevel(100);
+    }
+  }, []);
+
+  const handleFocusNode = useCallback((nodeId: string) => {
+    if (graphRef.current) {
+      graphRef.current.focusElement(nodeId);
+    }
+  }, []);
 
   const handleSearch = (value: string) => {
     setSearchKeyword(value);
+    if (value.trim() && graphRef.current) {
+      const matchedNodes = filteredData.nodes.filter(n =>
+        n.name.toLowerCase().includes(value.toLowerCase()) ||
+        n.description?.toLowerCase().includes(value.toLowerCase())
+      );
+      if (matchedNodes.length > 0) {
+        handleFocusNode(matchedNodes[0].id);
+      }
+    }
   };
 
   const handleFilterChange = (types: string[]) => {
@@ -379,167 +673,91 @@ export default function LineageGraph({
     </Row>
   );
 
+  const renderImpactPanel = () => {
+    if (!impactMode || !impactStats) return null;
+
+    return (
+      <Alert
+        type="warning"
+        showIcon
+        icon={<AimOutlined />}
+        message={
+          <Space>
+            <span>Impact Analysis Mode</span>
+            <Tag color="red">{impactStats.total_impacted} items impacted</Tag>
+          </Space>
+        }
+        description={
+          <Row gutter={16} style={{ marginTop: 8 }}>
+            <Col span={8}>
+              <Statistic
+                title="Impacted Assets"
+                value={impactStats.impacted_assets.length}
+                valueStyle={{ fontSize: 16 }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title="Impacted Pipelines"
+                value={impactStats.impacted_pipelines.length}
+                valueStyle={{ fontSize: 16 }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title="Impacted Tasks"
+                value={impactStats.impacted_tasks.length}
+                valueStyle={{ fontSize: 16 }}
+              />
+            </Col>
+          </Row>
+        }
+        action={
+          <Button size="small" onClick={handleExitImpactMode}>
+            Exit Impact Mode
+          </Button>
+        }
+        style={{ marginBottom: 16 }}
+      />
+    );
+  };
+
   const renderGraph = () => (
-    <svg
-      width="100%"
-      height={svgHeight}
-      viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-      style={{ background: '#fafafa', borderRadius: 8 }}
-    >
-      <defs>
-        <marker
-          id="arrowhead"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
-          orient="auto"
-        >
-          <polygon points="0 0, 10 3.5, 0 7" fill="#8c8c8c" />
-        </marker>
-        <marker
-          id="arrowhead-highlight"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
-          orient="auto"
-        >
-          <polygon points="0 0, 10 3.5, 0 7" fill="#1890ff" />
-        </marker>
-      </defs>
-
-      <g transform={`scale(${zoom})`}>
-        {filteredData.edges.map(edge => {
-          const sourcePos = nodePositions.get(edge.source);
-          const targetPos = nodePositions.get(edge.target);
-          if (!sourcePos || !targetPos) return null;
-
-          const nodeRadius = 30;
-          const dx = targetPos.x - sourcePos.x;
-          const dy = targetPos.y - sourcePos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance === 0) return null;
-
-          const offsetX = (dx / distance) * nodeRadius;
-          const offsetY = (dy / distance) * nodeRadius;
-
-          const isHighlighted =
-            selectedNode &&
-            (edge.source === selectedNode || edge.target === selectedNode);
-
-          return (
-            <g key={edge.id}>
-              <line
-                x1={sourcePos.x + offsetX}
-                y1={sourcePos.y + offsetY}
-                x2={targetPos.x - offsetX}
-                y2={targetPos.y - offsetY}
-                stroke={isHighlighted ? '#1890ff' : '#8c8c8c'}
-                strokeWidth={isHighlighted ? 3 : 2}
-                markerEnd={isHighlighted ? 'url(#arrowhead-highlight)' : 'url(#arrowhead)'}
-              />
-              {edge.description && (
-                <text
-                  x={(sourcePos.x + targetPos.x) / 2}
-                  y={(sourcePos.y + targetPos.y) / 2 - 5}
-                  fontSize={10}
-                  fill={isHighlighted ? '#1890ff' : '#8c8c8c'}
-                  textAnchor="middle"
-                >
-                  {EDGE_TYPE_LABELS[edge.type] || edge.type}
-                </text>
-              )}
-            </g>
-          );
-        })}
-
-        {filteredData.nodes.map(node => {
-          const pos = nodePositions.get(node.id);
-          if (!pos) return null;
-
-          const isSelected = selectedNode === node.id;
-          const isRoot = node.id === filteredData.root_node_id;
-          const isMatched = matchedNodeIds.has(node.id);
-          const nodeColor = NODE_TYPE_COLORS[node.type] || '#8c8c8c';
-
-          const dimmed = searchKeyword.trim() && !isMatched;
-
-          return (
-            <g
-              key={node.id}
-              transform={`translate(${pos.x}, ${pos.y})`}
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleNodeClick(node)}
-            >
-              {isMatched && (
-                <circle
-                  r={38}
-                  fill="none"
-                  stroke="#faad14"
-                  strokeWidth={3}
-                  strokeDasharray="4 2"
-                >
-                  <animate
-                    attributeName="r"
-                    values="35;40;35"
-                    dur="1.5s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              )}
-              <circle
-                r={30}
-                fill={nodeColor}
-                stroke={isSelected ? '#1890ff' : isRoot ? '#faad14' : 'white'}
-                strokeWidth={isSelected || isRoot ? 4 : 2}
-                opacity={dimmed ? 0.4 : 0.9}
-              />
-              <text
-                y={4}
-                fontSize={11}
-                fill="white"
-                textAnchor="middle"
-                fontWeight="bold"
-                opacity={dimmed ? 0.5 : 1}
-              >
-                {node.name.length > 8 ? node.name.slice(0, 8) + '...' : node.name}
-              </text>
-              <text
-                y={45}
-                fontSize={10}
-                fill={dimmed ? '#bfbfbf' : '#595959'}
-                textAnchor="middle"
-              >
-                {NODE_TYPE_LABELS[node.type] || node.type}
-              </text>
-            </g>
-          );
-        })}
-      </g>
-    </svg>
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: graphHeight,
+        background: '#fafafa',
+        borderRadius: 8,
+        position: 'relative',
+      }}
+    />
   );
 
   const renderList = () => (
-    <div style={{ maxHeight: svgHeight, overflow: 'auto' }}>
+    <div style={{ maxHeight: graphHeight, overflow: 'auto' }}>
       <Space direction="vertical" style={{ width: '100%' }} size="small">
         {filteredData.nodes.map(node => {
           const isMatched = matchedNodeIds.has(node.id);
           const dimmed = searchKeyword.trim() && !isMatched;
+          const isImpacted = impactMode && impactNodeIds.has(node.id);
 
           return (
             <Card
               key={node.id}
               size="small"
               hoverable
-              onClick={() => handleNodeClick(node)}
+              onClick={() => handleNodeClickInternal(node)}
               style={{
-                borderLeft: `4px solid ${NODE_TYPE_COLORS[node.type] || '#8c8c8c'}`,
+                borderLeft: `4px solid ${isImpacted ? '#ff4d4f' : NODE_TYPE_COLORS[node.type] || '#8c8c8c'}`,
                 background: selectedNode === node.id
                   ? '#e6f7ff'
                   : isMatched
                     ? '#fffbe6'
-                    : undefined,
+                    : isImpacted
+                      ? '#fff1f0'
+                      : undefined,
                 opacity: dimmed ? 0.5 : 1,
               }}
             >
@@ -553,6 +771,7 @@ export default function LineageGraph({
                     <Tag color="gold">Root</Tag>
                   )}
                   {isMatched && <Tag color="orange">Match</Tag>}
+                  {isImpacted && <Tag color="red">Impacted</Tag>}
                 </Space>
                 {node.description && (
                   <Text type="secondary" style={{ fontSize: 12 }}>
@@ -594,9 +813,18 @@ export default function LineageGraph({
         open={detailDrawerOpen}
         onClose={handleCloseDetail}
         extra={
-          <Tag color={NODE_TYPE_COLORS[detailNode.type]}>
-            {NODE_TYPE_LABELS[detailNode.type] || detailNode.type}
-          </Tag>
+          <Space>
+            <Tooltip title="Impact Analysis">
+              <Button
+                type="text"
+                icon={<AimOutlined />}
+                onClick={() => handleImpactAnalysis(detailNode.id)}
+              />
+            </Tooltip>
+            <Tag color={NODE_TYPE_COLORS[detailNode.type]}>
+              {NODE_TYPE_LABELS[detailNode.type] || detailNode.type}
+            </Tag>
+          </Space>
         }
       >
         <Descriptions column={1} size="small">
@@ -649,7 +877,8 @@ export default function LineageGraph({
                   hoverable
                   onClick={() => {
                     handleCloseDetail();
-                    handleNodeClick(node);
+                    handleNodeClickInternal(node);
+                    handleFocusNode(node.id);
                   }}
                   style={{
                     borderLeft: `3px solid ${NODE_TYPE_COLORS[node.type] || '#8c8c8c'}`,
@@ -686,7 +915,8 @@ export default function LineageGraph({
                   hoverable
                   onClick={() => {
                     handleCloseDetail();
-                    handleNodeClick(node);
+                    handleNodeClickInternal(node);
+                    handleFocusNode(node.id);
                   }}
                   style={{
                     borderLeft: `3px solid ${NODE_TYPE_COLORS[node.type] || '#8c8c8c'}`,
@@ -705,6 +935,24 @@ export default function LineageGraph({
         ) : (
           <Text type="secondary">No downstream nodes</Text>
         )}
+
+        <Divider />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button
+            block
+            icon={<AimOutlined />}
+            onClick={() => handleImpactAnalysis(detailNode.id)}
+          >
+            Analyze Impact
+          </Button>
+          <Button
+            block
+            icon={collapsedNodes.has(detailNode.id) ? <NodeExpandOutlined /> : <CompressOutlined />}
+            onClick={() => handleToggleCollapse(detailNode.id)}
+          >
+            {collapsedNodes.has(detailNode.id) ? 'Expand Children' : 'Collapse Children'}
+          </Button>
+        </Space>
       </Drawer>
     );
   };
@@ -720,6 +968,9 @@ export default function LineageGraph({
           </Text>
           {searchKeyword && matchedNodeIds.size > 0 && (
             <Tag color="orange">{matchedNodeIds.size} matches</Tag>
+          )}
+          {impactMode && (
+            <Tag color="red">Impact Mode</Tag>
           )}
         </Space>
       }
@@ -740,25 +991,40 @@ export default function LineageGraph({
                 <Tooltip title="Zoom Out">
                   <ZoomOutOutlined onClick={handleZoomOut} style={{ cursor: 'pointer' }} />
                 </Tooltip>
-                <Text type="secondary">{Math.round(zoom * 100)}%</Text>
+                <Text type="secondary">{zoomLevel}%</Text>
                 <Tooltip title="Zoom In">
                   <ZoomInOutlined onClick={handleZoomIn} style={{ cursor: 'pointer' }} />
                 </Tooltip>
-                <Tooltip title="Reset">
+                <Tooltip title="Fit View">
                   <ReloadOutlined onClick={handleReset} style={{ cursor: 'pointer' }} />
+                </Tooltip>
+                <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+                  {isFullscreen ? (
+                    <FullscreenExitOutlined
+                      onClick={() => setIsFullscreen(false)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  ) : (
+                    <FullscreenOutlined
+                      onClick={() => setIsFullscreen(true)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  )}
                 </Tooltip>
               </>
             )}
           </Space>
         )
       }
+      style={isFullscreen ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 } : undefined}
     >
       {(showSearch || showFilter) && renderSearchAndFilter()}
+      {renderImpactPanel()}
 
       {viewMode === 'graph' ? renderGraph() : renderList()}
 
       {/* Legend */}
-      <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
         {Object.entries(NODE_TYPE_COLORS).map(([type, color]) => (
           <Space key={type} size={4}>
             <div
@@ -774,6 +1040,10 @@ export default function LineageGraph({
             </Text>
           </Space>
         ))}
+        <Divider type="vertical" />
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Double-click to expand/collapse
+        </Text>
       </div>
 
       {showNodeDetail && renderNodeDetail()}

@@ -154,3 +154,133 @@ async def _run_clustering(
         results=results,
         metrics={"n_clusters": n_clusters, "total_samples": len(df)},
     )
+
+
+# Enhanced ML endpoints
+
+@router.post("/forecast")
+async def forecast_time_series(
+    request: PredictionRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Forecast time series using statistical ML methods."""
+    import uuid
+    from sqlalchemy import select
+    from app.models import DataSource
+    from app.connectors import get_connector
+
+    source_result = await db.execute(select(DataSource).limit(1))
+    source = source_result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="No data source found")
+
+    connector = get_connector(source.type, source.connection_config)
+    df = await connector.read_data(table_name=request.source_table, limit=1000)
+
+    # Prepare data
+    date_col = None
+    for col in df.columns:
+        if "date" in col.lower() or "time" in col.lower():
+            date_col = col
+            break
+
+    if not date_col:
+        date_col = df.columns[0]
+
+    value_col = request.target_column or df.select_dtypes(include=["number"]).columns[0]
+
+    data = df[[date_col, value_col]].dropna().head(100).to_dict(orient="records")
+
+    ai_service = AIService(db)
+    result = await ai_service.predict_time_series_enhanced(
+        data=data,
+        date_column=date_col,
+        value_column=value_col,
+        periods=request.config.get("periods", 7),
+        method=request.config.get("method", "auto"),
+    )
+
+    return {
+        "forecast_id": str(uuid.uuid4()),
+        **result,
+    }
+
+
+@router.post("/anomalies")
+async def detect_anomalies(
+    request: PredictionRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Detect anomalies in data using Isolation Forest."""
+    import uuid
+    from sqlalchemy import select
+    from app.models import DataSource
+    from app.connectors import get_connector
+
+    source_result = await db.execute(select(DataSource).limit(1))
+    source = source_result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="No data source found")
+
+    connector = get_connector(source.type, source.connection_config)
+    df = await connector.read_data(table_name=request.source_table, limit=5000)
+
+    features = request.config.get("features", df.select_dtypes(include=["number"]).columns.tolist()[:5])
+
+    data = df[features].fillna(0).head(1000).to_dict(orient="records")
+
+    ai_service = AIService(db)
+    result = await ai_service.detect_anomalies(
+        data=data,
+        features=features,
+        method=request.config.get("method", "isolation_forest"),
+        contamination=request.config.get("contamination", 0.1),
+    )
+
+    return {
+        "analysis_id": str(uuid.uuid4()),
+        **result,
+    }
+
+
+@router.post("/cluster-enhanced")
+async def cluster_analysis_enhanced(
+    request: PredictionRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """Enhanced clustering analysis with multiple algorithms."""
+    import uuid
+    from sqlalchemy import select
+    from app.models import DataSource
+    from app.connectors import get_connector
+
+    source_result = await db.execute(select(DataSource).limit(1))
+    source = source_result.scalar_one_or_none()
+
+    if not source:
+        raise HTTPException(status_code=404, detail="No data source found")
+
+    connector = get_connector(source.type, source.connection_config)
+    df = await connector.read_data(table_name=request.source_table, limit=5000)
+
+    features = request.config.get("features", df.select_dtypes(include=["number"]).columns.tolist()[:5])
+
+    data = df[features].fillna(0).head(1000).to_dict(orient="records")
+
+    ai_service = AIService(db)
+    result = await ai_service.cluster_analysis_enhanced(
+        data=data,
+        features=features,
+        algorithm=request.config.get("algorithm", "kmeans"),
+        n_clusters=request.config.get("n_clusters", 3),
+    )
+
+    return {
+        "analysis_id": str(uuid.uuid4()),
+        **result,
+    }

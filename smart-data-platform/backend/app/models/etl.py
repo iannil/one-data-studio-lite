@@ -28,7 +28,9 @@ class ETLStepType(str, enum.Enum):
     JOIN = "join"
     CALCULATE = "calculate"
     FILL_MISSING = "fill_missing"
+    AI_FILL_MISSING = "ai_fill_missing"  # ML-based missing value prediction
     MASK = "mask"
+    AUTO_MASK = "auto_mask"  # AI-detected sensitive field masking
     RENAME = "rename"
     TYPE_CAST = "type_cast"
     AGGREGATE = "aggregate"

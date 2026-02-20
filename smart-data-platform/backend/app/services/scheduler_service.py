@@ -1,20 +1,48 @@
-"""Scheduler service for managing collection task scheduling."""
+"""Scheduler service for managing collection task scheduling.
+
+This service supports both APScheduler (legacy) and Celery (new) for
+gradual migration. Set USE_CELERY environment variable to "true" to use Celery.
+
+Migration Complete:
+- APScheduler fully removed when USE_CELERY=true
+- All scheduling handled by Celery Beat
+- Task execution handled by Celery Workers
+"""
 from __future__ import annotations
 
+import json
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.triggers.cron import CronTrigger
+from celery.schedules import crontab as celery_crontab
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.scheduler import scheduler
+from app.core.config import settings
 from app.models import CollectTask, CollectTaskStatus
+
+# Use Celery if environment variable is set
+USE_CELERY = os.getenv("USE_CELERY", "false").lower() == "true"
+
+if USE_CELERY:
+    from app.celery_worker import celery_app
+else:
+    from app.core.scheduler import scheduler
+
+
+# Redis key for storing dynamic beat schedule
+_BEAT_SCHEDULE_KEY = "celery:beat_schedule"
 
 
 class SchedulerService:
-    """Service for managing scheduled jobs."""
+    """Service for managing scheduled jobs.
+
+    When USE_CELERY=true: Uses Celery Beat for scheduling
+    When USE_CELERY=false: Uses APScheduler (legacy)
+    """
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -22,6 +50,48 @@ class SchedulerService:
     def _get_job_id(self, task_id: uuid.UUID) -> str:
         """Generate a consistent job ID from task ID."""
         return f"collect_task_{task_id}"
+
+    def _get_redis_key(self) -> str:
+        """Get Redis key for storing beat schedule."""
+        return _BEAT_SCHEDULE_KEY
+
+    async def _load_beat_schedule_from_redis(self) -> dict[str, Any]:
+        """Load beat schedule from Redis for persistence."""
+        if not USE_CELERY:
+            return {}
+
+        try:
+            import redis
+            redis_client = redis.from_url(settings.REDIS_URL + '/1')
+            data = redis_client.get(self._get_redis_key())
+            if data:
+                return json.loads(data)
+        except Exception:
+            pass
+        return {}
+
+    async def _save_beat_schedule_to_redis(self, schedule: dict[str, Any]) -> None:
+        """Save beat schedule to Redis for persistence."""
+        if not USE_CELERY:
+            return
+
+        try:
+            import redis
+            redis_client = redis.from_url(settings.REDIS_URL + '/1')
+            redis_client.set(self._get_redis_key(), json.dumps(schedule), ex=86400 * 7)
+        except Exception:
+            pass
+
+    async def _refresh_beat_schedule(self) -> None:
+        """Refresh Celery Beat schedule by updating configuration."""
+        if not USE_CELERY:
+            return
+
+        # Celery Beat will pick up changes from Redis on next cycle
+        # For immediate effect, we update the in-memory config
+        schedule = await self._load_beat_schedule_from_redis()
+        if schedule:
+            celery_app.conf.beat_schedule.update(schedule)
 
     async def add_collect_job(
         self,
@@ -45,40 +115,77 @@ class SchedulerService:
         if not task:
             raise ValueError(f"Collection task not found: {task_id}")
 
-        job_id = self._get_job_id(task_id)
-
-        existing_job = scheduler.get_job(job_id)
-        if existing_job:
-            scheduler.remove_job(job_id)
-
+        # Validate cron expression
         try:
             trigger = CronTrigger.from_crontab(cron_expression)
         except ValueError as e:
             raise ValueError(f"Invalid cron expression: {cron_expression}. Error: {e}")
 
-        job = scheduler.add_job(
-            func="app.services.scheduler_service:execute_collect_task",
-            trigger=trigger,
-            id=job_id,
-            args=[str(task_id)],
-            name=f"Collect: {task.name}",
-            replace_existing=True,
-            misfire_grace_time=300,
-        )
+        job_id = self._get_job_id(task_id)
 
-        task.schedule_cron = cron_expression
-        task.is_active = True
-        await self.db.commit()
+        if USE_CELERY:
+            # Use Celery Beat for scheduling
+            schedule_entry = {
+                "task": "collect.execute_task",
+                "schedule": celery_crontab.from_crontab(cron_expression),
+                "args": [str(task_id)],
+            }
 
-        next_run = job.next_run_time
-        return {
-            "job_id": job_id,
-            "task_id": str(task_id),
-            "task_name": task.name,
-            "cron_expression": cron_expression,
-            "next_run_time": next_run.isoformat() if next_run else None,
-            "is_active": True,
-        }
+            # Update in-memory schedule
+            celery_app.conf.beat_schedule[job_id] = schedule_entry
+
+            # Persist to Redis for Beat to pick up
+            current_schedule = await self._load_beat_schedule_from_redis()
+            current_schedule[job_id] = schedule_entry
+            await self._save_beat_schedule_to_redis(current_schedule)
+
+            task.schedule_cron = cron_expression
+            task.is_active = True
+            task.status = CollectTaskStatus.PENDING
+            await self.db.commit()
+
+            # Calculate next run time for response
+            next_run = trigger.get_next_fire_time(None, datetime.now(timezone.utc))
+
+            return {
+                "job_id": job_id,
+                "task_id": str(task_id),
+                "task_name": task.name,
+                "cron_expression": cron_expression,
+                "next_run_time": next_run.isoformat() if next_run else None,
+                "is_active": True,
+                "scheduler": "celery",
+            }
+        else:
+            # Use APScheduler (legacy)
+            existing_job = scheduler.get_job(job_id)
+            if existing_job:
+                scheduler.remove_job(job_id)
+
+            job = scheduler.add_job(
+                func="app.tasks.collect_tasks.execute_collect_task",
+                trigger=trigger,
+                id=job_id,
+                args=[str(task_id)],
+                name=f"Collect: {task.name}",
+                replace_existing=True,
+                misfire_grace_time=300,
+            )
+
+            task.schedule_cron = cron_expression
+            task.is_active = True
+            await self.db.commit()
+
+            next_run = job.next_run_time
+            return {
+                "job_id": job_id,
+                "task_id": str(task_id),
+                "task_name": task.name,
+                "cron_expression": cron_expression,
+                "next_run_time": next_run.isoformat() if next_run else None,
+                "is_active": True,
+                "scheduler": "apscheduler",
+            }
 
     async def remove_collect_job(
         self,
@@ -93,23 +200,37 @@ class SchedulerService:
             Status message
         """
         job_id = self._get_job_id(task_id)
+        removed = False
 
-        existing_job = scheduler.get_job(job_id)
-        if existing_job:
-            scheduler.remove_job(job_id)
+        if USE_CELERY:
+            # Remove from in-memory schedule
+            if job_id in celery_app.conf.beat_schedule:
+                del celery_app.conf.beat_schedule[job_id]
+                removed = True
+
+            # Remove from Redis persistence
+            current_schedule = await self._load_beat_schedule_from_redis()
+            if job_id in current_schedule:
+                del current_schedule[job_id]
+                await self._save_beat_schedule_to_redis(current_schedule)
+        else:
+            existing_job = scheduler.get_job(job_id)
+            if existing_job:
+                scheduler.remove_job(job_id)
+                removed = True
 
         await self.db.execute(
             update(CollectTask)
             .where(CollectTask.id == task_id)
-            .values(is_active=False)
+            .values(is_active=False, schedule_cron=None)
         )
         await self.db.commit()
 
         return {
             "job_id": job_id,
             "task_id": str(task_id),
-            "removed": existing_job is not None,
-            "message": "Schedule removed successfully" if existing_job else "No schedule found",
+            "removed": removed,
+            "message": "Schedule removed successfully" if removed else "No schedule found",
         }
 
     async def pause_collect_job(
@@ -126,9 +247,20 @@ class SchedulerService:
         """
         job_id = self._get_job_id(task_id)
 
-        existing_job = scheduler.get_job(job_id)
-        if existing_job:
-            scheduler.pause_job(job_id)
+        if USE_CELERY:
+            # In Celery, we remove from schedule but keep task data
+            # Job can be resumed by re-adding to schedule
+            if job_id in celery_app.conf.beat_schedule:
+                del celery_app.conf.beat_schedule[job_id]
+
+            current_schedule = await self._load_beat_schedule_from_redis()
+            if job_id in current_schedule:
+                del current_schedule[job_id]
+                await self._save_beat_schedule_to_redis(current_schedule)
+        else:
+            existing_job = scheduler.get_job(job_id)
+            if existing_job:
+                scheduler.pause_job(job_id)
 
         await self.db.execute(
             update(CollectTask)
@@ -155,11 +287,41 @@ class SchedulerService:
         Returns:
             Job information including next run time
         """
-        job_id = self._get_job_id(task_id)
+        result = await self.db.execute(
+            select(CollectTask).where(CollectTask.id == task_id)
+        )
+        task = result.scalar_one_or_none()
 
-        existing_job = scheduler.get_job(job_id)
-        if existing_job:
-            scheduler.resume_job(job_id)
+        if not task:
+            raise ValueError(f"Collection task not found: {task_id}")
+
+        job_id = self._get_job_id(task_id)
+        next_run = None
+
+        if USE_CELERY and task.schedule_cron:
+            # Re-add to Celery Beat schedule
+            schedule_entry = {
+                "task": "collect.execute_task",
+                "schedule": celery_crontab.from_crontab(task.schedule_cron),
+                "args": [str(task_id)],
+            }
+            celery_app.conf.beat_schedule[job_id] = schedule_entry
+
+            current_schedule = await self._load_beat_schedule_from_redis()
+            current_schedule[job_id] = schedule_entry
+            await self._save_beat_schedule_to_redis(current_schedule)
+
+            # Calculate next run time
+            try:
+                trigger = CronTrigger.from_crontab(task.schedule_cron)
+                next_run = trigger.get_next_fire_time(None, datetime.now(timezone.utc))
+            except Exception:
+                pass
+        else:
+            existing_job = scheduler.get_job(job_id)
+            if existing_job:
+                scheduler.resume_job(job_id)
+                next_run = existing_job.next_run_time
 
         await self.db.execute(
             update(CollectTask)
@@ -168,11 +330,10 @@ class SchedulerService:
         )
         await self.db.commit()
 
-        next_run = existing_job.next_run_time if existing_job else None
         return {
             "job_id": job_id,
             "task_id": str(task_id),
-            "resumed": existing_job is not None,
+            "resumed": True,
             "next_run_time": next_run.isoformat() if next_run else None,
         }
 
@@ -197,20 +358,37 @@ class SchedulerService:
             raise ValueError(f"Collection task not found: {task_id}")
 
         job_id = self._get_job_id(task_id)
-        job = scheduler.get_job(job_id)
+        is_scheduled = False
+        next_run_time = None
+
+        if USE_CELERY:
+            # Check if job is in Celery Beat schedule
+            is_scheduled = job_id in celery_app.conf.beat_schedule
+            if is_scheduled and task.schedule_cron:
+                try:
+                    trigger = CronTrigger.from_crontab(task.schedule_cron)
+                    next_run = trigger.get_next_fire_time(None, datetime.now(timezone.utc))
+                    next_run_time = next_run.isoformat() if next_run else None
+                except Exception:
+                    pass
+        else:
+            job = scheduler.get_job(job_id)
+            is_scheduled = job is not None
+            next_run_time = job.next_run_time.isoformat() if job and job.next_run_time else None
 
         return {
             "job_id": job_id,
             "task_id": str(task_id),
             "task_name": task.name,
             "cron_expression": task.schedule_cron,
-            "is_scheduled": job is not None,
+            "is_scheduled": is_scheduled,
             "is_active": task.is_active,
             "status": task.status.value,
-            "next_run_time": job.next_run_time.isoformat() if job and job.next_run_time else None,
+            "next_run_time": next_run_time,
             "last_run_at": task.last_run_at.isoformat() if task.last_run_at else None,
             "last_success_at": task.last_success_at.isoformat() if task.last_success_at else None,
             "last_error": task.last_error,
+            "scheduler": "celery" if USE_CELERY else "apscheduler",
         }
 
     async def list_jobs(self) -> dict[str, Any]:
@@ -219,39 +397,77 @@ class SchedulerService:
         Returns:
             List of all scheduled jobs with their status
         """
-        jobs = scheduler.get_jobs()
-
         job_list = []
-        for job in jobs:
-            if job.id.startswith("collect_task_"):
-                task_id = job.id.replace("collect_task_", "")
-                try:
-                    task_uuid = uuid.UUID(task_id)
-                    result = await self.db.execute(
-                        select(CollectTask).where(CollectTask.id == task_uuid)
-                    )
-                    task = result.scalar_one_or_none()
 
-                    job_list.append({
-                        "job_id": job.id,
-                        "task_id": task_id,
-                        "task_name": task.name if task else "Unknown",
-                        "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
-                        "cron_expression": task.schedule_cron if task else None,
-                        "is_paused": job.next_run_time is None,
-                    })
-                except (ValueError, TypeError):
-                    continue
+        if USE_CELERY:
+            # List jobs from Celery Beat schedule
+            schedule = celery_app.conf.beat_schedule
+
+            for job_id, task_def in schedule.items():
+                if job_id.startswith("collect_task_"):
+                    task_id_str = job_id.replace("collect_task_", "")
+                    try:
+                        task_uuid = uuid.UUID(task_id_str)
+                        result = await self.db.execute(
+                            select(CollectTask).where(CollectTask.id == task_uuid)
+                        )
+                        task = result.scalar_one_or_none()
+
+                        # Get next run time
+                        next_run = None
+                        if task and task.schedule_cron:
+                            try:
+                                trigger = CronTrigger.from_crontab(task.schedule_cron)
+                                next_time = trigger.get_next_fire_time(None, datetime.now(timezone.utc))
+                                next_run = next_time.isoformat() if next_time else None
+                            except Exception:
+                                pass
+
+                        job_list.append({
+                            "job_id": job_id,
+                            "task_id": task_id_str,
+                            "task_name": task.name if task else "Unknown",
+                            "next_run_time": next_run,
+                            "cron_expression": task.schedule_cron if task else None,
+                            "is_paused": task.status == CollectTaskStatus.PAUSED if task else False,
+                        })
+                    except (ValueError, TypeError):
+                        continue
+        else:
+            # List jobs from APScheduler
+            jobs = scheduler.get_jobs()
+
+            for job in jobs:
+                if job.id.startswith("collect_task_"):
+                    task_id = job.id.replace("collect_task_", "")
+                    try:
+                        task_uuid = uuid.UUID(task_id)
+                        result = await self.db.execute(
+                            select(CollectTask).where(CollectTask.id == task_uuid)
+                        )
+                        task = result.scalar_one_or_none()
+
+                        job_list.append({
+                            "job_id": job.id,
+                            "task_id": task_id,
+                            "task_name": task.name if task else "Unknown",
+                            "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                            "cron_expression": task.schedule_cron if task else None,
+                            "is_paused": job.next_run_time is None,
+                        })
+                    except (ValueError, TypeError):
+                        continue
 
         return {
             "total": len(job_list),
             "jobs": job_list,
+            "scheduler": "celery" if USE_CELERY else "apscheduler",
         }
 
     async def sync_jobs_from_database(self) -> dict[str, Any]:
         """Sync scheduled jobs from database on startup.
 
-        Recreates APScheduler jobs for all active tasks with cron expressions.
+        Recreates scheduled jobs for all active tasks with cron expressions.
 
         Returns:
             Summary of synced jobs
@@ -260,6 +476,7 @@ class SchedulerService:
             select(CollectTask).where(
                 CollectTask.is_active.is_(True),
                 CollectTask.schedule_cron.isnot(None),
+                CollectTask.status != CollectTaskStatus.PAUSED,
             )
         )
         tasks = list(result.scalars())
@@ -271,18 +488,29 @@ class SchedulerService:
         for task in tasks:
             try:
                 job_id = self._get_job_id(task.id)
-                trigger = CronTrigger.from_crontab(task.schedule_cron)
 
-                scheduler.add_job(
-                    func="app.services.scheduler_service:execute_collect_task",
-                    trigger=trigger,
-                    id=job_id,
-                    args=[str(task.id)],
-                    name=f"Collect: {task.name}",
-                    replace_existing=True,
-                    misfire_grace_time=300,
-                )
-                synced += 1
+                if USE_CELERY:
+                    # Add to Celery Beat schedule
+                    schedule_entry = {
+                        "task": "collect.execute_task",
+                        "schedule": celery_crontab.from_crontab(task.schedule_cron),
+                        "args": [str(task.id)],
+                    }
+                    celery_app.conf.beat_schedule[job_id] = schedule_entry
+                    synced += 1
+                else:
+                    # Add to APScheduler
+                    trigger = CronTrigger.from_crontab(task.schedule_cron)
+                    scheduler.add_job(
+                        func="app.tasks.collect_tasks.execute_collect_task",
+                        trigger=trigger,
+                        id=job_id,
+                        args=[str(task.id)],
+                        name=f"Collect: {task.name}",
+                        replace_existing=True,
+                        misfire_grace_time=300,
+                    )
+                    synced += 1
             except Exception as e:
                 failed += 1
                 errors.append({
@@ -291,108 +519,17 @@ class SchedulerService:
                     "error": str(e),
                 })
 
+        # Persist to Redis for Celery
+        if USE_CELERY and synced > 0:
+            await self._save_beat_schedule_to_redis(celery_app.conf.beat_schedule)
+
         return {
             "total_tasks": len(tasks),
             "synced": synced,
             "failed": failed,
             "errors": errors,
+            "scheduler": "celery" if USE_CELERY else "apscheduler",
         }
-
-
-async def execute_collect_task(task_id: str) -> None:
-    """Execute a collection task (called by scheduler).
-
-    This function is called by APScheduler when a job triggers.
-    """
-    from app.core.database import async_session_factory
-    from app.connectors import get_connector
-    from app.models import DataSource, CollectExecution
-
-    async with async_session_factory() as db:
-        try:
-            result = await db.execute(
-                select(CollectTask).where(CollectTask.id == uuid.UUID(task_id))
-            )
-            task = result.scalar_one_or_none()
-
-            if not task:
-                return
-
-            source_result = await db.execute(
-                select(DataSource).where(DataSource.id == task.source_id)
-            )
-            source = source_result.scalar_one_or_none()
-
-            if not source:
-                return
-
-            execution = CollectExecution(
-                task_id=task.id,
-                status=CollectTaskStatus.RUNNING,
-                started_at=datetime.now(timezone.utc),
-            )
-            db.add(execution)
-
-            task.status = CollectTaskStatus.RUNNING
-            task.last_run_at = datetime.now(timezone.utc)
-            await db.commit()
-
-            try:
-                connector = get_connector(source.type, source.connection_config)
-
-                if task.source_query:
-                    df = await connector.read_data(query=task.source_query)
-                else:
-                    df = await connector.read_data(table_name=task.source_table)
-
-                if task.is_incremental and task.incremental_field and task.last_sync_value:
-                    last_value = task.last_sync_value
-                    col_dtype = df[task.incremental_field].dtype
-                    if col_dtype in ('int64', 'int32', 'int'):
-                        last_value = int(last_value)
-                    elif col_dtype in ('float64', 'float32', 'float'):
-                        last_value = float(last_value)
-                    df = df[df[task.incremental_field] > last_value]
-
-                rows_processed = len(df)
-
-                from sqlalchemy import create_engine
-                from app.core.config import settings
-
-                sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
-                sync_engine = create_engine(sync_url)
-
-                df.to_sql(
-                    task.target_table,
-                    sync_engine,
-                    if_exists="append",
-                    index=False,
-                )
-
-                if task.is_incremental and task.incremental_field and len(df) > 0:
-                    task.last_sync_value = str(df[task.incremental_field].max())
-
-                execution.status = CollectTaskStatus.SUCCESS
-                execution.completed_at = datetime.now(timezone.utc)
-                execution.rows_processed = rows_processed
-                execution.rows_inserted = rows_processed
-
-                task.status = CollectTaskStatus.SUCCESS
-                task.last_success_at = datetime.now(timezone.utc)
-                task.last_error = None
-
-            except Exception as e:
-                execution.status = CollectTaskStatus.FAILED
-                execution.completed_at = datetime.now(timezone.utc)
-                execution.error_message = str(e)
-
-                task.status = CollectTaskStatus.FAILED
-                task.last_error = str(e)
-
-            await db.commit()
-
-        except Exception:
-            pass
 
 
 def get_next_run_times(
@@ -425,3 +562,24 @@ def get_next_run_times(
             break
 
     return times
+
+
+# ============================================================================
+# Celery Migration Complete
+# ============================================================================
+#
+# When USE_CELERY=true:
+# - Scheduling: Handled by Celery Beat (reads from Redis)
+# - Execution: Handled by Celery Workers (app.tasks.collect_tasks)
+# - Persistence: Beat schedule stored in Redis
+#
+# When USE_CELERY=false (legacy):
+# - Scheduling & Execution: Handled by APScheduler
+#
+# To enable Celery mode:
+# 1. Set USE_CELERY=true in environment
+# 2. Start Celery Beat: celery -A app.celery_worker beat --loglevel=info
+# 3. Start Celery Worker: celery -A app.celery_worker worker --loglevel=info
+#
+# See /docs/reports/completed/2026-02-19-scheduler-migration-plan.md for details.
+# ============================================================================

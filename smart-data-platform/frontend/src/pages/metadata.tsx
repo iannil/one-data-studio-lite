@@ -17,13 +17,18 @@ import {
   Input,
   Tooltip,
   Badge,
+  Button,
+  Modal,
+  Checkbox,
 } from 'antd';
 import {
   TableOutlined,
   KeyOutlined,
   DatabaseOutlined,
   SearchOutlined,
-  InfoCircleOutlined,
+  TagsOutlined,
+  PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import AuthGuard from '@/components/AuthGuard';
@@ -33,6 +38,19 @@ import type { MetadataTable, MetadataColumn, DataSource } from '@/types';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
+const COMMON_TAGS = [
+  'PII',
+  'Sensitive',
+  'Financial',
+  'Personal',
+  'Internal',
+  'Public',
+  'Deprecated',
+  'Core',
+  'Analytics',
+  'Audit',
+];
+
 export default function MetadataPage() {
   const [tables, setTables] = useState<MetadataTable[]>([]);
   const [sources, setSources] = useState<DataSource[]>([]);
@@ -41,6 +59,14 @@ export default function MetadataPage() {
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
+
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
+  const [tagModalVisible, setTagModalVisible] = useState(false);
+  const [tagModalMode, setTagModalMode] = useState<'add' | 'remove'>('add');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [customTag, setCustomTag] = useState('');
+  const [existingTags, setExistingTags] = useState<string[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
 
   const fetchSources = async () => {
     try {
@@ -57,6 +83,7 @@ export default function MetadataPage() {
       const response = await metadataApi.listTables(sourceId);
       setTables(response.data);
       setSelectedTable(null);
+      setSelectedTableIds([]);
     } catch (error) {
       message.error('获取元数据失败');
     } finally {
@@ -64,9 +91,19 @@ export default function MetadataPage() {
     }
   };
 
+  const fetchExistingTags = async () => {
+    try {
+      const response = await metadataApi.listAllTags();
+      setExistingTags(response.data);
+    } catch (error) {
+      // Silently fail - existing tags are optional
+    }
+  };
+
   useEffect(() => {
     fetchSources();
     fetchTables();
+    fetchExistingTags();
   }, []);
 
   const handleSourceChange = (value: string | undefined) => {
@@ -101,11 +138,96 @@ export default function MetadataPage() {
     );
   });
 
+  const handleBatchTagClick = (mode: 'add' | 'remove') => {
+    setTagModalMode(mode);
+    setSelectedTags([]);
+    setCustomTag('');
+    setTagModalVisible(true);
+  };
+
+  const handleBatchTagSubmit = async () => {
+    const tagsToApply = [...selectedTags];
+    if (customTag.trim() && !tagsToApply.includes(customTag.trim())) {
+      tagsToApply.push(customTag.trim());
+    }
+
+    if (tagsToApply.length === 0) {
+      message.warning('请选择或输入至少一个标签');
+      return;
+    }
+
+    setBatchLoading(true);
+    try {
+      const payload = {
+        table_ids: selectedTableIds,
+        tags_to_add: tagModalMode === 'add' ? tagsToApply : [],
+        tags_to_remove: tagModalMode === 'remove' ? tagsToApply : [],
+      };
+
+      await metadataApi.batchUpdateTags(payload);
+      message.success(
+        tagModalMode === 'add'
+          ? `成功为 ${selectedTableIds.length} 个表添加标签`
+          : `成功从 ${selectedTableIds.length} 个表移除标签`
+      );
+
+      setTagModalVisible(false);
+      setSelectedTableIds([]);
+      fetchTables(selectedSourceId);
+      fetchExistingTags();
+    } catch (error) {
+      message.error('批量操作失败');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedTableIds(filteredTables.map(t => t.id));
+    } else {
+      setSelectedTableIds([]);
+    }
+  };
+
+  const handleSelectTable = (tableId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTableIds(prev => [...prev, tableId]);
+    } else {
+      setSelectedTableIds(prev => prev.filter(id => id !== tableId));
+    }
+  };
+
+  const allTagOptions = Array.from(new Set([...COMMON_TAGS, ...existingTags])).sort();
+
   const tableColumns: ColumnsType<MetadataTable> = [
+    {
+      title: (
+        <Checkbox
+          checked={selectedTableIds.length === filteredTables.length && filteredTables.length > 0}
+          indeterminate={selectedTableIds.length > 0 && selectedTableIds.length < filteredTables.length}
+          onChange={(e) => handleSelectAll(e.target.checked)}
+        />
+      ),
+      key: 'select',
+      width: 40,
+      render: (_, record) => (
+        <Checkbox
+          checked={selectedTableIds.includes(record.id)}
+          onChange={(e) => {
+            e.stopPropagation();
+            handleSelectTable(record.id, e.target.checked);
+          }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ),
+    },
     {
       title: '表名',
       dataIndex: 'table_name',
       key: 'table_name',
+      width: 180,
+      ellipsis: true,
       render: (name, record) => (
         <Space>
           <TableOutlined />
@@ -119,7 +241,7 @@ export default function MetadataPage() {
       title: 'Schema',
       dataIndex: 'schema_name',
       key: 'schema_name',
-      width: 100,
+      width: 80,
       render: (schema) => <Text type="secondary">{schema || 'public'}</Text>,
     },
     {
@@ -127,6 +249,7 @@ export default function MetadataPage() {
       dataIndex: 'source_id',
       key: 'source_id',
       width: 140,
+      ellipsis: true,
       render: (sourceId) => (
         <Tag icon={<DatabaseOutlined />} color="blue">
           {getSourceName(sourceId)}
@@ -134,10 +257,35 @@ export default function MetadataPage() {
       ),
     },
     {
+      title: '标签',
+      dataIndex: 'tags',
+      key: 'tags',
+      width: 180,
+      ellipsis: true,
+      render: (tags: string[]) => (
+        <Space size={2} wrap>
+          {tags && tags.length > 0 ? (
+            tags.slice(0, 3).map((tag) => (
+              <Tag key={tag} color="cyan" style={{ margin: 0 }}>
+                {tag}
+              </Tag>
+            ))
+          ) : (
+            <Text type="secondary">-</Text>
+          )}
+          {tags && tags.length > 3 && (
+            <Tooltip title={tags.slice(3).join(', ')}>
+              <Tag color="default">+{tags.length - 3}</Tag>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
       title: '列数',
       dataIndex: 'columns',
       key: 'column_count',
-      width: 70,
+      width: 60,
       render: (columns) => (
         <Badge count={columns?.length || 0} showZero color="#8c8c8c" />
       ),
@@ -189,6 +337,30 @@ export default function MetadataPage() {
       render: (isPK) => isPK ? <Tag color="gold">PK</Tag> : '-',
     },
     {
+      title: '标签',
+      dataIndex: 'tags',
+      key: 'tags',
+      width: 150,
+      render: (tags: string[]) => (
+        <Space size={2} wrap>
+          {tags && tags.length > 0 ? (
+            tags.slice(0, 2).map((tag) => (
+              <Tag key={tag} color="cyan" style={{ margin: 0 }}>
+                {tag}
+              </Tag>
+            ))
+          ) : (
+            <Text type="secondary">-</Text>
+          )}
+          {tags && tags.length > 2 && (
+            <Tooltip title={tags.slice(2).join(', ')}>
+              <Tag color="default">+{tags.length - 2}</Tag>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
       title: '描述',
       dataIndex: 'description',
       key: 'description',
@@ -215,17 +387,39 @@ export default function MetadataPage() {
               </Space>
             }
             extra={
-              <Select
-                allowClear
-                placeholder="筛选数据源"
-                style={{ width: 160 }}
-                value={selectedSourceId}
-                onChange={handleSourceChange}
-                options={sources.map(s => ({ value: s.id, label: s.name }))}
-              />
+              <Space>
+                {selectedTableIds.length > 0 && (
+                  <Space size={4}>
+                    <Text type="secondary">已选 {selectedTableIds.length} 项</Text>
+                    <Button
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => handleBatchTagClick('add')}
+                    >
+                      添加标签
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      danger
+                      onClick={() => handleBatchTagClick('remove')}
+                    >
+                      移除标签
+                    </Button>
+                  </Space>
+                )}
+                <Select
+                  allowClear
+                  placeholder="筛选数据源"
+                  style={{ width: 160 }}
+                  value={selectedSourceId}
+                  onChange={handleSourceChange}
+                  options={sources.map(s => ({ value: s.id, label: s.name }))}
+                />
+              </Space>
             }
-            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-            bodyStyle={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+            bodyStyle={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}
           >
             <Search
               placeholder="搜索表名..."
@@ -233,31 +427,41 @@ export default function MetadataPage() {
               allowClear
               value={searchKeyword}
               onChange={e => setSearchKeyword(e.target.value)}
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 12, flexShrink: 0 }}
             />
 
-            <Spin spinning={loading} style={{ flex: 1 }}>
-              {filteredTables.length > 0 ? (
-                <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <Spin spinning={loading} style={{ height: '100%' }}>
+                {filteredTables.length > 0 ? (
                   <Table
                     columns={tableColumns}
                     dataSource={filteredTables}
                     rowKey="id"
                     size="small"
-                    pagination={{ pageSize: 15, size: 'small', showSizeChanger: false }}
-                    onRow={(record) => ({
-                      onClick: () => handleTableClick(record),
-                      style: {
-                        cursor: 'pointer',
-                        background: selectedTable?.id === record.id ? '#e6f7ff' : undefined,
-                      },
-                    })}
-                  />
-                </div>
+                    scroll={{ y: 'calc(100vh - 340px)' }}
+                  pagination={{
+                    defaultPageSize: 10,
+                    size: 'small',
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                    pageSizeOptions: ['10', '20', '50', '100'],
+                    showTotal: (total, range) =>
+                      `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+                    hideOnSinglePage: false,
+                  }}
+                  onRow={(record) => ({
+                    onClick: () => handleTableClick(record),
+                    style: {
+                      cursor: 'pointer',
+                      background: selectedTable?.id === record.id ? '#e6f7ff' : undefined,
+                    },
+                  })}
+                />
               ) : (
                 <Empty description="暂无元数据，请先扫描数据源" />
               )}
-            </Spin>
+              </Spin>
+            </div>
           </Card>
         </Col>
 
@@ -301,6 +505,19 @@ export default function MetadataPage() {
                   <Descriptions.Item label="行数">
                     {selectedTable.row_count?.toLocaleString() || '-'}
                   </Descriptions.Item>
+                  <Descriptions.Item label="标签" span={2}>
+                    <Space wrap>
+                      {selectedTable.tags && selectedTable.tags.length > 0 ? (
+                        selectedTable.tags.map((tag) => (
+                          <Tag key={tag} color="cyan">
+                            {tag}
+                          </Tag>
+                        ))
+                      ) : (
+                        <Text type="secondary">无标签</Text>
+                      )}
+                    </Space>
+                  </Descriptions.Item>
                   {(selectedTable.description || selectedTable.ai_description) && (
                     <Descriptions.Item label="描述" span={2}>
                       {selectedTable.description || selectedTable.ai_description}
@@ -325,7 +542,7 @@ export default function MetadataPage() {
                   rowKey="id"
                   pagination={false}
                   size="small"
-                  scroll={{ y: 'calc(100vh - 400px)' }}
+                  scroll={{ y: 'calc(100vh - 450px)' }}
                 />
               </Spin>
             </Card>
@@ -339,6 +556,113 @@ export default function MetadataPage() {
           </Col>
         )}
       </Row>
+
+      {/* 批量标签管理 Modal */}
+      <Modal
+        title={
+          <Space>
+            <TagsOutlined />
+            <span>{tagModalMode === 'add' ? '批量添加标签' : '批量移除标签'}</span>
+          </Space>
+        }
+        open={tagModalVisible}
+        onCancel={() => setTagModalVisible(false)}
+        onOk={handleBatchTagSubmit}
+        confirmLoading={batchLoading}
+        okText={tagModalMode === 'add' ? '添加' : '移除'}
+        okButtonProps={{
+          danger: tagModalMode === 'remove',
+        }}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <div>
+            <Text type="secondary">
+              {tagModalMode === 'add'
+                ? `将为选中的 ${selectedTableIds.length} 个表添加以下标签：`
+                : `将从选中的 ${selectedTableIds.length} 个表移除以下标签：`}
+            </Text>
+          </div>
+
+          <div>
+            <Text strong style={{ marginBottom: 8, display: 'block' }}>
+              常用标签
+            </Text>
+            <Space wrap>
+              {allTagOptions.map((tag) => (
+                <Tag.CheckableTag
+                  key={tag}
+                  checked={selectedTags.includes(tag)}
+                  onChange={(checked) => {
+                    if (checked) {
+                      setSelectedTags(prev => [...prev, tag]);
+                    } else {
+                      setSelectedTags(prev => prev.filter(t => t !== tag));
+                    }
+                  }}
+                  style={{
+                    border: '1px solid #d9d9d9',
+                    padding: '2px 8px',
+                  }}
+                >
+                  {tag}
+                </Tag.CheckableTag>
+              ))}
+            </Space>
+          </div>
+
+          <div>
+            <Text strong style={{ marginBottom: 8, display: 'block' }}>
+              自定义标签
+            </Text>
+            <Input
+              placeholder="输入自定义标签名称"
+              value={customTag}
+              onChange={(e) => setCustomTag(e.target.value)}
+              onPressEnter={() => {
+                if (customTag.trim() && !selectedTags.includes(customTag.trim())) {
+                  setSelectedTags(prev => [...prev, customTag.trim()]);
+                  setCustomTag('');
+                }
+              }}
+              suffix={
+                <Button
+                  type="link"
+                  size="small"
+                  disabled={!customTag.trim()}
+                  onClick={() => {
+                    if (customTag.trim() && !selectedTags.includes(customTag.trim())) {
+                      setSelectedTags(prev => [...prev, customTag.trim()]);
+                      setCustomTag('');
+                    }
+                  }}
+                >
+                  添加
+                </Button>
+              }
+            />
+          </div>
+
+          {selectedTags.length > 0 && (
+            <div>
+              <Text strong style={{ marginBottom: 8, display: 'block' }}>
+                已选标签
+              </Text>
+              <Space wrap>
+                {selectedTags.map((tag) => (
+                  <Tag
+                    key={tag}
+                    closable
+                    color={tagModalMode === 'add' ? 'green' : 'red'}
+                    onClose={() => setSelectedTags(prev => prev.filter(t => t !== tag))}
+                  >
+                    {tag}
+                  </Tag>
+                ))}
+              </Space>
+            </div>
+          )}
+        </Space>
+      </Modal>
     </AuthGuard>
   );
 }

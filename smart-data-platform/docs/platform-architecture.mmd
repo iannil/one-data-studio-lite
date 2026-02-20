@@ -1,0 +1,77 @@
+flowchart TB
+    subgraph DataMgmt["数据管理层"]
+        DS[数据源管理<br/>PostgreSQL/MySQL/文件/API]
+        MD[元数据浏览<br/>表/列/关系]
+        DC[数据采集<br/>批量/增量/调度]
+        STD[数据标准<br/>规则/质量/合规]
+        LN[数据血缘<br/>上下游追踪]
+    end
+
+    subgraph DataProc["数据加工层"]
+        ETL[ETL管道<br/>过滤/转换/聚合<br/>AI填充/自动脱敏]
+        OCR[OCR文档识别<br/>票据/表格/合同]
+    end
+
+    subgraph DataSvc["数据服务层"]
+        ASSET[数据资产<br/>编目/标签/价值]
+        API[数据服务<br/>查询/导出/API]
+        BI[BI集成<br/>Superset同步]
+        RPT[报表设计<br/>图表/仪表盘]
+    end
+
+    subgraph DataAnalysis["数据分析层"]
+        NL[自然语言查询<br/>Text-to-SQL]
+        PRED[AI预测<br/>时序/分类]
+    end
+
+    subgraph SysMgmt["系统管理层"]
+        SEC[安全管理<br/>敏感识别/脱敏/审计]
+        PERM[权限管理<br/>RBAC/数据权限]
+        ALERT[告警中心<br/>异常检测/通知]
+    end
+
+    subgraph Dashboard["仪表盘"]
+        DASH[概览面板<br/>统计/趋势/健康]
+    end
+
+    %% 数据流转关系
+    DS -->|扫描| MD
+    MD -->|发现| LN
+    DS -->|抽取| DC
+    DC -->|输入| ETL
+    OCR -->|结构化| ETL
+    ETL -->|输出| ASSET
+    MD -->|标准化| STD
+    STD -->|校验| ETL
+    ASSET -->|发布| API
+    ASSET -->|同步| BI
+    BI -->|数据源| RPT
+    API -->|查询| NL
+    ASSET -->|分析| PRED
+    SEC -->|保护| ETL
+    SEC -->|保护| API
+    PERM -->|控制| API
+    PERM -->|控制| ASSET
+    ALERT -->|监控| ETL
+    ALERT -->|监控| DC
+
+    %% 仪表盘汇总
+    MD -.->|元数据统计| DASH
+    DC -.->|采集状态| DASH
+    ETL -.->|管道状态| DASH
+    ASSET -.->|资产统计| DASH
+    ALERT -.->|告警摘要| DASH
+
+    classDef mgmt fill:#e1f5fe,stroke:#01579b
+    classDef proc fill:#fff3e0,stroke:#e65100
+    classDef svc fill:#e8f5e9,stroke:#1b5e20
+    classDef analysis fill:#f3e5f5,stroke:#4a148c
+    classDef sys fill:#ffebee,stroke:#b71c1c
+    classDef dash fill:#fff9c4,stroke:#f57f17
+
+    class DS,MD,DC,STD,LN mgmt
+    class ETL,OCR proc
+    class ASSET,API,BI,RPT svc
+    class NL,PRED analysis
+    class SEC,PERM,ALERT sys
+    class DASH dash

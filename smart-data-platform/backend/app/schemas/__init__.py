@@ -23,6 +23,8 @@ from app.schemas.metadata import (
     MetadataTableResponse,
     MetadataScanRequest,
     MetadataScanResponse,
+    BatchTagsRequest,
+    BatchTagsResponse,
 )
 from app.schemas.collect import (
     CollectTaskBase,
@@ -70,6 +72,10 @@ from app.schemas.asset import (
     AssetApiConfigUpdate,
     AssetApiConfigResponse,
     AssetApiDocsResponse,
+    AssetSubscriptionCreate,
+    AssetSubscriptionUpdate,
+    AssetSubscriptionResponse,
+    AssetSubscriptionWithAsset,
 )
 from app.schemas.alert import (
     AlertRuleBase,
@@ -89,6 +95,13 @@ from app.schemas.analysis import (
     AIDataQualityResponse,
     PredictionRequest,
     PredictionResponse,
+    QualityScoreRequest,
+    QualityScoreResponse,
+    QualityIssuesResponse,
+    QualityReportRequest,
+    QualityReportResponse,
+    QualityTrendRequest,
+    QualityTrendResponse,
 )
 from app.schemas.bi import (
     BISyncRequest,

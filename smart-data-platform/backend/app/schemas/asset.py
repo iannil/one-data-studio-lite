@@ -205,3 +205,44 @@ class AssetApiDocsResponse(BaseModel):
     limits: dict[str, int]
     request_examples: dict[str, Any]
     response_example: dict[str, Any]
+
+
+# Asset Subscription Schemas
+class AssetSubscriptionCreate(BaseModel):
+    """Schema for creating an asset subscription."""
+    asset_id: UUID
+    event_types: list[str] = ["all"]
+    notify_email: bool = True
+    notify_in_app: bool = True
+    notes: str | None = None
+
+
+class AssetSubscriptionUpdate(BaseModel):
+    """Schema for updating an asset subscription."""
+    event_types: list[str] | None = None
+    is_active: bool | None = None
+    notify_email: bool | None = None
+    notify_in_app: bool | None = None
+    notes: str | None = None
+
+
+class AssetSubscriptionResponse(BaseModel):
+    """Response schema for asset subscription."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    asset_id: UUID
+    user_id: UUID
+    event_types: list[str]
+    is_active: bool
+    notify_email: bool
+    notify_in_app: bool
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AssetSubscriptionWithAsset(AssetSubscriptionResponse):
+    """Subscription response with asset details."""
+    asset_name: str | None = None
+    asset_type: AssetType | None = None

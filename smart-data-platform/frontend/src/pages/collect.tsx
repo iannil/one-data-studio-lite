@@ -27,6 +27,8 @@ import {
   ClockCircleOutlined,
   PauseCircleOutlined,
   CheckCircleOutlined,
+  EyeOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import AuthGuard from '@/components/AuthGuard';
@@ -68,6 +70,24 @@ interface ScheduleInfo {
   last_error?: string;
 }
 
+interface SourceTable {
+  schema_name: string | null;
+  table_name: string;
+  table_type: string;
+}
+
+interface CollectExecution {
+  id: string;
+  task_id: string;
+  status: string;
+  started_at: string;
+  completed_at?: string;
+  rows_processed: number;
+  rows_inserted: number;
+  rows_updated: number;
+  error_message?: string;
+}
+
 const CRON_PRESETS = [
   { label: '每分钟', value: '* * * * *' },
   { label: '每5分钟', value: '*/5 * * * *' },
@@ -85,6 +105,8 @@ export default function CollectPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<CollectTask | null>(null);
   const [form] = Form.useForm();
+  const [sourceTables, setSourceTables] = useState<SourceTable[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
 
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [scheduleTask, setScheduleTask] = useState<CollectTask | null>(null);
@@ -93,6 +115,11 @@ export default function CollectPage() {
   const [scheduleForm] = Form.useForm();
   const [previewTimes, setPreviewTimes] = useState<string[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [executionsModalOpen, setExecutionsModalOpen] = useState(false);
+  const [executionsTask, setExecutionsTask] = useState<CollectTask | null>(null);
+  const [executions, setExecutions] = useState<CollectExecution[]>([]);
+  const [executionsLoading, setExecutionsLoading] = useState(false);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -115,6 +142,23 @@ export default function CollectPage() {
     }
   };
 
+  const fetchSourceTables = async (sourceId: string) => {
+    if (!sourceId) {
+      setSourceTables([]);
+      return;
+    }
+    setTablesLoading(true);
+    try {
+      const response = await sourcesApi.getTables(sourceId);
+      setSourceTables(response.data);
+    } catch (error) {
+      message.error('获取数据源表列表失败');
+      setSourceTables([]);
+    } finally {
+      setTablesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTasks();
     fetchSources();
@@ -123,13 +167,25 @@ export default function CollectPage() {
   const handleCreate = () => {
     setEditingTask(null);
     form.resetFields();
+    setSourceTables([]);
     setModalOpen(true);
   };
 
   const handleEdit = (record: CollectTask) => {
     setEditingTask(record);
     form.setFieldsValue(record);
+    setSourceTables([]);
+    // Load tables for the existing source
+    if (record.source_id) {
+      fetchSourceTables(record.source_id);
+    }
     setModalOpen(true);
+  };
+
+  const handleSourceChange = (sourceId: string) => {
+    // Clear source_table when source changes
+    form.setFieldsValue({ source_table: undefined });
+    fetchSourceTables(sourceId);
   };
 
   const handleDelete = async (id: string) => {
@@ -259,6 +315,20 @@ export default function CollectPage() {
     }
   };
 
+  const handleViewExecutions = async (task: CollectTask) => {
+    setExecutionsTask(task);
+    setExecutionsModalOpen(true);
+    setExecutionsLoading(true);
+    try {
+      const response = await collectApi.listExecutions(task.id);
+      setExecutions(response.data);
+    } catch (error) {
+      message.error('获取执行历史失败');
+    } finally {
+      setExecutionsLoading(false);
+    }
+  };
+
   const columns: ColumnsType<CollectTask> = [
     {
       title: '名称',
@@ -314,8 +384,26 @@ export default function CollectPage() {
       render: (date) => (date ? new Date(date).toLocaleString() : '-'),
     },
     {
+      title: '错误信息',
+      dataIndex: 'last_error',
+      key: 'last_error',
+      ellipsis: true,
+      render: (error) => {
+        if (!error) return '-';
+        return (
+          <Tooltip title={error}>
+            <Text type="danger" ellipsis>
+              {error}
+            </Text>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: '操作',
       key: 'actions',
+      width: 280,
+      fixed: 'right',
       render: (_, record) => (
         <Space>
           <Tooltip title="执行">
@@ -349,6 +437,13 @@ export default function CollectPage() {
           )}
           <Tooltip title="编辑">
             <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          </Tooltip>
+          <Tooltip title="执行历史">
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewExecutions(record)}
+            />
           </Tooltip>
           <Popconfirm title="确定删除?" onConfirm={() => handleDelete(record.id)}>
             <Button size="small" danger icon={<DeleteOutlined />} />
@@ -401,10 +496,26 @@ export default function CollectPage() {
             <Select
               options={sources.map((s) => ({ value: s.id, label: s.name }))}
               placeholder="选择数据源"
+              onChange={handleSourceChange}
             />
           </Form.Item>
           <Form.Item name="source_table" label="源表名">
-            <Input placeholder="输入源表名" />
+            <Select
+              placeholder="选择源表名"
+              loading={tablesLoading}
+              allowClear
+              showSearch
+              options={sourceTables.map((t) => {
+                const fullTableName = t.schema_name ? `${t.schema_name}.${t.table_name}` : t.table_name;
+                return {
+                  value: fullTableName,
+                  label: fullTableName,
+                };
+              })}
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
           </Form.Item>
           <Form.Item name="source_query" label="自定义 SQL (可选)">
             <Input.TextArea rows={3} placeholder="SELECT * FROM ..." />
@@ -542,6 +653,103 @@ export default function CollectPage() {
               </Card>
             )}
           </>
+        )}
+      </Modal>
+
+      <Modal
+        title={
+          <Space>
+            <EyeOutlined />
+            执行历史
+            {executionsTask && <Tag>{executionsTask.name}</Tag>}
+          </Space>
+        }
+        open={executionsModalOpen}
+        onCancel={() => {
+          setExecutionsModalOpen(false);
+          setExecutionsTask(null);
+          setExecutions([]);
+        }}
+        footer={
+          <Button onClick={() => setExecutionsModalOpen(false)}>关闭</Button>
+        }
+        width={800}
+      >
+        {executionsLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Spin />
+          </div>
+        ) : (
+          <Table
+            size="small"
+            dataSource={executions}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+            columns={[
+              {
+                title: '状态',
+                dataIndex: 'status',
+                key: 'status',
+                width: 80,
+                render: (status) => {
+                  const colors: Record<string, string> = {
+                    pending: 'default',
+                    running: 'processing',
+                    success: 'success',
+                    failed: 'error',
+                  };
+                  return <Tag color={colors[status]}>{status}</Tag>;
+                },
+              },
+              {
+                title: '开始时间',
+                dataIndex: 'started_at',
+                key: 'started_at',
+                width: 160,
+                render: (date) => new Date(date).toLocaleString(),
+              },
+              {
+                title: '完成时间',
+                dataIndex: 'completed_at',
+                key: 'completed_at',
+                width: 160,
+                render: (date) => (date ? new Date(date).toLocaleString() : '-'),
+              },
+              {
+                title: '处理行数',
+                dataIndex: 'rows_processed',
+                key: 'rows_processed',
+                width: 90,
+                render: (val) => val?.toLocaleString() ?? 0,
+              },
+              {
+                title: '插入行数',
+                dataIndex: 'rows_inserted',
+                key: 'rows_inserted',
+                width: 90,
+                render: (val) => val?.toLocaleString() ?? 0,
+              },
+              {
+                title: '错误信息',
+                dataIndex: 'error_message',
+                key: 'error_message',
+                ellipsis: true,
+                render: (error) => {
+                  if (!error) return '-';
+                  return (
+                    <Tooltip title={error}>
+                      <Space>
+                        <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                        <Text type="danger" ellipsis>
+                          {error}
+                        </Text>
+                      </Space>
+                    </Tooltip>
+                  );
+                },
+              },
+            ]}
+          />
         )}
       </Modal>
     </AuthGuard>

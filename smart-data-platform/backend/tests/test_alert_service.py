@@ -453,3 +453,344 @@ class TestEmailNotification:
 
             # Should not raise, just log error
             await service._send_email_notification(sample_rule_with_email, sample_alert)
+
+
+class TestDingTalkNotification:
+    """Tests for DingTalk notification functionality."""
+
+    @pytest.fixture
+    def mock_db(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def sample_rule_with_dingtalk(self):
+        return AlertRule(
+            id=uuid.uuid4(),
+            name="DingTalk Test Rule",
+            metric_sql="SELECT COUNT(*) as count FROM errors",
+            metric_name="count",
+            condition="gt",
+            threshold=10.0,
+            severity=AlertSeverity.WARNING,
+            check_interval_minutes=5,
+            cooldown_minutes=60,
+            notification_channels=["dingtalk"],
+            notification_config={
+                "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=test123",
+                "dingtalk_at_mobiles": ["13800138000"],
+                "dingtalk_at_all": False,
+            },
+            is_enabled=True,
+        )
+
+    @pytest.fixture
+    def sample_alert(self):
+        return Alert(
+            id=uuid.uuid4(),
+            rule_id=uuid.uuid4(),
+            severity=AlertSeverity.WARNING,
+            status=AlertStatus.ACTIVE,
+            message="Test alert message",
+            current_value=15.0,
+            threshold_value=10.0,
+            triggered_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.mark.asyncio
+    async def test_send_dingtalk_notification(self, mock_db, sample_rule_with_dingtalk, sample_alert):
+        """Test DingTalk notification is sent correctly."""
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_dingtalk_notification(sample_rule_with_dingtalk, sample_alert)
+
+            mock_client_instance.post.assert_called_once()
+            call_args = mock_client_instance.post.call_args
+            assert "oapi.dingtalk.com" in call_args[0][0]
+            payload = call_args[1]["json"]
+            assert payload["msgtype"] == "markdown"
+            assert "DingTalk Test Rule" in payload["markdown"]["text"]
+            assert "at" in payload
+
+    @pytest.mark.asyncio
+    async def test_send_dingtalk_no_webhook(self, mock_db, sample_alert):
+        """Test DingTalk notification not sent when no webhook configured."""
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            name="No Webhook Rule",
+            metric_sql="SELECT 1",
+            metric_name="test",
+            condition="gt",
+            threshold=1.0,
+            severity=AlertSeverity.WARNING,
+            notification_channels=["dingtalk"],
+            notification_config={},
+            is_enabled=True,
+        )
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            await service._send_dingtalk_notification(rule, sample_alert)
+            mock_client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_send_dingtalk_with_secret(self, mock_db, sample_alert):
+        """Test DingTalk notification with signature."""
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            name="Signed Rule",
+            metric_sql="SELECT 1",
+            metric_name="test",
+            condition="gt",
+            threshold=1.0,
+            severity=AlertSeverity.CRITICAL,
+            notification_channels=["dingtalk"],
+            notification_config={
+                "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=test",
+                "dingtalk_secret": "SECtest123secret",
+            },
+            is_enabled=True,
+        )
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_dingtalk_notification(rule, sample_alert)
+
+            call_args = mock_client_instance.post.call_args
+            url = call_args[0][0]
+            assert "timestamp=" in url
+            assert "sign=" in url
+
+
+class TestWeComNotification:
+    """Tests for WeCom notification functionality."""
+
+    @pytest.fixture
+    def mock_db(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def sample_rule_with_wecom(self):
+        return AlertRule(
+            id=uuid.uuid4(),
+            name="WeCom Test Rule",
+            metric_sql="SELECT COUNT(*) as count FROM errors",
+            metric_name="count",
+            condition="gt",
+            threshold=10.0,
+            severity=AlertSeverity.WARNING,
+            check_interval_minutes=5,
+            cooldown_minutes=60,
+            notification_channels=["wecom"],
+            notification_config={
+                "wecom_webhook": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test123",
+                "wecom_mentioned_list": ["user1"],
+                "wecom_mentioned_mobile_list": ["13800138000"],
+            },
+            is_enabled=True,
+        )
+
+    @pytest.fixture
+    def sample_alert(self):
+        return Alert(
+            id=uuid.uuid4(),
+            rule_id=uuid.uuid4(),
+            severity=AlertSeverity.WARNING,
+            status=AlertStatus.ACTIVE,
+            message="Test alert message",
+            current_value=15.0,
+            threshold_value=10.0,
+            triggered_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.mark.asyncio
+    async def test_send_wecom_notification(self, mock_db, sample_rule_with_wecom, sample_alert):
+        """Test WeCom notification is sent correctly."""
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_wecom_notification(sample_rule_with_wecom, sample_alert)
+
+            mock_client_instance.post.assert_called_once()
+            call_args = mock_client_instance.post.call_args
+            assert "qyapi.weixin.qq.com" in call_args[0][0]
+            payload = call_args[1]["json"]
+            assert payload["msgtype"] == "markdown"
+            assert "WeCom Test Rule" in payload["markdown"]["content"]
+
+    @pytest.mark.asyncio
+    async def test_send_wecom_no_webhook(self, mock_db, sample_alert):
+        """Test WeCom notification not sent when no webhook configured."""
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            name="No Webhook Rule",
+            metric_sql="SELECT 1",
+            metric_name="test",
+            condition="gt",
+            threshold=1.0,
+            severity=AlertSeverity.WARNING,
+            notification_channels=["wecom"],
+            notification_config={},
+            is_enabled=True,
+        )
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            await service._send_wecom_notification(rule, sample_alert)
+            mock_client.assert_not_called()
+
+
+class TestFeishuNotification:
+    """Tests for Feishu notification functionality."""
+
+    @pytest.fixture
+    def mock_db(self):
+        return AsyncMock()
+
+    @pytest.fixture
+    def sample_rule_with_feishu(self):
+        return AlertRule(
+            id=uuid.uuid4(),
+            name="Feishu Test Rule",
+            metric_sql="SELECT COUNT(*) as count FROM errors",
+            metric_name="count",
+            condition="gt",
+            threshold=10.0,
+            severity=AlertSeverity.CRITICAL,
+            check_interval_minutes=5,
+            cooldown_minutes=60,
+            notification_channels=["feishu"],
+            notification_config={
+                "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test123",
+            },
+            is_enabled=True,
+        )
+
+    @pytest.fixture
+    def sample_alert(self):
+        return Alert(
+            id=uuid.uuid4(),
+            rule_id=uuid.uuid4(),
+            severity=AlertSeverity.CRITICAL,
+            status=AlertStatus.ACTIVE,
+            message="Test alert message",
+            current_value=15.0,
+            threshold_value=10.0,
+            triggered_at=datetime.now(timezone.utc),
+        )
+
+    @pytest.mark.asyncio
+    async def test_send_feishu_notification(self, mock_db, sample_rule_with_feishu, sample_alert):
+        """Test Feishu notification is sent correctly."""
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_feishu_notification(sample_rule_with_feishu, sample_alert)
+
+            mock_client_instance.post.assert_called_once()
+            call_args = mock_client_instance.post.call_args
+            assert "open.feishu.cn" in call_args[0][0]
+            payload = call_args[1]["json"]
+            assert payload["msg_type"] == "interactive"
+            assert "card" in payload
+
+    @pytest.mark.asyncio
+    async def test_send_feishu_with_secret(self, mock_db, sample_alert):
+        """Test Feishu notification with signature."""
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            name="Signed Feishu Rule",
+            metric_sql="SELECT 1",
+            metric_name="test",
+            condition="gt",
+            threshold=1.0,
+            severity=AlertSeverity.WARNING,
+            notification_channels=["feishu"],
+            notification_config={
+                "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/test",
+                "feishu_secret": "secretkey123",
+            },
+            is_enabled=True,
+        )
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_feishu_notification(rule, sample_alert)
+
+            call_args = mock_client_instance.post.call_args
+            payload = call_args[1]["json"]
+            assert "timestamp" in payload
+            assert "sign" in payload
+
+    @pytest.mark.asyncio
+    async def test_send_feishu_no_webhook(self, mock_db, sample_alert):
+        """Test Feishu notification not sent when no webhook configured."""
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            name="No Webhook Rule",
+            metric_sql="SELECT 1",
+            metric_name="test",
+            condition="gt",
+            threshold=1.0,
+            severity=AlertSeverity.WARNING,
+            notification_channels=["feishu"],
+            notification_config={},
+            is_enabled=True,
+        )
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            await service._send_feishu_notification(rule, sample_alert)
+            mock_client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_feishu_card_structure(self, mock_db, sample_rule_with_feishu, sample_alert):
+        """Test Feishu card message has correct structure."""
+        service = AlertService(mock_db)
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.raise_for_status = MagicMock()
+            mock_client_instance = AsyncMock()
+            mock_client_instance.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value = mock_client_instance
+
+            await service._send_feishu_notification(sample_rule_with_feishu, sample_alert)
+
+            call_args = mock_client_instance.post.call_args
+            card = call_args[1]["json"]["card"]
+
+            assert "header" in card
+            assert "elements" in card
+            assert card["header"]["template"] == "red"
+            assert "Feishu Test Rule" in card["header"]["title"]["content"]

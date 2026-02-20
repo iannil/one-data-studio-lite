@@ -29,27 +29,32 @@ import {
   EyeOutlined,
   CloudSyncOutlined,
   LinkOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import AuthGuard from '@/components/AuthGuard';
+import ETLPipelineEditor from '@/components/ETLPipelineEditor';
 import { etlApi, sourcesApi, metadataApi, biApi } from '@/services/api';
 import type { ETLPipeline, ETLExecution, DataSource } from '@/types';
 
 const { Title, Text } = Typography;
 
 const STEP_TYPES = [
-  { value: 'filter', label: '过滤' },
-  { value: 'deduplicate', label: '去重' },
-  { value: 'map_values', label: '值映射' },
-  { value: 'calculate', label: '计算字段' },
-  { value: 'fill_missing', label: '填充缺失值' },
-  { value: 'mask', label: '数据脱敏' },
-  { value: 'rename', label: '重命名' },
-  { value: 'type_cast', label: '类型转换' },
-  { value: 'aggregate', label: '聚合' },
-  { value: 'sort', label: '排序' },
-  { value: 'drop_columns', label: '删除列' },
-  { value: 'select_columns', label: '选择列' },
+  { value: 'filter', label: '过滤', icon: '🔍', category: 'transform' },
+  { value: 'deduplicate', label: '去重', icon: '🔄', category: 'transform' },
+  { value: 'map_values', label: '值映射', icon: '🗺️', category: 'transform' },
+  { value: 'calculate', label: '计算字段', icon: '🧮', category: 'transform' },
+  { value: 'fill_missing', label: '填充缺失值', icon: '📝', category: 'transform' },
+  { value: 'ai_fill_missing', label: 'AI智能填充', icon: '🤖', category: 'ai' },
+  { value: 'mask', label: '数据脱敏', icon: '🔒', category: 'security' },
+  { value: 'auto_mask', label: 'AI自动脱敏', icon: '🛡️', category: 'ai' },
+  { value: 'rename', label: '重命名', icon: '✏️', category: 'transform' },
+  { value: 'type_cast', label: '类型转换', icon: '🔄', category: 'transform' },
+  { value: 'aggregate', label: '聚合', icon: '📊', category: 'transform' },
+  { value: 'sort', label: '排序', icon: '📋', category: 'transform' },
+  { value: 'drop_columns', label: '删除列', icon: '❌', category: 'transform' },
+  { value: 'select_columns', label: '选择列', icon: '✅', category: 'transform' },
+  { value: 'join', label: '关联合并', icon: '🔗', category: 'transform' },
 ];
 
 export default function ETLPage() {
@@ -61,6 +66,8 @@ export default function ETLPage() {
   const [previewData, setPreviewData] = useState<any>(null);
   const [selectedPipeline, setSelectedPipeline] = useState<ETLPipeline | null>(null);
   const [executions, setExecutions] = useState<ETLExecution[]>([]);
+  const [editorSteps, setEditorSteps] = useState<any[]>([]);
+  const [visualEditorMode, setVisualEditorMode] = useState(false);
   const [form] = Form.useForm();
 
   const fetchPipelines = async () => {
@@ -91,7 +98,24 @@ export default function ETLPage() {
 
   const handleCreate = () => {
     setSelectedPipeline(null);
+    setEditorSteps([]);
+    setVisualEditorMode(false);
     form.resetFields();
+    setModalOpen(true);
+  };
+
+  const handleEdit = async (pipeline: ETLPipeline) => {
+    setSelectedPipeline(pipeline);
+    setEditorSteps(pipeline.steps || []);
+    setVisualEditorMode(true);
+    form.setFieldsValue({
+      name: pipeline.name,
+      description: pipeline.description,
+      source_id: pipeline.source_config?.source_id,
+      table_name: pipeline.source_config?.table_name,
+      target_table: pipeline.target_config?.table_name,
+      sync_to_bi: pipeline.target_config?.sync_to_bi || false,
+    });
     setModalOpen(true);
   };
 
@@ -136,6 +160,14 @@ export default function ETLPage() {
   };
 
   const handleSubmit = async (values: any) => {
+    const formattedSteps = editorSteps.map((step, idx) => ({
+      name: step.name,
+      step_type: step.step_type,
+      config: step.config,
+      order: idx,
+      is_enabled: step.is_enabled,
+    }));
+
     const data = {
       name: values.name,
       description: values.description,
@@ -150,16 +182,22 @@ export default function ETLPage() {
         if_exists: 'replace',
         sync_to_bi: values.sync_to_bi || false,
       },
-      steps: values.steps || [],
+      steps: formattedSteps,
     };
 
     try {
-      await etlApi.createPipeline(data);
-      message.success('创建成功');
+      if (selectedPipeline) {
+        await etlApi.updatePipeline(selectedPipeline.id, data);
+        message.success('更新成功');
+      } else {
+        await etlApi.createPipeline(data);
+        message.success('创建成功');
+      }
       setModalOpen(false);
+      setEditorSteps([]);
       fetchPipelines();
     } catch (error) {
-      message.error('创建失败');
+      message.error(selectedPipeline ? '更新失败' : '创建失败');
     }
   };
 
@@ -261,6 +299,11 @@ export default function ETLPage() {
           <Button size="small" icon={<PlayCircleOutlined />} onClick={() => handleRun(record.id)}>
             执行
           </Button>
+          <Tooltip title="可视化编辑">
+            <Button size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+              编辑
+            </Button>
+          </Tooltip>
           <Button size="small" icon={<EyeOutlined />} onClick={() => handlePreview(record.id)}>
             预览
           </Button>
@@ -370,21 +413,31 @@ export default function ETLPage() {
       </Card>
 
       <Modal
-        title="创建 ETL 管道"
+        title={selectedPipeline ? '编辑 ETL 管道' : '创建 ETL 管道'}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditorSteps([]);
+          setVisualEditorMode(false);
+        }}
         onOk={() => form.submit()}
-        width={700}
+        width={1000}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item name="name" label="管道名称" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={2} />
-          </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
+              <Form.Item name="name" label="管道名称" rules={[{ required: true }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="description" label="描述">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
               <Form.Item name="source_id" label="数据源" rules={[{ required: true }]}>
                 <Select
                   options={sources.map((s) => ({ value: s.id, label: s.name }))}
@@ -392,15 +445,17 @@ export default function ETLPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item name="table_name" label="源表名" rules={[{ required: true }]}>
                 <Input placeholder="输入源表名" />
               </Form.Item>
             </Col>
+            <Col span={8}>
+              <Form.Item name="target_table" label="目标表名" rules={[{ required: true }]}>
+                <Input placeholder="输入目标表名" />
+              </Form.Item>
+            </Col>
           </Row>
-          <Form.Item name="target_table" label="目标表名" rules={[{ required: true }]}>
-            <Input placeholder="输入目标表名" />
-          </Form.Item>
           <Form.Item
             name="sync_to_bi"
             label="同步到 BI"
@@ -409,6 +464,23 @@ export default function ETLPage() {
           >
             <Switch checkedChildren="开" unCheckedChildren="关" />
           </Form.Item>
+
+          <Card
+            title={
+              <Space>
+                <AppstoreOutlined />
+                <span>管道步骤设计器</span>
+                <Tag color="blue">{editorSteps.length} 个步骤</Tag>
+              </Space>
+            }
+            size="small"
+            style={{ marginTop: 16 }}
+          >
+            <ETLPipelineEditor
+              steps={editorSteps}
+              onChange={setEditorSteps}
+            />
+          </Card>
         </Form>
       </Modal>
 

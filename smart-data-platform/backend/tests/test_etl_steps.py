@@ -13,7 +13,9 @@ from app.services.etl_engine import (
     JoinStep,
     CalculateStep,
     FillMissingStep,
+    AIFillMissingStep,
     MaskStep,
+    AutoMaskStep,
     RenameStep,
     TypeCastStep,
     AggregateStep,
@@ -410,3 +412,340 @@ class TestJoinStep:
         with patch.object(step, "_load_join_table", return_value=pd.DataFrame({"a": [1]})):
             with pytest.raises(ValueError, match="requires 'on' or 'left_on'/'right_on'"):
                 await step.process(left_df)
+
+
+class TestAIFillMissingStep:
+    """Tests for AI-based missing value prediction step."""
+
+    @pytest.fixture
+    def df_with_missing(self):
+        """DataFrame with missing values for ML prediction."""
+        np.random.seed(42)
+        return pd.DataFrame({
+            "feature1": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+            "feature2": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0],
+            "target": [11.0, 22.0, None, 44.0, 55.0, None, 77.0, 88.0, 99.0, 110.0],
+        })
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_knn(self, df_with_missing):
+        """Test KNN-based missing value filling."""
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "knn",
+                "params": {"n_neighbors": 3},
+            }],
+            "fallback_strategy": "mean",
+        })
+        result = await step.process(df_with_missing)
+
+        assert result["target"].isna().sum() == 0
+        assert len(result) == 10
+        filled_value_idx2 = result.loc[2, "target"]
+        assert filled_value_idx2 > 0
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_random_forest(self, df_with_missing):
+        """Test Random Forest-based missing value filling."""
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "random_forest",
+                "params": {"n_estimators": 10, "max_depth": 3},
+            }],
+        })
+        result = await step.process(df_with_missing)
+
+        assert result["target"].isna().sum() == 0
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_linear_regression(self, df_with_missing):
+        """Test Linear Regression-based missing value filling."""
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "linear_regression",
+            }],
+        })
+        result = await step.process(df_with_missing)
+
+        assert result["target"].isna().sum() == 0
+        predicted_idx2 = result.loc[2, "target"]
+        # Linear regression should predict a reasonable value based on pattern
+        assert predicted_idx2 > 0
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_gradient_boosting(self, df_with_missing):
+        """Test Gradient Boosting-based missing value filling."""
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "gradient_boosting",
+                "params": {"n_estimators": 10, "max_depth": 2},
+            }],
+        })
+        result = await step.process(df_with_missing)
+
+        assert result["target"].isna().sum() == 0
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_no_missing_values(self):
+        """Test that no changes are made when there are no missing values."""
+        df = pd.DataFrame({
+            "feature1": [1.0, 2.0, 3.0],
+            "feature2": [10.0, 20.0, 30.0],
+            "target": [11.0, 22.0, 33.0],
+        })
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "knn",
+            }],
+        })
+        result = await step.process(df)
+
+        pd.testing.assert_frame_equal(result, df)
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_fallback_on_insufficient_data(self):
+        """Test fallback strategy when training data is insufficient."""
+        df = pd.DataFrame({
+            "feature1": [1.0, 2.0, 3.0],
+            "target": [None, None, 33.0],
+        })
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "target",
+                "feature_columns": ["feature1"],
+                "algorithm": "knn",
+            }],
+            "fallback_strategy": "mean",
+        })
+        result = await step.process(df)
+
+        assert result["target"].isna().sum() == 0
+        assert result.loc[0, "target"] == 33.0
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_classification(self):
+        """Test AI fill for classification (low cardinality numeric) target."""
+        # Use numeric categories (0, 1) which sklearn handles better
+        df = pd.DataFrame({
+            "feature1": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
+            "feature2": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0],
+            "category": [0, 0, None, 1, 1, None, 0, 1, 0, 1],
+        })
+        step = AIFillMissingStep({
+            "fills": [{
+                "target_column": "category",
+                "feature_columns": ["feature1", "feature2"],
+                "algorithm": "random_forest",  # Use RF for better classification
+                "params": {"n_estimators": 10, "max_depth": 3},
+            }],
+        })
+        result = await step.process(df)
+
+        assert result["category"].isna().sum() == 0
+        # Values should be numeric (filled)
+
+    @pytest.mark.asyncio
+    async def test_ai_fill_multiple_columns(self):
+        """Test filling multiple columns with different configurations."""
+        df = pd.DataFrame({
+            "f1": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+            "f2": [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0],
+            "t1": [11.0, None, 33.0, 44.0, 55.0, 66.0, 77.0, 88.0],
+            "t2": [100.0, 200.0, None, 400.0, 500.0, 600.0, 700.0, 800.0],
+        })
+        step = AIFillMissingStep({
+            "fills": [
+                {
+                    "target_column": "t1",
+                    "feature_columns": ["f1", "f2"],
+                    "algorithm": "knn",
+                },
+                {
+                    "target_column": "t2",
+                    "feature_columns": ["f1", "f2"],
+                    "algorithm": "linear_regression",
+                },
+            ],
+        })
+        result = await step.process(df)
+
+        assert result["t1"].isna().sum() == 0
+        assert result["t2"].isna().sum() == 0
+
+
+class TestAutoMaskStep:
+    """Tests for automatic sensitive data masking step."""
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_email(self):
+        """Test automatic email detection and masking."""
+        df = pd.DataFrame({
+            "email": ["alice@example.com", "bob@test.org", "charlie@domain.net"],
+            "user_id": [1, 2, 3],  # Use non-sensitive column name
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+            "default_strategy": "partial",
+        })
+        result = await step.process(df)
+
+        assert result.loc[0, "email"] != "alice@example.com"
+        assert "@" not in result.loc[0, "email"] or "*" in result.loc[0, "email"]
+        assert result.loc[0, "user_id"] == 1  # Non-sensitive column preserved
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_phone(self):
+        """Test automatic phone number detection and masking."""
+        df = pd.DataFrame({
+            "phone": ["13812345678", "13987654321"],
+            "id": [1, 2],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+        })
+        result = await step.process(df)
+
+        assert "*" in result.loc[0, "phone"]
+        assert result.loc[0, "phone"].startswith("138")
+        assert result.loc[0, "phone"].endswith("5678")
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_by_column_name(self):
+        """Test masking based on column name patterns."""
+        df = pd.DataFrame({
+            "user_email": ["test@test.com"],
+            "phone_number": ["1234567890"],
+            "ssn": ["123-45-6789"],
+            "password": ["secret123"],
+            "normal_column": ["value"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+        })
+        result = await step.process(df)
+
+        assert "*" in result.loc[0, "user_email"] or result.loc[0, "user_email"] != "test@test.com"
+        assert "*" in result.loc[0, "phone_number"] or len(result.loc[0, "phone_number"]) == 16
+        assert result.loc[0, "ssn"] != "123-45-6789"
+        assert result.loc[0, "password"] != "secret123"
+        assert result.loc[0, "normal_column"] == "value"
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_hash_strategy(self):
+        """Test hash masking strategy."""
+        df = pd.DataFrame({
+            "password": ["secret123", "password456"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "low",
+            "default_strategy": "hash",
+        })
+        result = await step.process(df)
+
+        assert result.loc[0, "password"] != "secret123"
+        assert len(result.loc[0, "password"]) == 16
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_skip_columns(self):
+        """Test skipping specified columns from masking."""
+        df = pd.DataFrame({
+            "email": ["alice@example.com"],
+            "phone": ["13812345678"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "low",
+            "skip_columns": ["email"],
+        })
+        result = await step.process(df)
+
+        assert result.loc[0, "email"] == "alice@example.com"
+        assert "*" in result.loc[0, "phone"]
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_column_overrides(self):
+        """Test custom masking configuration for specific columns."""
+        df = pd.DataFrame({
+            "email": ["alice@example.com"],
+            "phone_number": ["13812345678"],  # Sensitive column
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+            "column_overrides": {
+                "phone_number": {
+                    "strategy": "replace",
+                    "replacement": "[REDACTED]",
+                },
+            },
+        })
+        result = await step.process(df)
+
+        assert result.loc[0, "phone_number"] == "[REDACTED]"
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_high_threshold(self):
+        """Test that lower sensitivity items are not masked with high threshold."""
+        df = pd.DataFrame({
+            "name": ["Alice Smith"],
+            "email": ["alice@example.com"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "critical",
+        })
+        result = await step.process(df)
+
+        assert result.loc[0, "name"] == "Alice Smith"
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_ip_address(self):
+        """Test automatic IP address detection and masking."""
+        df = pd.DataFrame({
+            "ip_address": ["192.168.1.100", "10.0.0.1"],
+            "user_agent": ["Mozilla/5.0", "Chrome/91.0"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+        })
+        result = await step.process(df)
+
+        assert "*" in result.loc[0, "ip_address"]
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_custom_mask_char(self):
+        """Test custom masking character."""
+        df = pd.DataFrame({
+            "phone": ["13812345678"],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+            "mask_char": "#",
+        })
+        result = await step.process(df)
+
+        assert "#" in result.loc[0, "phone"]
+        assert "*" not in result.loc[0, "phone"]
+
+    @pytest.mark.asyncio
+    async def test_auto_mask_handles_null_values(self):
+        """Test that null values are handled correctly."""
+        df = pd.DataFrame({
+            "email": ["alice@example.com", None, "bob@test.com"],
+            "phone": [None, "13812345678", None],
+        })
+        step = AutoMaskStep({
+            "sensitivity_threshold": "medium",
+        })
+        result = await step.process(df)
+
+        assert pd.isna(result.loc[1, "email"])
+        assert pd.isna(result.loc[0, "phone"])
+        assert pd.isna(result.loc[2, "phone"])

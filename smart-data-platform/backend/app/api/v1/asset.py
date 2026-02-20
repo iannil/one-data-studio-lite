@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Response
+from fastapi.responses import FileResponse
 from sqlalchemy import select, or_
 
 from app.api.deps import CurrentUser, DBSession
-from app.models import DataAsset, AssetAccess, AssetApiConfig, AccessLevel
+from app.models import DataAsset, AssetAccess, AssetApiConfig, AssetSubscription, AccessLevel
+from app.services import AssetService
 from app.schemas import (
     DataAssetCreate,
     DataAssetResponse,
@@ -25,6 +28,10 @@ from app.schemas import (
     AssetApiConfigUpdate,
     AssetApiConfigResponse,
     AssetApiDocsResponse,
+    AssetSubscriptionCreate,
+    AssetSubscriptionUpdate,
+    AssetSubscriptionResponse,
+    AssetSubscriptionWithAsset,
 )
 
 router = APIRouter(prefix="/assets", tags=["Data Assets"])
@@ -434,20 +441,39 @@ async def export_asset(
     current_user: CurrentUser,
 ) -> AssetExportResponse:
     """Export asset data."""
+    asset_service = AssetService(db)
+
     result = await db.execute(select(DataAsset).where(DataAsset.id == asset_id))
     asset = result.scalar_one_or_none()
 
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    if not asset.source_table:
-        raise HTTPException(status_code=400, detail="Asset has no source table")
+    # Check API config for export permissions
+    if asset.api_config:
+        config = asset.api_config
+        if not config.allow_export:
+            raise HTTPException(status_code=403, detail="Export not allowed for this asset")
 
+    # Perform export
+    export_result = await asset_service.export_asset_data(
+        asset_id=asset_id,
+        format_type=request.format,
+        columns=request.columns,
+        filters=request.filters,
+        limit=request.limit or 100000,
+    )
+
+    # Log access
     access_log = AssetAccess(
         asset_id=asset.id,
         user_id=current_user.id,
         access_type="export",
-        access_details={"format": request.format},
+        access_details={
+            "format": request.format,
+            "row_count": export_result["row_count"],
+            "file_size": export_result["file_size_bytes"],
+        },
     )
     db.add(access_log)
     await db.commit()
@@ -455,9 +481,69 @@ async def export_asset(
     return AssetExportResponse(
         download_url=f"/api/v1/assets/{asset_id}/download?format={request.format}",
         format=request.format,
-        row_count=0,
-        file_size_bytes=0,
+        row_count=export_result["row_count"],
+        file_size_bytes=export_result["file_size_bytes"],
     )
+
+
+@router.get("/{asset_id}/download")
+async def download_asset(
+    asset_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+    format: str = "csv",
+) -> FileResponse:
+    """Download exported asset data."""
+    from pathlib import Path
+
+    result = await db.execute(select(DataAsset).where(DataAsset.id == asset_id))
+    asset = result.scalar_one_or_none()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # Find the most recent export file for this asset
+    safe_name = asset.name.replace(" ", "_").replace("/", "_")
+    export_dir = Path("/tmp/exports")
+
+    # Try to find matching file
+    matching_files = list(export_dir.glob(f"{safe_name}_*.{format}"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Export file not found. Please export first.")
+
+    # Get the most recent file
+    latest_file = max(matching_files, key=lambda p: p.stat().st_mtime)
+
+    # Log access
+    access_log = AssetAccess(
+        asset_id=asset.id,
+        user_id=current_user.id,
+        access_type="download",
+        access_details={"format": format, "file": str(latest_file.name)},
+    )
+    db.add(access_log)
+    await db.commit()
+
+    return FileResponse(
+        path=str(latest_file),
+        filename=latest_file.name,
+        media_type={
+            "csv": "text/csv",
+            "json": "application/json",
+            "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "parquet": "application/octet-stream",
+        }.get(format, "application/octet-stream"),
+    )
+
+
+@router.get("/export-formats")
+async def get_export_formats(
+    db: DBSession,
+    current_user: CurrentUser,
+) -> list[dict]:
+    """Get available export formats."""
+    asset_service = AssetService(db)
+    return await asset_service.get_export_formats()
 
 
 @router.post("/{asset_id}/certify", response_model=DataAssetResponse)
@@ -923,3 +1009,276 @@ def _generate_response_example(asset: DataAsset, config: AssetApiConfig) -> dict
         "limit": config.default_limit,
         "offset": 0,
     }
+
+
+# ============= Subscription Endpoints =============
+
+
+@router.post("/{asset_id}/subscribe", response_model=AssetSubscriptionResponse)
+async def subscribe_to_asset(
+    asset_id: UUID,
+    request: AssetSubscriptionCreate | None = None,
+    db: DBSession = None,
+    current_user: CurrentUser = None,
+) -> AssetSubscription:
+    """Subscribe to receive notifications for asset changes.
+
+    Creates a subscription that will notify the user when the specified
+    events occur on this asset (schema changes, data updates, etc.).
+    """
+    result = await db.execute(select(DataAsset).where(DataAsset.id == asset_id))
+    asset = result.scalar_one_or_none()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    existing = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.asset_id == asset_id,
+            AssetSubscription.user_id == current_user.id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Already subscribed to this asset",
+        )
+
+    event_types = request.event_types if request else ["all"]
+    notify_email = request.notify_email if request else True
+    notify_in_app = request.notify_in_app if request else True
+    notes = request.notes if request else None
+
+    subscription = AssetSubscription(
+        asset_id=asset_id,
+        user_id=current_user.id,
+        event_types=event_types,
+        notify_email=notify_email,
+        notify_in_app=notify_in_app,
+        notes=notes,
+    )
+    db.add(subscription)
+    await db.commit()
+    await db.refresh(subscription)
+
+    return subscription
+
+
+@router.delete(
+    "/{asset_id}/subscribe",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def unsubscribe_from_asset(
+    asset_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    """Unsubscribe from asset notifications.
+
+    Removes the subscription for the current user from the specified asset.
+    """
+    result = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.asset_id == asset_id,
+            AssetSubscription.user_id == current_user.id,
+        )
+    )
+    subscription = result.scalar_one_or_none()
+
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    await db.delete(subscription)
+    await db.commit()
+
+
+@router.get("/{asset_id}/subscription", response_model=Optional[AssetSubscriptionResponse])
+async def get_asset_subscription(
+    asset_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> Optional[AssetSubscription]:
+    """Get the current user's subscription status for an asset.
+
+    Returns the subscription details if subscribed, or null if not subscribed.
+    """
+    result = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.asset_id == asset_id,
+            AssetSubscription.user_id == current_user.id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+@router.patch("/{asset_id}/subscription", response_model=AssetSubscriptionResponse)
+async def update_asset_subscription(
+    asset_id: UUID,
+    request: AssetSubscriptionUpdate,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> AssetSubscription:
+    """Update subscription settings for an asset.
+
+    Allows updating notification preferences and event types without
+    creating a new subscription.
+    """
+    result = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.asset_id == asset_id,
+            AssetSubscription.user_id == current_user.id,
+        )
+    )
+    subscription = result.scalar_one_or_none()
+
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    update_data = request.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(subscription, field, value)
+
+    await db.commit()
+    await db.refresh(subscription)
+
+    return subscription
+
+
+@router.get("/{asset_id}/subscribers")
+async def list_asset_subscribers(
+    asset_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+) -> dict:
+    """List all subscribers for an asset (admin only).
+
+    Returns subscriber count and basic statistics.
+    """
+    result = await db.execute(select(DataAsset).where(DataAsset.id == asset_id))
+    asset = result.scalar_one_or_none()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    subscribers_result = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.asset_id == asset_id,
+            AssetSubscription.is_active.is_(True),
+        )
+    )
+    subscribers = list(subscribers_result.scalars())
+
+    return {
+        "asset_id": str(asset_id),
+        "subscriber_count": len(subscribers),
+        "event_type_breakdown": _count_event_types(subscribers),
+    }
+
+
+def _count_event_types(subscriptions: list[AssetSubscription]) -> dict[str, int]:
+    """Count subscriptions by event type."""
+    counts: dict[str, int] = {}
+    for sub in subscriptions:
+        for event_type in sub.event_types:
+            counts[event_type] = counts.get(event_type, 0) + 1
+    return counts
+
+
+# ============= User Subscriptions =============
+
+
+subscriptions_router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
+
+
+@subscriptions_router.get("", response_model=list[AssetSubscriptionWithAsset])
+async def list_my_subscriptions(
+    db: DBSession,
+    current_user: CurrentUser,
+    is_active: bool | None = True,
+) -> list[dict]:
+    """List all subscriptions for the current user.
+
+    Returns subscriptions with asset details for easy display.
+    """
+    query = select(AssetSubscription).where(
+        AssetSubscription.user_id == current_user.id
+    )
+
+    if is_active is not None:
+        query = query.where(AssetSubscription.is_active == is_active)
+
+    result = await db.execute(query)
+    subscriptions = list(result.scalars())
+
+    enriched = []
+    for sub in subscriptions:
+        asset_result = await db.execute(
+            select(DataAsset).where(DataAsset.id == sub.asset_id)
+        )
+        asset = asset_result.scalar_one_or_none()
+
+        sub_dict = {
+            "id": sub.id,
+            "asset_id": sub.asset_id,
+            "user_id": sub.user_id,
+            "event_types": sub.event_types,
+            "is_active": sub.is_active,
+            "notify_email": sub.notify_email,
+            "notify_in_app": sub.notify_in_app,
+            "notes": sub.notes,
+            "created_at": sub.created_at,
+            "updated_at": sub.updated_at,
+            "asset_name": asset.name if asset else None,
+            "asset_type": asset.asset_type if asset else None,
+        }
+        enriched.append(sub_dict)
+
+    return enriched
+
+
+@subscriptions_router.delete(
+    "/{subscription_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def delete_subscription(
+    subscription_id: UUID,
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    """Delete a specific subscription by ID."""
+    result = await db.execute(
+        select(AssetSubscription).where(
+            AssetSubscription.id == subscription_id,
+            AssetSubscription.user_id == current_user.id,
+        )
+    )
+    subscription = result.scalar_one_or_none()
+
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    await db.delete(subscription)
+    await db.commit()
+
+
+@subscriptions_router.post("/batch-unsubscribe", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def batch_unsubscribe(
+    asset_ids: list[UUID],
+    db: DBSession,
+    current_user: CurrentUser,
+):
+    """Unsubscribe from multiple assets at once."""
+    for asset_id in asset_ids:
+        result = await db.execute(
+            select(AssetSubscription).where(
+                AssetSubscription.asset_id == asset_id,
+                AssetSubscription.user_id == current_user.id,
+            )
+        )
+        subscription = result.scalar_one_or_none()
+        if subscription:
+            await db.delete(subscription)
+
+    await db.commit()

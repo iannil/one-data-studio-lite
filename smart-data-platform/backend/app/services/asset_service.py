@@ -806,3 +806,236 @@ Generate metadata in JSON format:
             "trend_direction": trend_direction,
             "analysis_period_days": days,
         }
+
+    async def export_asset_data(
+        self,
+        asset_id: uuid.UUID,
+        format_type: str = "csv",
+        columns: list[str] | None = None,
+        filters: dict[str, Any] | None = None,
+        limit: int = 100000,
+    ) -> dict[str, Any]:
+        """
+        Export asset data to various formats.
+
+        Args:
+            asset_id: The asset ID to export
+            format_type: Output format (csv, excel, json, parquet)
+            columns: Optional list of columns to include
+            filters: Optional filters to apply
+            limit: Maximum rows to export
+
+        Returns:
+            Export result with file path and metadata
+        """
+        from app.connectors import get_connector
+        from app.models import DataSource
+        import os
+        from pathlib import Path
+
+        # Get asset details
+        result = await self.db.execute(
+            select(DataAsset).where(DataAsset.id == asset_id)
+        )
+        asset = result.scalar_one_or_none()
+
+        if not asset:
+            raise ValueError(f"Asset not found: {asset_id}")
+
+        if not asset.source_table:
+            raise ValueError(f"Asset has no associated source table")
+
+        # Get data source for the asset
+        source_result = await self.db.execute(
+            select(DataSource).where(DataSource.id == asset.source_id)
+        )
+        source = source_result.scalar_one_or_none()
+
+        if not source:
+            # Try to find the table in any available source
+            source_result = await self.db.execute(
+                select(DataSource).limit(1)
+            )
+            source = source_result.scalar_one_or_none()
+
+        if not source:
+            raise ValueError("No data source available for export")
+
+        # Load data
+        connector = get_connector(source.type, source.connection_config)
+        df = await connector.read_data(
+            table_name=asset.source_table,
+            limit=limit,
+        )
+
+        # Apply column selection
+        if columns:
+            existing_columns = [c for c in columns if c in df.columns]
+            df = df[existing_columns]
+
+        # Apply filters
+        if filters:
+            df = self._apply_dataframe_filters(df, filters)
+
+        # Create export directory
+        export_dir = Path("/tmp/exports")
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate filename
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        safe_name = asset.name.replace(" ", "_").replace("/", "_")
+        filename = f"{safe_name}_{timestamp}.{format_type}"
+        file_path = export_dir / filename
+
+        # Export based on format
+        if format_type == "csv":
+            df.to_csv(file_path, index=False)
+        elif format_type == "excel":
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+                df.to_excel(writer, sheet_name="Data", index=False)
+        elif format_type == "json":
+            df.to_json(file_path, orient="records", indent=2)
+        elif format_type == "parquet":
+            df.to_parquet(file_path, index=False)
+        else:
+            raise ValueError(f"Unsupported export format: {format_type}")
+
+        # Get file size
+        file_size = file_path.stat().st_size
+
+        # Log export in audit
+        await self._log_export_activity(asset_id, format_type, len(df), file_size)
+
+        return {
+            "asset_id": str(asset_id),
+            "asset_name": asset.name,
+            "format": format_type,
+            "file_path": str(file_path),
+            "filename": filename,
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "file_size_bytes": file_size,
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    def _apply_dataframe_filters(
+        self,
+        df: pd.DataFrame,
+        filters: dict[str, Any],
+    ) -> pd.DataFrame:
+        """Apply filters to a DataFrame."""
+        result = df.copy()
+
+        for column, filter_config in filters.items():
+            if column not in result.columns:
+                continue
+
+            if isinstance(filter_config, dict):
+                # Range filter
+                if "min" in filter_config:
+                    result = result[result[column] >= filter_config["min"]]
+                if "max" in filter_config:
+                    result = result[result[column] <= filter_config["max"]]
+                # Values filter
+                if "values" in filter_config:
+                    result = result[result[column].isin(filter_config["values"])]
+            elif isinstance(filter_config, list):
+                result = result[result[column].isin(filter_config)]
+            else:
+                # Equality filter
+                result = result[result[column] == filter_config]
+
+        return result
+
+    async def _log_export_activity(
+        self,
+        asset_id: uuid.UUID,
+        format_type: str,
+        row_count: int,
+        file_size: int,
+    ) -> None:
+        """Log export activity to audit log."""
+        # This would log to the audit table
+        # For now, it's a placeholder for tracking
+        pass
+
+    async def get_export_formats(self) -> list[dict[str, Any]]:
+        """Get available export formats with descriptions."""
+        return [
+            {
+                "format": "csv",
+                "name": "CSV",
+                "description": "Comma-separated values",
+                "extension": "csv",
+                "supports_large_files": True,
+                "supports_multiple_sheets": False,
+            },
+            {
+                "format": "excel",
+                "name": "Excel",
+                "description": "Microsoft Excel format",
+                "extension": "xlsx",
+                "supports_large_files": False,
+                "supports_multiple_sheets": True,
+            },
+            {
+                "format": "json",
+                "name": "JSON",
+                "description": "JavaScript Object Notation",
+                "extension": "json",
+                "supports_large_files": True,
+                "supports_multiple_sheets": False,
+            },
+            {
+                "format": "parquet",
+                "name": "Parquet",
+                "description": "Apache Parquet columnar storage",
+                "extension": "parquet",
+                "supports_large_files": True,
+                "supports_multiple_sheets": False,
+            },
+        ]
+
+    async def export_multiple_assets(
+        self,
+        asset_ids: list[uuid.UUID],
+        format_type: str = "csv",
+        combine: bool = False,
+    ) -> dict[str, Any]:
+        """
+        Export multiple assets.
+
+        Args:
+            asset_ids: List of asset IDs to export
+            format_type: Output format
+            combine: Whether to combine into a single file (Excel only)
+
+        Returns:
+            Export results for each asset
+        """
+        results = []
+
+        for asset_id in asset_ids:
+            try:
+                result = await self.export_asset_data(
+                    asset_id=asset_id,
+                    format_type=format_type,
+                )
+                results.append({
+                    "asset_id": str(asset_id),
+                    "status": "success",
+                    **result,
+                })
+            except Exception as e:
+                results.append({
+                    "asset_id": str(asset_id),
+                    "status": "failed",
+                    "error": str(e),
+                })
+
+        return {
+            "total_assets": len(asset_ids),
+            "successful": sum(1 for r in results if r["status"] == "success"),
+            "failed": sum(1 for r in results if r["status"] == "failed"),
+            "results": results,
+        }
