@@ -350,11 +350,18 @@ class TestReportService:
 
         with patch("app.services.report_service.get_connector") as mock_get_connector:
             mock_connector = MagicMock()
-            # First query succeeds, second fails
-            mock_connector.read_data.side_effect = [
-                pd.DataFrame({"id": [1, 2, 3]}),
-                Exception("Table not found"),
-            ]
+
+            # First call returns data, second raises exception
+            call_count = [0]
+
+            async def mock_read_data(**kwargs):
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    return pd.DataFrame({"id": [1, 2, 3]})
+                else:
+                    raise Exception("Table not found")
+
+            mock_connector.read_data = mock_read_data
             mock_get_connector.return_value = mock_connector
 
             result = await service.get_dashboard_data(source_id, queries)

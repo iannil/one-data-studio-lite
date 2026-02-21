@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from openai import AsyncOpenAI
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 
 
 class TimeSeriesForecaster:
@@ -145,7 +141,7 @@ class TimeSeriesForecaster:
             window = min(7, len(df) // 2)
 
         forecasts = []
-        last_value = df[value_column].iloc[-1]
+        _ = df[value_column].iloc[-1]  # Baseline for reference, not used in forecast
 
         for i in range(periods):
             # Use the last 'window' values to predict next
@@ -310,13 +306,17 @@ class AnomalyDetector:
         anomaly_count = len(anomaly_indices)
         anomaly_percentage = (anomaly_count / len(original_df)) * 100
 
+        # Calculate threshold from contamination (IsolationForest uses offset_)
+        threshold = round(float(model.offset_), 4) if hasattr(model, 'offset_') else 0.0
+
         return {
             "method": "isolation_forest",
             "anomalies": anomalies,
             "anomaly_count": anomaly_count,
             "anomaly_percentage": round(anomaly_percentage, 2),
             "total_records": len(original_df),
-            "threshold": round(model.threshold_, 4),
+            "threshold": threshold,
+            "contamination": self.contamination,
         }
 
     def _statistical_detection(

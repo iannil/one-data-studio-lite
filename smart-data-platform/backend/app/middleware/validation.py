@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 

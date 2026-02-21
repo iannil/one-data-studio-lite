@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector
 from app.core.config import settings
-from app.core.observability import LifecycleTracker, track_operation, get_execution_trace
-from app.core.security import SQLSecurityValidator, SQLSecurityError
+from app.core.observability import LifecycleTracker
+from app.core.security import SQLSecurityValidator
 from app.models import DataSource, MetadataColumn, MetadataTable, DataAsset
 
 
@@ -482,7 +482,8 @@ Return at most {limit} matches, ordered by relevance_score descending."""
         result = json.loads(response.choices[0].message.content or "{}")
         matches = result.get("matches", [])
 
-        matched_ids = [m["id"] for m in matches]
+        # Extract matched IDs for reference
+        _ = [m["id"] for m in matches]
         matched_assets = [
             {
                 **next((a for a in assets_info if a["id"] == m["id"]), {}),

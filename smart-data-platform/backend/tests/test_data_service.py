@@ -178,6 +178,10 @@ class TestDataExport(TestDataService):
         assert len(data) == 5
         assert data[0]["name"] == "Alice"
 
+    @pytest.mark.skipif(
+        not pytest.importorskip("pyarrow"),
+        reason="pyarrow not installed"
+    )
     def test_export_parquet(self, service, sample_dataframe):
         """Test Parquet export."""
         content, content_type, filename = service._export_dataframe(

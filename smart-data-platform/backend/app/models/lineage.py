@@ -9,7 +9,6 @@ from typing import Any, Optional
 from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
-    Float,
     ForeignKey,
     String,
     Text,

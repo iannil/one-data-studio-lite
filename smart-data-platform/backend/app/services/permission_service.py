@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
 from openai import AsyncOpenAI
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -356,16 +355,19 @@ Respond in JSON format:
         Returns:
             Created AuditLog entry
         """
+        change_details = {
+            "target_user_id": str(user_id),
+            "change_type": action,
+            **details,
+        }
+
         audit_log = AuditLog(
             user_id=actor_id,
             action=AuditAction.PERMISSION_CHANGE,
             resource_type="permission",
             resource_id=str(user_id),
-            details={
-                "target_user_id": str(user_id),
-                "change_type": action,
-                **details,
-            },
+            new_value=change_details,  # Use new_value instead of details
+            description=f"Permission change: {action}",
             ip_address="system",
         )
 
@@ -396,7 +398,7 @@ Respond in JSON format:
         if user_id:
             query = query.where(AuditLog.resource_id == str(user_id))
 
-        query = query.order_by(AuditLog.created_at.desc()).limit(limit)
+        query = query.order_by(AuditLog.timestamp.desc()).limit(limit)
 
         result = await self.db.execute(query)
         logs = list(result.scalars())
@@ -405,10 +407,10 @@ Respond in JSON format:
             {
                 "id": str(log.id),
                 "actor_id": str(log.user_id),
-                "target_user_id": log.details.get("target_user_id"),
-                "change_type": log.details.get("change_type"),
-                "details": log.details,
-                "created_at": log.created_at.isoformat(),
+                "target_user_id": (log.new_value or {}).get("target_user_id"),
+                "change_type": (log.new_value or {}).get("change_type"),
+                "details": log.new_value or {},
+                "created_at": log.timestamp.isoformat(),
             }
             for log in logs
         ]

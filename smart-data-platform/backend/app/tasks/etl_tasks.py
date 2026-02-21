@@ -12,7 +12,7 @@ from typing import Any
 from app.celery_worker import celery_app
 from app.core.database import AsyncSessionLocal
 from app.services import ETLEngine
-from app.models import ETLPipeline, ETLExecution, ETLExecutionStatus
+from app.models import ETLPipeline, ETLExecution, ExecutionStatus
 from sqlalchemy import select
 
 
@@ -44,9 +44,8 @@ def run_etl_pipeline(self, pipeline_id: str, preview_mode: bool = False) -> dict
                 # Create execution record
                 execution = ETLExecution(
                     pipeline_id=pipeline.id,
-                    status=ETLExecutionStatus.RUNNING,
+                    status=ExecutionStatus.RUNNING,
                     started_at=datetime.now(timezone.utc),
-                    preview_mode=preview_mode,
                 )
                 db.add(execution)
                 await db.commit()
@@ -57,9 +56,9 @@ def run_etl_pipeline(self, pipeline_id: str, preview_mode: bool = False) -> dict
                 exec_result = await engine.run_pipeline(pipeline.id, preview_mode=preview_mode)
 
                 # Update execution
-                execution.status = exec_result.get("status", ETLExecutionStatus.SUCCESS)
+                execution.status = exec_result.get("status", ExecutionStatus.SUCCESS)
                 execution.completed_at = datetime.now(timezone.utc)
-                execution.rows_processed = exec_result.get("rows_processed", 0)
+                execution.rows_output = exec_result.get("rows_processed", 0)
                 execution.step_metrics = exec_result.get("step_metrics", [])
                 execution.error_message = exec_result.get("error_message")
 
@@ -71,7 +70,7 @@ def run_etl_pipeline(self, pipeline_id: str, preview_mode: bool = False) -> dict
                     "pipeline_id": pipeline_id,
                     "pipeline_name": pipeline.name,
                     "execution_id": str(execution.id),
-                    "rows_processed": execution.rows_processed,
+                    "rows_processed": execution.rows_output,
                     "preview_mode": preview_mode,
                     "step_metrics": execution.step_metrics,
                 }
@@ -87,7 +86,7 @@ def run_etl_pipeline(self, pipeline_id: str, preview_mode: bool = False) -> dict
                     )
                     execution = result.scalar_one_or_none()
                     if execution:
-                        execution.status = ETLExecutionStatus.FAILED
+                        execution.status = ExecutionStatus.FAILED
                         execution.completed_at = datetime.now(timezone.utc)
                         execution.error_message = str(e)
                         await db.commit()

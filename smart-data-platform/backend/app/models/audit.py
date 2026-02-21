@@ -27,6 +27,7 @@ class AuditAction(str, enum.Enum):
     LOGOUT = "logout"
     EXPORT = "export"
     EXECUTE = "execute"
+    PERMISSION_CHANGE = "permission_change"
 
 
 class AuditLog(Base):

@@ -14,8 +14,6 @@ from app.services.lineage_service import LineageService
 from app.services.ai_service import AIService
 from app.schemas.lineage import (
     LineageGraphResponse,
-    AssetLineageRequest,
-    ImpactAnalysisRequest,
     ImpactAnalysisResponse,
     BuildLineageRequest,
 )

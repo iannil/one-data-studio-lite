@@ -82,7 +82,8 @@ class TestSQLSecurityValidator:
         sql = "SELECT * FROM users WHERE SLEEP(5)"
         is_safe, violations = SQLSecurityValidator.validate(sql)
         assert is_safe is False
-        assert "SLEEP function" in violations
+        # The violation message includes "(timing attack)" suffix
+        assert any("SLEEP function" in v for v in violations)
 
     def test_validate_empty_query(self):
         """Test validation of empty query."""
@@ -267,39 +268,74 @@ class TestNLToSQL(TestAIService):
     @pytest.mark.asyncio
     async def test_natural_language_to_sql_success(self, service, mock_db):
         """Test successful NL to SQL conversion."""
-        table = MagicMock(spec=MetadataTable)
-        table.id = uuid.uuid4()
-        table.table_name = "sales"
-        table.schema_name = "public"
-        table.ai_description = "Sales transactions"
+        from types import SimpleNamespace
 
-        mock_tables_result = MagicMock()
-        mock_tables_result.scalars.return_value = [table]
+        # Create serializable mock objects using SimpleNamespace
+        table = SimpleNamespace(
+            id=uuid.uuid4(),
+            table_name="sales",
+            schema_name="public",
+            ai_description="Sales transactions",
+            description=None,
+        )
 
-        mock_columns_result = MagicMock()
-        mock_columns_result.scalars.return_value = []
+        # Create proper mock result object with scalars method
+        class MockResult:
+            def __init__(self, items):
+                self._items = items
 
-        mock_db.execute.side_effect = [mock_tables_result, mock_columns_result]
+            def scalars(self):
+                return MockScalarResult(self._items)
 
-        mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=json.dumps({
+            def scalar_one_or_none(self):
+                return self._items[0] if self._items else None
+
+        class MockScalarResult:
+            def __init__(self, items):
+                self._items = items
+
+            def __aiter__(self):
+                class AsyncIter:
+                    async def __aiter__(self):
+                        for item in self._items:
+                            yield item
+                return AsyncIter()
+
+            def __iter__(self):
+                return iter(self._items)
+
+        mock_tables_result = MockResult([table])
+        mock_columns_result = MockResult([])
+
+        # Set up execute to return appropriate results
+        execute_call_count = [0]
+
+        async def mock_execute(stmt):
+            execute_call_count[0] += 1
+            if execute_call_count[0] == 1:
+                return mock_tables_result
+            else:
+                return mock_columns_result
+
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+        # Mock OpenAI response
+        class MockChoice:
+            def __init__(self):
+                class _Message:
+                    content = json.dumps({
                         "sql": "SELECT SUM(amount) FROM sales WHERE date >= '2024-01-01'",
                         "explanation": "Sums sales amount for the year",
-                        "visualization_suggestion": {
-                            "chart_type": "bar",
-                        },
+                        "visualization_suggestion": {"chart_type": "bar"},
                     })
-                )
-            )
-        ]
-        service.client.chat.completions.create = AsyncMock(return_value=mock_response)
+                self.message = _Message()
 
-        result = await service.natural_language_to_sql(
-            query="Total sales this year"
-        )
+        class MockResponse:
+            choices = [MockChoice()]
+
+        service.client.chat.completions.create = AsyncMock(return_value=MockResponse())
+
+        result = await service.natural_language_to_sql(query="Total sales this year")
 
         assert "sql" in result
         assert "SELECT" in result["sql"]
@@ -307,36 +343,81 @@ class TestNLToSQL(TestAIService):
     @pytest.mark.asyncio
     async def test_natural_language_to_sql_security_block(self, service, mock_db):
         """Test NL to SQL blocks dangerous queries."""
-        table = MagicMock(spec=MetadataTable)
-        table.id = uuid.uuid4()
-        table.table_name = "users"
-        table.schema_name = "public"
+        from types import SimpleNamespace
 
-        mock_tables_result = MagicMock()
-        mock_tables_result.scalars.return_value = [table]
+        # Create serializable mock objects
+        table = SimpleNamespace(
+            id=uuid.uuid4(),
+            table_name="users",
+            schema_name="public",
+            ai_description="User data",
+            description=None,
+        )
 
-        mock_columns_result = MagicMock()
-        mock_columns_result.scalars.return_value = []
+        column = SimpleNamespace(
+            column_name="id",
+            data_type="integer",
+            ai_inferred_meaning="User ID",
+            description=None,
+        )
 
-        mock_db.execute.side_effect = [mock_tables_result, mock_columns_result]
+        # Create proper mock result object
+        class MockResult:
+            def __init__(self, items):
+                self._items = items
 
-        mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content=json.dumps({
+            def scalars(self):
+                return MockScalarResult(self._items)
+
+            def scalar_one_or_none(self):
+                return self._items[0] if self._items else None
+
+        class MockScalarResult:
+            def __init__(self, items):
+                self._items = items
+
+            def __aiter__(self):
+                class AsyncIter:
+                    async def __aiter__(self):
+                        for item in self._items:
+                            yield item
+                return AsyncIter()
+
+            def __iter__(self):
+                return iter(self._items)
+
+        mock_tables_result = MockResult([table])
+        mock_columns_result = MockResult([column])
+
+        execute_call_count = [0]
+
+        async def mock_execute(stmt):
+            execute_call_count[0] += 1
+            if execute_call_count[0] == 1:
+                return mock_tables_result
+            else:
+                return mock_columns_result
+
+        mock_db.execute = AsyncMock(side_effect=mock_execute)
+
+        # Mock OpenAI response with dangerous SQL
+        class MockChoice:
+            def __init__(self):
+                class _Message:
+                    content = json.dumps({
                         "sql": "DROP TABLE users",
                         "explanation": "Drops the users table",
                     })
-                )
-            )
-        ]
-        service.client.chat.completions.create = AsyncMock(return_value=mock_response)
+                self.message = _Message()
 
-        result = await service.natural_language_to_sql(
-            query="Delete all users"
-        )
+        class MockResponse:
+            choices = [MockChoice()]
 
+        service.client.chat.completions.create = AsyncMock(return_value=MockResponse())
+
+        result = await service.natural_language_to_sql(query="Delete all users")
+
+        # Should return security error because DROP is blocked
         assert result.get("security_error") is True
         assert "error" in result
 

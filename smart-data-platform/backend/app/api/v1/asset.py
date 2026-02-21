@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Response
@@ -24,7 +24,6 @@ from app.schemas import (
     AssetGenerateDescriptionRequest,
     AssetGenerateDescriptionResponse,
     AssetValueTrendResponse,
-    AssetApiConfigCreate,
     AssetApiConfigUpdate,
     AssetApiConfigResponse,
     AssetApiDocsResponse,
@@ -190,8 +189,11 @@ async def search_assets(
     result = await db.execute(query)
     assets = list(result.scalars())
 
+    # Convert DataAsset to DataAssetResponse
+    asset_responses = [DataAssetResponse.model_validate(asset) for asset in assets]
+
     return AssetSearchResponse(
-        results=assets,
+        results=asset_responses,
         total=len(assets),
         ai_summary=f"Found {len(assets)} assets matching '{request.query}'"
         if assets
@@ -254,8 +256,10 @@ async def get_lineage(
 
             next_ids = a.upstream_assets if direction == "upstream" else a.downstream_assets
             if next_ids and current_depth < depth:
+                # Convert string UUIDs to UUID objects
+                next_uuids = [UUID(id_str) for id_str in next_ids if id_str]
                 nested = await collect_lineage(
-                    next_ids, direction, current_depth + 1, visited
+                    next_uuids, direction, current_depth + 1, visited
                 )
                 collected.extend(nested)
 
@@ -264,11 +268,15 @@ async def get_lineage(
     visited_up: set[UUID] = {asset.id}
     visited_down: set[UUID] = {asset.id}
 
+    # Convert string UUIDs to UUID objects
+    upstream_uuids = [UUID(id_str) for id_str in (asset.upstream_assets or []) if id_str]
+    downstream_uuids = [UUID(id_str) for id_str in (asset.downstream_assets or []) if id_str]
+
     upstream = await collect_lineage(
-        asset.upstream_assets or [], "upstream", 1, visited_up
+        upstream_uuids, "upstream", 1, visited_up
     )
     downstream = await collect_lineage(
-        asset.downstream_assets or [], "downstream", 1, visited_down
+        downstream_uuids, "downstream", 1, visited_down
     )
 
     nodes = [
@@ -594,10 +602,6 @@ async def auto_register_asset(
     sync_engine = create_engine(sync_url)
 
     try:
-        table_ref = request.table_name
-        if request.schema_name:
-            table_ref = f"{request.schema_name}.{request.table_name}"
-
         df = pd.read_sql_table(
             request.table_name,
             sync_engine,
@@ -661,7 +665,7 @@ async def generate_asset_description(
     if not asset:
         raise HTTPException(status_code=404, detail="Asset not found")
 
-    asset_info = {
+    asset_info: dict[str, Any] = {
         "name": asset.name,
         "current_description": asset.description,
         "source_table": asset.source_table,
@@ -1017,9 +1021,9 @@ def _generate_response_example(asset: DataAsset, config: AssetApiConfig) -> dict
 @router.post("/{asset_id}/subscribe", response_model=AssetSubscriptionResponse)
 async def subscribe_to_asset(
     asset_id: UUID,
-    request: AssetSubscriptionCreate | None = None,
-    db: DBSession = None,
-    current_user: CurrentUser = None,
+    db: DBSession,
+    current_user: CurrentUser,
+    request: Optional[AssetSubscriptionCreate] = None,
 ) -> AssetSubscription:
     """Subscribe to receive notifications for asset changes.
 

@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-import pandas as pd
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.observability import LifecycleTracker
@@ -62,7 +60,8 @@ class ReportService:
         """
         template_id = uuid.uuid4()
 
-        template = ReportTemplate(
+        # Create template object (not persisted in this implementation)
+        ReportTemplate(
             name=name,
             description=description,
             charts=charts,

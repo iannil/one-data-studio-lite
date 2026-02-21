@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, DBSession
 from app.models import AuditLog, AuditAction
 from app.schemas.ocr import (
-    OCRProcessRequest,
     OCRProcessResponse,
     OCRBatchResponse,
     SupportedTypesResponse,

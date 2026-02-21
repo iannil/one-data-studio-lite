@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 from openai import AsyncOpenAI
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -830,7 +830,6 @@ Generate metadata in JSON format:
         """
         from app.connectors import get_connector
         from app.models import DataSource
-        import os
         from pathlib import Path
 
         # Get asset details
@@ -843,7 +842,7 @@ Generate metadata in JSON format:
             raise ValueError(f"Asset not found: {asset_id}")
 
         if not asset.source_table:
-            raise ValueError(f"Asset has no associated source table")
+            raise ValueError("Asset has no associated source table")
 
         # Get data source for the asset
         source_result = await self.db.execute(

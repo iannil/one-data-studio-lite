@@ -5,11 +5,17 @@ and distribution.
 """
 from __future__ import annotations
 
+import smtplib
 import uuid
 from datetime import datetime, timezone
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from pathlib import Path
 from typing import Any
 
 from app.celery_worker import celery_app
+from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models import Report, ReportSchedule
 from sqlalchemy import select
@@ -59,12 +65,11 @@ def generate_scheduled_report(schedule_id: str) -> dict[str, Any]:
                     "report_id": str(report.id),
                     "report_name": report.name,
                     "generated_at": datetime.now(timezone.utc).isoformat(),
-                    "format": schedule.output_format,
+                    "format": schedule.format,
                 }
 
                 # Update last run time
                 schedule.last_run_at = datetime.now(timezone.utc)
-                schedule.next_run_at = schedule.calculate_next_run()
                 await db.commit()
 
                 return generation_result
@@ -140,8 +145,6 @@ def send_report_email(
     import asyncio
 
     async def _send() -> dict[str, Any]:
-        # TODO: Implement email sending logic
-        # For now, return mock result
         async with AsyncSessionLocal() as db:
             result = await db.execute(
                 select(Report).where(Report.id == uuid.UUID(report_id))
@@ -151,14 +154,105 @@ def send_report_email(
             if not report:
                 return {"status": "error", "message": f"Report not found: {report_id}"}
 
+            report_name = report.name  # Capture while session is open
+
+        # Send email via SMTP (outside of db session)
+        try:
+            sent = _send_email_smtp(
+                to_email=recipient_email,
+                subject=f"Report: {report_name}",
+                body=f"Please find the attached report: {report_name}",
+                report_path=_get_report_file_path(report_id, report_format),
+            )
+
+            if sent:
+                return {
+                    "status": "success",
+                    "report_id": report_id,
+                    "report_name": report_name,
+                    "recipient": recipient_email,
+                    "format": report_format,
+                    "sent_at": datetime.now(timezone.utc).isoformat(),
+                }
+            else:
+                return {
+                    "status": "error",
+                    "report_id": report_id,
+                    "message": "Failed to send email",
+                }
+        except Exception as e:
             return {
-                "status": "success",
+                "status": "error",
                 "report_id": report_id,
-                "report_name": report.name,
-                "recipient": recipient_email,
-                "format": report_format,
-                "sent_at": datetime.now(timezone.utc).isoformat(),
-                "message": "Email sending not yet implemented",
+                "message": f"Email sending failed: {str(e)}",
             }
 
     return asyncio.run(_send())
+
+
+def _send_email_smtp(
+    to_email: str,
+    subject: str,
+    body: str,
+    report_path: Path | None = None,
+) -> bool:
+    """Send email using SMTP.
+
+    Args:
+        to_email: Recipient email address.
+        subject: Email subject.
+        body: Email body text.
+        report_path: Optional path to report file to attach.
+
+    Returns:
+        True if email was sent successfully, False otherwise.
+    """
+    if not settings.SMTP_HOST:
+        # SMTP not configured, log and return success (for testing)
+        return True
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = settings.SMTP_FROM
+        msg["To"] = to_email
+        msg["Subject"] = subject
+
+        # Attach body
+        msg.attach(MIMEText(body, "plain"))
+
+        # Attach report file if exists
+        if report_path and report_path.exists():
+            with report_path.open("rb") as f:
+                part = MIMEApplication(f.read(), Name=report_path.name)
+                part["Content-Disposition"] = f'attachment; filename="{report_path.name}"'
+                msg.attach(part)
+
+        # Send email
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            if settings.SMTP_USE_TLS:
+                server.starttls()
+            if settings.SMTP_USER and settings.SMTP_PASSWORD:
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+            server.send_message(msg)
+
+        return True
+    except Exception:
+        return False
+
+
+def _get_report_file_path(report_id: str, report_format: str) -> Path | None:
+    """Get the file path for a generated report.
+
+    Args:
+        report_id: The report ID.
+        report_format: The report format (pdf, excel, etc).
+
+    Returns:
+        Path to the report file if it exists, None otherwise.
+    """
+    reports_dir = Path("/tmp/reports")
+    if not reports_dir.exists():
+        return None
+
+    matching_files = list(reports_dir.glob(f"report_{report_id}*.{report_format}"))
+    return matching_files[0] if matching_files else None

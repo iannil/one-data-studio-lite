@@ -13,7 +13,7 @@ from app.celery_worker import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import DataSource, CollectTask, CollectExecution, CollectTaskStatus
 from app.connectors import get_connector
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy import create_engine
 
 

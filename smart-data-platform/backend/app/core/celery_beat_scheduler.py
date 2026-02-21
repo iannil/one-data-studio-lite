@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from celery.beat import Scheduler, ScheduleEntry
-from celery.schedules import schedule
 from redis import Redis
 
 from app.core.config import settings

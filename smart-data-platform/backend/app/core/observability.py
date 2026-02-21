@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import contextvars
-import json
-import logging
 import time
 import traceback
 import uuid
@@ -185,7 +183,7 @@ class LifecycleTracker:
         kwargs: P.kwargs,
     ) -> R:
         """Track synchronous function execution."""
-        operation_name = self.name or f"{func.__module__}.{func.__qualname__}"
+        _ = self.name or f"{func.__module__}.{func.__qualname__}"  # For future use
         span_id = generate_span_id()
         parent_span_id = get_span_id()
 
@@ -237,7 +235,7 @@ class LifecycleTracker:
         kwargs: P.kwargs,
     ) -> R:
         """Track async function execution."""
-        operation_name = self.name or f"{func.__module__}.{func.__qualname__}"
+        _ = self.name or f"{func.__module__}.{func.__qualname__}"  # For future use
         span_id = generate_span_id()
         parent_span_id = get_span_id()
 
@@ -445,7 +443,7 @@ def generate_execution_report() -> dict[str, Any]:
 
     # Calculate statistics
     function_starts = [e for e in trace if e["event_type"] == "Function_Start"]
-    function_ends = [e for e in trace if e["event_type"] == "Function_End"]
+    _ = [e for e in trace if e["event_type"] == "Function_End"]  # For validation
     errors = [e for e in trace if "Error" in e["event_type"]]
 
     # Calculate total duration

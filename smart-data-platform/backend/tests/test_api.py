@@ -81,7 +81,7 @@ class TestAuthEndpoints:
         ) as client:
             response = await client.get("/api/v1/auth/me")
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided
 
 
 class TestSourcesEndpoints:
@@ -92,7 +92,7 @@ class TestSourcesEndpoints:
         ) as client:
             response = await client.get("/api/v1/sources")
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided
 
     @pytest.mark.asyncio
     async def test_create_source_validation(self, auth_headers):
@@ -130,7 +130,7 @@ class TestETLEndpoints:
         ) as client:
             response = await client.get("/api/v1/etl/pipelines")
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided
 
 
 class TestAnalysisEndpoints:
@@ -144,7 +144,7 @@ class TestAnalysisEndpoints:
                 json={"query": "Show me all users"},
             )
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided
 
 
 class TestAssetsEndpoints:
@@ -155,7 +155,7 @@ class TestAssetsEndpoints:
         ) as client:
             response = await client.get("/api/v1/assets")
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided
 
     @pytest.mark.asyncio
     async def test_search_assets_unauthorized(self):
@@ -167,4 +167,4 @@ class TestAssetsEndpoints:
                 json={"query": "sales data"},
             )
 
-        assert response.status_code == 401  # No auth token provided
+        assert response.status_code == 403  # No auth token provided

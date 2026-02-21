@@ -4,9 +4,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status, Response
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser, DBSession
 from app.connectors import get_connector

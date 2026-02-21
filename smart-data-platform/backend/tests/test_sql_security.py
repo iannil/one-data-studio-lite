@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.ai_service import SQLSecurityValidator, SQLSecurityError
+from app.core.security import SQLSecurityValidator, SQLSecurityError
 
 
 class TestSQLSecurityValidator:

@@ -11,7 +11,7 @@ from typing import Any
 from app.celery_worker import celery_app
 from app.core.database import AsyncSessionLocal
 from app.models import AuditLog, ETLExecution, CollectExecution
-from sqlalchemy import select, delete
+from sqlalchemy import delete
 
 
 @celery_app.task(name="system.cleanup_old_results")
@@ -32,7 +32,7 @@ def cleanup_old_results(days: int = 7) -> dict[str, Any]:
         async with AsyncSessionLocal() as db:
             # Clean up old audit logs (optional - for compliance you may want to keep these)
             audit_result = await db.execute(
-                delete(AuditLog).where(AuditLog.created_at < cutoff)
+                delete(AuditLog).where(AuditLog.timestamp < cutoff)
             )
             audit_deleted = audit_result.rowcount
 

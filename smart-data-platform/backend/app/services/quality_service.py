@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector
 from app.core.observability import LifecycleTracker
-from app.models import DataSource, DataQualityIssue, QualityIssueSeverity, QualityAssessmentHistory, DataAsset
+from app.models import DataSource, DataQualityIssue, QualityIssueSeverity, QualityAssessmentHistory
 
 
 class DataQualityService:
@@ -472,7 +472,6 @@ class DataQualityService:
         days: int = 30,
     ) -> dict[str, Any]:
         """Track quality trends over time using historical assessment data."""
-        from datetime import timedelta
 
         if asset_id:
             # Query historical quality assessments from database
@@ -563,7 +562,8 @@ class DataQualityService:
         limit: int = 100,
     ) -> list[DataQualityIssue]:
         """Get unresolved quality issues from the database."""
-        query = select(DataQualityIssue).where(DataQualityIssue.resolved == False)
+        from sqlalchemy import false
+        query = select(DataQualityIssue).where(DataQualityIssue.resolved == false())
 
         if asset_id:
             query = query.where(DataQualityIssue.asset_id == asset_id)

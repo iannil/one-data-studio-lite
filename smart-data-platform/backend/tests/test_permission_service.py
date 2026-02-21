@@ -348,8 +348,8 @@ class TestAuditPermissionChange(TestPermissionService):
         log1.id = uuid.uuid4()
         log1.user_id = uuid.uuid4()
         log1.action = AuditAction.PERMISSION_CHANGE
-        log1.details = {"target_user_id": str(uuid.uuid4()), "change_type": "grant"}
-        log1.created_at = datetime.now(timezone.utc)
+        log1.new_value = {"target_user_id": str(uuid.uuid4()), "change_type": "grant"}
+        log1.timestamp = datetime.now(timezone.utc)
 
         mock_result = MagicMock()
         mock_result.scalars.return_value = [log1]

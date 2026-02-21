@@ -10,7 +10,6 @@ import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector
-from app.core.database import engine
 from app.core.observability import LifecycleTracker, track_operation, get_trace_id
 from app.models import DataSource, ETLPipeline, ETLStepType
 

@@ -28,10 +28,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
     # Routes to skip auditing (health checks, docs, etc.)
     SKIP_PATHS = {
         "/health",
-        "/",
-        "/api/v1/docs",
-        "/api/v1/redoc",
-        "/api/v1/openapi.json",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
     }
 
     # Methods that are considered write operations
