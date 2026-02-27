@@ -1,7 +1,7 @@
 """
 Finance System Data Generator.
 
-Generates production-level test data for the finance schema:
+Generates production-level test data for the finance database:
 - customers (100,000)
 - accounts (200,000)
 - transactions (3,000,000)
@@ -22,13 +22,14 @@ from typing import Any, Iterator
 
 from sqlalchemy import text
 
-from .base import BaseDataGenerator
+from .base import BaseDataGenerator, create_postgresql_database
 from .. import config
 from ..config import (
     BANK_CODES,
     BANK_NAMES,
     CHINESE_CITIES,
     CHINESE_PROVINCES,
+    FINANCE_DB_CONFIG,
     FINANCE_PRODUCTS,
     POSTGRESQL_CONFIG,
     TRANSACTION_TYPES,
@@ -41,13 +42,20 @@ class FinanceDataGenerator(BaseDataGenerator):
     SCHEMA_FILE = Path(__file__).parent.parent / "schemas" / "finance.sql"
 
     def __init__(self):
-        super().__init__(POSTGRESQL_CONFIG.connection_string)
+        super().__init__(FINANCE_DB_CONFIG.connection_string)
         self.customer_ids: list[int] = []
         self.account_ids: list[int] = []
         self.portfolio_ids: list[int] = []
 
+    def create_database(self) -> None:
+        """Create the finance_db database if it doesn't exist."""
+        create_postgresql_database(
+            POSTGRESQL_CONFIG.admin_connection_string,
+            FINANCE_DB_CONFIG.database
+        )
+
     def create_schema(self) -> None:
-        """Create the finance schema."""
+        """Create the finance schema (tables in public)."""
         self.execute_sql_file(str(self.SCHEMA_FILE))
 
     def generate_data(self) -> None:
@@ -113,10 +121,10 @@ class FinanceDataGenerator(BaseDataGenerator):
                     "system"
                 )
 
-        self.batch_insert("customers", columns, data_generator(), total, schema="finance")
+        self.batch_insert("customers", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM finance.customers"))
+            result = conn.execute(text("SELECT id FROM customers"))
             self.customer_ids = [row[0] for row in result]
 
     def _generate_accounts(self) -> None:
@@ -162,10 +170,10 @@ class FinanceDataGenerator(BaseDataGenerator):
                     opened_at
                 )
 
-        self.batch_insert("accounts", columns, data_generator(), total, schema="finance")
+        self.batch_insert("accounts", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM finance.accounts"))
+            result = conn.execute(text("SELECT id FROM accounts"))
             self.account_ids = [row[0] for row in result]
 
     def _generate_transactions(self) -> None:
@@ -223,7 +231,7 @@ class FinanceDataGenerator(BaseDataGenerator):
                     tx_at
                 )
 
-        self.batch_insert("transactions", columns, data_generator(), total, schema="finance")
+        self.batch_insert("transactions", columns, data_generator(), total)
 
     def _generate_portfolios(self) -> None:
         """Generate portfolio data."""
@@ -272,10 +280,10 @@ class FinanceDataGenerator(BaseDataGenerator):
                     created_at
                 )
 
-        self.batch_insert("portfolios", columns, data_generator(), total, schema="finance")
+        self.batch_insert("portfolios", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM finance.portfolios"))
+            result = conn.execute(text("SELECT id FROM portfolios"))
             self.portfolio_ids = [row[0] for row in result]
 
     def _generate_portfolio_holdings(self) -> None:
@@ -323,7 +331,7 @@ class FinanceDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("portfolio_holdings", columns, data_generator(), total, schema="finance")
+        self.batch_insert("portfolio_holdings", columns, data_generator(), total)
 
     def _generate_risk_assessments(self) -> None:
         """Generate risk assessment data."""
@@ -385,7 +393,7 @@ class FinanceDataGenerator(BaseDataGenerator):
                     created_at
                 )
 
-        self.batch_insert("risk_assessments", columns, data_generator(), total, schema="finance")
+        self.batch_insert("risk_assessments", columns, data_generator(), total)
 
     def _generate_audit_logs(self) -> None:
         """Generate audit log data."""
@@ -431,4 +439,4 @@ class FinanceDataGenerator(BaseDataGenerator):
                     self.generate_random_datetime(datetime(2024, 1, 1), datetime(2026, 2, 18))
                 )
 
-        self.batch_insert("audit_logs", columns, data_generator(), total, schema="finance")
+        self.batch_insert("audit_logs", columns, data_generator(), total)

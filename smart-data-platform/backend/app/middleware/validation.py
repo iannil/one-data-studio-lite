@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
@@ -9,7 +10,7 @@ from fastapi import Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from app.core.observability import track_operation
+logger = logging.getLogger(__name__)
 
 
 # Patterns for detecting common attack vectors
@@ -90,10 +91,22 @@ class ValidationMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         """Validate request before processing."""
 
+        # Skip validation for file uploads (multipart/form-data)
+        content_type = request.headers.get("content-type", "")
+        if "multipart/form-data" in content_type:
+            return await call_next(request)
+
+        # Skip validation for OCR endpoints (they handle file uploads)
+        if request.url.path.startswith("/api/v1/ocr"):
+            return await call_next(request)
+
         # Check content length
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > self.max_body_size:
-            await track_operation("validation_failed", reason="Request body too large")
+            logger.warning(
+                "Request blocked: Request body too large",
+                extra={"path": request.url.path, "content_length": content_length}
+            )
             return Response(
                 content='{"error":"Request body too large"}',
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -108,7 +121,10 @@ class ValidationMiddleware(BaseHTTPMiddleware):
                 # Validate for SQL injection
                 if self.enable_sql_check:
                     if self._check_sql_injection(body):
-                        await track_operation("validation_blocked", reason="SQL injection detected")
+                        logger.warning(
+                            "Request blocked: SQL injection detected",
+                            extra={"path": request.url.path, "method": request.method}
+                        )
                         return Response(
                             content='{"error":"Invalid input detected"}',
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -118,7 +134,10 @@ class ValidationMiddleware(BaseHTTPMiddleware):
                 # Validate for XSS
                 if self.enable_xss_check:
                     if self._check_xss(body):
-                        await track_operation("validation_blocked", reason="XSS detected")
+                        logger.warning(
+                            "Request blocked: XSS detected",
+                            extra={"path": request.url.path, "method": request.method}
+                        )
                         return Response(
                             content='{"error":"Invalid input detected"}',
                             status_code=status.HTTP_400_BAD_REQUEST,
@@ -130,7 +149,10 @@ class ValidationMiddleware(BaseHTTPMiddleware):
         if query_string:
             if self.enable_path_check:
                 if self._check_path_traversal(query_string):
-                    await track_operation("validation_blocked", reason="Path traversal detected")
+                    logger.warning(
+                        "Request blocked: Path traversal detected in query",
+                        extra={"path": request.url.path, "query": query_string[:100]}
+                    )
                     return Response(
                         content='{"error":"Invalid input detected"}',
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -141,7 +163,10 @@ class ValidationMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if self.enable_path_check:
             if self._check_path_traversal(path):
-                await track_operation("validation_blocked", reason="Path traversal in URL")
+                logger.warning(
+                    "Request blocked: Path traversal detected in URL path",
+                    extra={"path": path[:200]}
+                )
                 return Response(
                     content='{"error":"Invalid path detected"}',
                     status_code=status.HTTP_400_BAD_REQUEST,

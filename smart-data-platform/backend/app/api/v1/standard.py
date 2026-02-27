@@ -210,7 +210,24 @@ async def suggest_standards(
         )
 
     connector = get_connector(source.type, source.connection_config)
-    sample_data = await connector.read_data(table_name=data.table_name, limit=1000)
+
+    # Try to read sample data from the table
+    try:
+        sample_data = await connector.read_data(table_name=data.table_name, limit=1000)
+    except RuntimeError as e:
+        # Check if it's a table not found error
+        error_msg = str(e)
+        if "does not exist" in error_msg or "UndefinedTable" in error_msg or "relation" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Table '{data.table_name}' does not exist in data source '{source.name}'. "
+                      f"Please scan the data source to update metadata or verify the table name.",
+            )
+        # Re-raise other runtime errors with a cleaner message
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read data from table: {error_msg}",
+        ) from e
 
     service = StandardService(db)
     result = await service.suggest_standards(
@@ -340,7 +357,24 @@ async def check_compliance(
         )
 
     connector = get_connector(source.type, source.connection_config)
-    sample_data = await connector.read_data(table_name=data.table_name, limit=10000)
+
+    # Try to read sample data from the table
+    try:
+        sample_data = await connector.read_data(table_name=data.table_name, limit=10000)
+    except RuntimeError as e:
+        # Check if it's a table not found error
+        error_msg = str(e)
+        if "does not exist" in error_msg or "UndefinedTable" in error_msg or "relation" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Table '{data.table_name}' does not exist in data source '{source.name}'. "
+                      f"Please scan the data source to update metadata or verify the table name.",
+            )
+        # Re-raise other runtime errors with a cleaner message
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read data from table: {error_msg}",
+        ) from e
 
     service = StandardService(db)
 

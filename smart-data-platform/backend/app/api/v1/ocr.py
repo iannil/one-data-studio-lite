@@ -85,7 +85,14 @@ async def process_document(
             extract_structured=extract_structured,
         )
 
-        await _log_ocr_operation(db, current_user, AuditAction.EXECUTE, file.filename, True)
+        # If AI extraction failed but we have raw text, still return success
+        if result.get("ai_extraction_error"):
+            await _log_ocr_operation(
+                db, current_user, AuditAction.EXECUTE, file.filename,
+                True, f"AI extraction failed: {result.get('ai_extraction_error')}"
+            )
+        else:
+            await _log_ocr_operation(db, current_user, AuditAction.EXECUTE, file.filename, True)
 
         return OCRProcessResponse(
             file_name=result.get("file_name", file.filename),

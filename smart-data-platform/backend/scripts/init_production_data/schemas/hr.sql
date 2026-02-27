@@ -1,13 +1,11 @@
 -- HR System Schema (MySQL)
--- Database: hr_system
+-- Database: hr_system_db
 -- Data Volume: ~3M records total
 
--- Create database
-CREATE DATABASE IF NOT EXISTS hr_system
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- Note: Database creation is handled by the generator
+-- This script assumes the database already exists
 
-USE hr_system;
+USE hr_system_db;
 
 -- Disable foreign key checks for table drops
 SET FOREIGN_KEY_CHECKS = 0;

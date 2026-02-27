@@ -1,7 +1,7 @@
 """
 IoT Platform Data Generator.
 
-Generates production-level test data for the iot schema:
+Generates production-level test data for the iot database:
 - device_types (100)
 - devices (50,000)
 - sensors (200,000)
@@ -22,10 +22,11 @@ from typing import Any, Iterator
 
 from sqlalchemy import text
 
-from .base import BaseDataGenerator
+from .base import BaseDataGenerator, create_postgresql_database
 from .. import config
 from ..config import (
     CHINESE_CITIES,
+    IOT_DB_CONFIG,
     IOT_DEVICE_TYPES,
     POSTGRESQL_CONFIG,
 )
@@ -37,13 +38,20 @@ class IoTDataGenerator(BaseDataGenerator):
     SCHEMA_FILE = Path(__file__).parent.parent / "schemas" / "iot.sql"
 
     def __init__(self):
-        super().__init__(POSTGRESQL_CONFIG.connection_string)
+        super().__init__(IOT_DB_CONFIG.connection_string)
         self.device_type_ids: list[int] = []
         self.device_ids: list[int] = []
         self.sensor_ids: list[int] = []
 
+    def create_database(self) -> None:
+        """Create the iot_db database if it doesn't exist."""
+        create_postgresql_database(
+            POSTGRESQL_CONFIG.admin_connection_string,
+            IOT_DB_CONFIG.database
+        )
+
     def create_schema(self) -> None:
-        """Create the iot schema."""
+        """Create the iot schema (tables in public)."""
         self.execute_sql_file(str(self.SCHEMA_FILE))
 
     def generate_data(self) -> None:
@@ -98,10 +106,10 @@ class IoTDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("device_types", columns, data_generator(), total, schema="iot")
+        self.batch_insert("device_types", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM iot.device_types"))
+            result = conn.execute(text("SELECT id FROM device_types"))
             self.device_type_ids = [row[0] for row in result]
 
     def _generate_devices(self) -> None:
@@ -162,10 +170,10 @@ class IoTDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("devices", columns, data_generator(), total, schema="iot")
+        self.batch_insert("devices", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM iot.devices"))
+            result = conn.execute(text("SELECT id FROM devices"))
             self.device_ids = [row[0] for row in result]
 
     def _generate_sensors(self) -> None:
@@ -232,10 +240,10 @@ class IoTDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("sensors", columns, data_generator(), total, schema="iot")
+        self.batch_insert("sensors", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM iot.sensors"))
+            result = conn.execute(text("SELECT id FROM sensors"))
             self.sensor_ids = [row[0] for row in result]
 
     def _generate_sensor_readings(self) -> None:
@@ -271,7 +279,7 @@ class IoTDataGenerator(BaseDataGenerator):
                     recorded_at + timedelta(milliseconds=random.randint(10, 500))
                 )
 
-        self.batch_insert("sensor_readings", columns, data_generator(), total, schema="iot")
+        self.batch_insert("sensor_readings", columns, data_generator(), total)
 
     def _generate_device_events(self) -> None:
         """Generate device event data."""
@@ -314,7 +322,7 @@ class IoTDataGenerator(BaseDataGenerator):
                     occurred_at
                 )
 
-        self.batch_insert("device_events", columns, data_generator(), total, schema="iot")
+        self.batch_insert("device_events", columns, data_generator(), total)
 
     def _generate_alerts(self) -> None:
         """Generate alert data."""
@@ -374,7 +382,7 @@ class IoTDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("alerts", columns, data_generator(), total, schema="iot")
+        self.batch_insert("alerts", columns, data_generator(), total)
 
     def _generate_maintenance_logs(self) -> None:
         """Generate maintenance log data."""
@@ -438,4 +446,4 @@ class IoTDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("maintenance_logs", columns, data_generator(), total, schema="iot")
+        self.batch_insert("maintenance_logs", columns, data_generator(), total)

@@ -195,7 +195,7 @@ export default function QualityPage() {
   const fetchSources = async () => {
     try {
       const response = await sourcesApi.list(0, 100);
-      const sourceOptions = response.data.items.map((s: any) => ({
+      const sourceOptions = response.data.map((s: any) => ({
         value: s.id,
         label: s.name,
       }));

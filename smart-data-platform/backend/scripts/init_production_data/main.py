@@ -3,10 +3,10 @@
 Production Data Generation Script
 
 Main entry point for generating production-level test data for:
-- Finance System (PostgreSQL - finance schema) ~5M records
-- IoT Platform (PostgreSQL - iot schema) ~6M records
-- HR System (MySQL - hr_system database) ~3M records
-- Medical System (MySQL - medical database) ~4M records
+- Finance System (PostgreSQL - finance_db database) ~5M records
+- IoT Platform (PostgreSQL - iot_db database) ~6M records
+- HR System (MySQL - hr_system_db database) ~3M records
+- Medical System (MySQL - medical_db database) ~4M records
 
 Usage:
     python -m backend.scripts.init_production_data.main [OPTIONS]
@@ -85,7 +85,7 @@ def print_config(scale: float = 1.0) -> None:
         print("\n📊 Data Volume Configuration:")
     print("=" * 60)
 
-    print("\n🏦 Finance System (PostgreSQL - finance schema):")
+    print("\n🏦 Finance System (PostgreSQL - finance_db database):")
     print(f"   - Customers:          {vol.finance_customers:>12,}")
     print(f"   - Accounts:           {vol.finance_accounts:>12,}")
     print(f"   - Transactions:       {vol.finance_transactions:>12,}")
@@ -104,7 +104,7 @@ def print_config(scale: float = 1.0) -> None:
     ])
     print(f"   {'Total:':20} {finance_total:>12,}")
 
-    print("\n🌐 IoT Platform (PostgreSQL - iot schema):")
+    print("\n🌐 IoT Platform (PostgreSQL - iot_db database):")
     print(f"   - Device Types:       {vol.iot_device_types:>12,}")
     print(f"   - Devices:            {vol.iot_devices:>12,}")
     print(f"   - Sensors:            {vol.iot_sensors:>12,}")
@@ -123,7 +123,7 @@ def print_config(scale: float = 1.0) -> None:
     ])
     print(f"   {'Total:':20} {iot_total:>12,}")
 
-    print("\n👥 HR System (MySQL - hr_system database):")
+    print("\n👥 HR System (MySQL - hr_system_db database):")
     print(f"   - Departments:        {vol.hr_departments:>12,}")
     print(f"   - Positions:          {vol.hr_positions:>12,}")
     print(f"   - Employees:          {vol.hr_employees:>12,}")
@@ -144,7 +144,7 @@ def print_config(scale: float = 1.0) -> None:
     ])
     print(f"   {'Total:':20} {hr_total:>12,}")
 
-    print("\n🏥 Medical System (MySQL - medical database):")
+    print("\n🏥 Medical System (MySQL - medical_db database):")
     print(f"   - Hospitals:          {vol.medical_hospitals:>12,}")
     print(f"   - Departments:        {vol.medical_departments:>12,}")
     print(f"   - Doctors:            {vol.medical_doctors:>12,}")

@@ -459,7 +459,7 @@ export default function ETLPipelineEditor({
         title="步骤类型"
         size="small"
         style={{ width: 200, flexShrink: 0 }}
-        bodyStyle={{ padding: 8 }}
+        styles={{ body: { padding: 8 } }}
       >
         <div style={{ marginBottom: 12 }}>
           <Text type="secondary" style={{ fontSize: 12 }}>数据转换</Text>
@@ -521,7 +521,7 @@ export default function ETLPipelineEditor({
         title="管道步骤"
         size="small"
         style={{ flex: 1, minHeight: 300 }}
-        bodyStyle={{ padding: 12 }}
+        styles={{ body: { padding: 12 } }}
       >
         {steps.length === 0 ? (
           <Alert

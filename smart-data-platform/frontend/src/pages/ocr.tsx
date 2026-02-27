@@ -108,7 +108,14 @@ export default function OCRPage() {
 
       if (files.length === 1) {
         const response = await ocrApi.process(files[0], extractStructured);
-        setResults([response.data]);
+        const result = response.data;
+        setResults([result]);
+        // Check if AI extraction was requested but failed
+        if (extractStructured && !result.structured_data && result.raw_text) {
+          message.warning('OCR 识别成功，但 AI 结构化提取失败（可能是网络问题），仅返回原始文本');
+        } else if (result.raw_text) {
+          message.success('OCR 识别成功');
+        }
       } else {
         const response = await ocrApi.batchProcess(files, extractStructured);
         setResults(response.data.results);

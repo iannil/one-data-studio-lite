@@ -2,15 +2,18 @@
 Register production data sources in the Smart Data Platform.
 
 This script registers the 4 production-grade test databases:
-- Finance System (PostgreSQL - finance schema)
-- IoT Platform (PostgreSQL - iot schema)
-- HR System (MySQL - hr_system database)
-- Medical System (MySQL - medical database)
+- Finance System (PostgreSQL - finance_db database)
+- IoT Platform (PostgreSQL - iot_db database)
+- HR System (MySQL - hr_system_db database)
+- Medical System (MySQL - medical_db database)
 
 Usage:
     cd backend
     source .venv/bin/activate
-    python scripts/register_production_sources.py
+    python scripts/register_production_sources.py [--force]
+
+Options:
+    --force    Update existing data sources instead of skipping them
 """
 
 from __future__ import annotations
@@ -22,12 +25,12 @@ from pathlib import Path
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.models.metadata import DataSource, DataSourceStatus, DataSourceType
+from app.models.metadata import DataSource, DataSourceStatus, DataSourceType, MetadataTable
 
 
 # Data source configurations
@@ -38,11 +41,10 @@ PRODUCTION_SOURCES = [
         "type": DataSourceType.POSTGRESQL,
         "connection_config": {
             "host": "localhost",
-            "port": 5502,
-            "database": "smart_data",
+            "port": 3102,
+            "database": "finance_db",
             "username": "postgres",
             "password": "postgres",
-            "schema": "finance",
         },
     },
     {
@@ -51,11 +53,10 @@ PRODUCTION_SOURCES = [
         "type": DataSourceType.POSTGRESQL,
         "connection_config": {
             "host": "localhost",
-            "port": 5502,
-            "database": "smart_data",
+            "port": 3102,
+            "database": "iot_db",
             "username": "postgres",
             "password": "postgres",
-            "schema": "iot",
         },
     },
     {
@@ -64,8 +65,8 @@ PRODUCTION_SOURCES = [
         "type": DataSourceType.MYSQL,
         "connection_config": {
             "host": "localhost",
-            "port": 5510,
-            "database": "hr_system",
+            "port": 3108,
+            "database": "hr_system_db",
             "username": "root",
             "password": "mysql123",
         },
@@ -76,8 +77,8 @@ PRODUCTION_SOURCES = [
         "type": DataSourceType.MYSQL,
         "connection_config": {
             "host": "localhost",
-            "port": 5510,
-            "database": "medical",
+            "port": 3108,
+            "database": "medical_db",
             "username": "root",
             "password": "mysql123",
         },
@@ -85,8 +86,12 @@ PRODUCTION_SOURCES = [
 ]
 
 
-async def register_sources() -> None:
-    """Register all production data sources."""
+async def register_sources(force: bool = False) -> None:
+    """Register all production data sources.
+
+    Args:
+        force: If True, update existing data sources instead of skipping them.
+    """
     # Create async engine
     engine = create_async_engine(
         settings.DATABASE_URL,
@@ -97,12 +102,14 @@ async def register_sources() -> None:
         engine, class_=AsyncSession, expire_on_commit=False
     )
 
+    action = "强制更新" if force else "注册"
     print("\n" + "=" * 60)
-    print("注册生产级测试数据源")
+    print(f"{action}生产级测试数据源")
     print("=" * 60)
 
     async with async_session() as session:
         registered_count = 0
+        updated_count = 0
         skipped_count = 0
 
         for source_config in PRODUCTION_SOURCES:
@@ -113,9 +120,22 @@ async def register_sources() -> None:
             existing = result.scalar_one_or_none()
 
             if existing:
-                print(f"\n⏭️  跳过: {source_config['name']}")
-                print(f"   (已存在, ID: {existing.id})")
-                skipped_count += 1
+                if force:
+                    # Update existing source
+                    existing.description = source_config["description"]
+                    existing.connection_config = source_config["connection_config"]
+                    # Delete old metadata tables
+                    await session.execute(
+                        delete(MetadataTable).where(MetadataTable.source_id == existing.id)
+                    )
+                    print(f"\n🔄 更新: {source_config['name']}")
+                    print(f"   数据库: {source_config['connection_config'].get('database')}")
+                    print(f"   ID: {existing.id}")
+                    updated_count += 1
+                else:
+                    print(f"\n⏭️  跳过: {source_config['name']}")
+                    print(f"   (已存在, ID: {existing.id})")
+                    skipped_count += 1
                 continue
 
             # Create new data source
@@ -140,7 +160,10 @@ async def register_sources() -> None:
         await session.commit()
 
         print("\n" + "-" * 60)
-        print(f"完成: 注册 {registered_count} 个数据源, 跳过 {skipped_count} 个")
+        if force:
+            print(f"完成: 更新 {updated_count} 个数据源, 注册 {registered_count} 个新数据源")
+        else:
+            print(f"完成: 注册 {registered_count} 个数据源, 跳过 {skipped_count} 个")
         print("=" * 60)
 
         # List all sources
@@ -154,6 +177,8 @@ async def register_sources() -> None:
             print(f"  {status_icon} {source.name}")
             print(f"      ID: {source.id}")
             print(f"      类型: {source.type.value}")
+            db_name = source.connection_config.get("database", "N/A")
+            print(f"      数据库: {db_name}")
             print(f"      状态: {source.status.value}")
         print()
 
@@ -161,4 +186,5 @@ async def register_sources() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(register_sources())
+    force = "--force" in sys.argv or "-f" in sys.argv
+    asyncio.run(register_sources(force=force))

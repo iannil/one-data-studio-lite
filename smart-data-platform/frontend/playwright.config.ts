@@ -13,7 +13,7 @@ export default defineConfig({
   workers: 1,  // Single worker to avoid race conditions
   reporter: [["html"], ["list"]],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5501",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3100",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
@@ -36,7 +36,7 @@ export default defineConfig({
 
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:5501",
+    url: "http://localhost:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },

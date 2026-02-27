@@ -1,5 +1,5 @@
 # Smart Data Platform - Docker Compose (运维版)
-# 端口范围: 5500-5560
+# 端口范围: 3100-3150
 # 使用方法: docker compose -f docker-compose.ops.yml up -d
 
 services:
@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-backend
     ports:
-      - "5500:8000"
+      - "3101:8000"
     environment:
       DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-smart_data}"
       REDIS_URL: "redis://redis:6379/0"
@@ -63,9 +63,9 @@ services:
       dockerfile: Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-frontend
     ports:
-      - "5501:3000"
+      - "3100:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:5500/api/v1
+      NEXT_PUBLIC_API_URL: http://localhost:3101/api/v1
     depends_on:
       - backend
     volumes:
@@ -99,7 +99,7 @@ services:
     image: postgres:15-alpine
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-postgres
     ports:
-      - "5502:5432"
+      - "3102:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -135,7 +135,7 @@ services:
     image: redis:7-alpine
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-redis
     ports:
-      - "5503:6379"
+      - "3103:6379"
     volumes:
       - redisdata:/data
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
@@ -166,8 +166,8 @@ services:
     image: minio/minio:latest
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-minio
     ports:
-      - "5504:9000"   # API
-      - "5505:9001"   # Console
+      - "3104:9000"   # API
+      - "3105:9001"   # Console
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -201,7 +201,7 @@ services:
     image: apache/superset:latest
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-superset
     ports:
-      - "5506:8088"
+      - "3106:8088"
     environment:
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-your-secret-key-change-in-production}
       SUPERSET_LOAD_EXAMPLES: "no"
@@ -250,7 +250,7 @@ services:
     image: mysql:8.0
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-mysql
     ports:
-      - "5510:3306"
+      - "3108:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mysql123}
       MYSQL_USER: ${MYSQL_USER:-app_user}
@@ -368,7 +368,7 @@ services:
     build: ./backend
     container_name: ${COMPOSE_PROJECT_NAME:-smart-data-platform}-celery-flower
     ports:
-      - "5507:5555"
+      - "3107:5555"
     environment:
       CELERY_BROKER_URL: "redis://redis:6379/1"
       CELERY_RESULT_BACKEND: "redis://redis:6379/2"

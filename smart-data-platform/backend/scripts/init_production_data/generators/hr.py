@@ -1,7 +1,7 @@
 """
 HR System Data Generator.
 
-Generates production-level test data for the hr_system database (MySQL):
+Generates production-level test data for the hr_system_db database (MySQL):
 - departments (500)
 - positions (1,000)
 - employees (100,000)
@@ -23,12 +23,12 @@ from typing import Any, Iterator
 
 from sqlalchemy import text
 
-from .base import BaseDataGenerator
+from .base import BaseDataGenerator, create_mysql_database
 from .. import config
 from ..config import (
     CHINESE_CITIES,
+    HR_DB_CONFIG,
     HR_POSITIONS,
-    MYSQL_CONFIG,
 )
 
 
@@ -38,18 +38,28 @@ class HRDataGenerator(BaseDataGenerator):
     SCHEMA_FILE = Path(__file__).parent.parent / "schemas" / "hr.sql"
 
     def __init__(self):
-        super().__init__(MYSQL_CONFIG.connection_string)
+        super().__init__(HR_DB_CONFIG.connection_string)
         self.department_ids: list[int] = []
         self.position_ids: list[int] = []
         self.employee_ids: list[int] = []
 
+    def create_database(self) -> None:
+        """Create the hr_system_db database if it doesn't exist."""
+        create_mysql_database(
+            HR_DB_CONFIG.host,
+            HR_DB_CONFIG.port,
+            HR_DB_CONFIG.user,
+            HR_DB_CONFIG.password,
+            HR_DB_CONFIG.database
+        )
+
     def create_schema(self) -> None:
-        """Create the hr_system database and schema."""
+        """Create the hr_system database schema (tables)."""
         # Check if tables already exist - skip if they do
         with self.get_connection() as conn:
             result = conn.execute(text(
                 "SELECT COUNT(*) FROM information_schema.tables "
-                "WHERE table_schema = 'hr_system' AND table_name = 'employees'"
+                f"WHERE table_schema = '{HR_DB_CONFIG.database}' AND table_name = 'employees'"
             ))
             if result.scalar() > 0:
                 print("  (Tables already exist, skipping schema creation)")
@@ -135,10 +145,10 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("departments", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("departments", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM hr_system.departments"))
+            result = conn.execute(text("SELECT id FROM departments"))
             self.department_ids = [row[0] for row in result]
 
     def _generate_positions(self) -> None:
@@ -176,7 +186,7 @@ class HRDataGenerator(BaseDataGenerator):
                     "本科及以上学历，相关工作经验",
                     f"负责{pos['department']}相关工作",
                     "良好的沟通能力和团队协作精神",
-                    json.dumps(["Python", "SQL", "Excel"]) if "工程师" in pos["name"] else json.dumps(["Office", "Communication"]),
+                    ["Python", "SQL", "Excel"] if "工程师" in pos["name"] else ["Office", "Communication"],
                     random.randint(1, 20),
                     0,
                     random.random() > 0.6,
@@ -185,10 +195,10 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("positions", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("positions", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM hr_system.positions"))
+            result = conn.execute(text("SELECT id FROM positions"))
             self.position_ids = [row[0] for row in result]
 
     def _generate_employees(self) -> None:
@@ -283,10 +293,10 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("employees", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("employees", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM hr_system.employees"))
+            result = conn.execute(text("SELECT id FROM employees"))
             self.employee_ids = [row[0] for row in result]
 
     def _generate_salary_records(self) -> None:
@@ -384,7 +394,7 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("salary_records", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("salary_records", columns, data_generator(), total)
 
     def _generate_attendance(self) -> None:
         """Generate attendance data."""
@@ -485,7 +495,7 @@ class HRDataGenerator(BaseDataGenerator):
                     )
                     record_count += 1
 
-        self.batch_insert("attendance", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("attendance", columns, data_generator(), total)
 
     def _generate_performance_reviews(self) -> None:
         """Generate performance review data."""
@@ -551,8 +561,8 @@ class HRDataGenerator(BaseDataGenerator):
                     rating,
                     get_rating_level(rating),
                     round(random.uniform(60, 100), 2),
-                    json.dumps({"delivery": round(random.uniform(3, 5), 1), "quality": round(random.uniform(3, 5), 1)}),
-                    json.dumps({"teamwork": round(random.uniform(3, 5), 1), "communication": round(random.uniform(3, 5), 1)}),
+                    {"delivery": round(random.uniform(3, 5), 1), "quality": round(random.uniform(3, 5), 1)},
+                    {"teamwork": round(random.uniform(3, 5), 1), "communication": round(random.uniform(3, 5), 1)},
                     "工作认真负责，团队协作能力强",
                     "需要提升项目管理能力",
                     "完成了多个重要项目",
@@ -582,7 +592,7 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("performance_reviews", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("performance_reviews", columns, data_generator(), total)
 
     def _generate_training_records(self) -> None:
         """Generate training record data."""
@@ -652,7 +662,7 @@ class HRDataGenerator(BaseDataGenerator):
                     status == "completed",
                     round(random.uniform(3.5, 5.0), 2) if status == "completed" else None,
                     "培训内容丰富，收获很大" if status == "completed" else None,
-                    json.dumps(["Python", "数据分析"]) if status == "completed" else None,
+                    ["Python", "数据分析"] if status == "completed" else None,
                     status,
                     start_date + timedelta(days=random.randint(1, 10)) if status == "completed" else None,
                     None,
@@ -660,7 +670,7 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("training_records", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("training_records", columns, data_generator(), total)
 
     def _generate_leave_requests(self) -> None:
         """Generate leave request data."""
@@ -723,4 +733,4 @@ class HRDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("leave_requests", columns, data_generator(), total, schema="hr_system")
+        self.batch_insert("leave_requests", columns, data_generator(), total)

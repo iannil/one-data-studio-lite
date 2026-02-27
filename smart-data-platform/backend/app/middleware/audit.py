@@ -112,8 +112,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         return False
 
-    def _sanitize_body(self, body: dict[str, Any]) -> dict[str, Any]:
+    def _sanitize_body(self, body: dict[str, Any] | None) -> dict[str, Any] | None:
         """Remove sensitive fields from request body."""
+        if body is None:
+            return None
+
         sensitive_fields = {"password", "secret", "token", "api_key", "apikey", "secret_key"}
         sanitized = {}
 

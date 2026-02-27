@@ -105,6 +105,16 @@ class SupersetClient:
             "Content-Type": "application/json",
         }
 
+        # Add CSRF token for write operations
+        if method.upper() in ("POST", "PUT", "DELETE", "PATCH"):
+            try:
+                csrf_token = await self.get_csrf_token()
+                if csrf_token:
+                    headers["X-CSRFToken"] = csrf_token
+            except Exception:
+                # Continue without CSRF token if endpoint doesn't support it
+                pass
+
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.request(
@@ -114,6 +124,7 @@ class SupersetClient:
                     json=json,
                     params=params,
                     timeout=60,
+                    follow_redirects=True,
                 )
                 response.raise_for_status()
                 return response.json() if response.text else {}
@@ -134,9 +145,13 @@ class SupersetClient:
         headers = {"Authorization": f"Bearer {self._access_token}"}
 
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=30)
+            response = await client.get(url, headers=headers, timeout=30, follow_redirects=True)
             response.raise_for_status()
-            return response.json().get("result", "")
+            token = response.json().get("result", "")
+            # Token is returned as JSON string like '"token"', need to decode
+            if token and token.startswith('"') and token.endswith('"'):
+                token = token[1:-1]
+            return token
 
     async def create_database(
         self,
@@ -356,7 +371,7 @@ class BIService:
                 "dataset_id": dataset_id,
                 "table_name": table_name,
                 "schema": schema,
-                "superset_url": f"{self.superset.base_url}/superset/explore/table/{dataset_id}/",
+                "superset_url": f"{self.superset.base_url}/explore/?datasource_type=table&datasource_id={dataset_id}",
                 "columns": dataset.get("result", {}).get("columns", []),
             }
 
@@ -389,7 +404,7 @@ class BIService:
                         "dataset_id": ds["id"],
                         "table_name": table_name,
                         "schema": schema,
-                        "superset_url": f"{self.superset.base_url}/superset/explore/table/{ds['id']}/",
+                        "superset_url": f"{self.superset.base_url}/explore/?datasource_type=table&datasource_id={ds['id']}",
                         "changed_on": ds.get("changed_on"),
                     }
 
@@ -418,13 +433,14 @@ class BIService:
 
             return [
                 {
-                    "dataset_id": ds["id"],
+                    "dataset_id": ds.get("id"),
                     "table_name": ds.get("table_name"),
                     "schema": ds.get("schema"),
-                    "superset_url": f"{self.superset.base_url}/superset/explore/table/{ds['id']}/",
+                    "superset_url": f"{self.superset.base_url}/explore/?datasource_type=table&datasource_id={ds.get('id')}",
                     "changed_on": ds.get("changed_on"),
                 }
                 for ds in datasets
+                if ds.get("id") is not None
             ]
 
         except SupersetAPIError as e:

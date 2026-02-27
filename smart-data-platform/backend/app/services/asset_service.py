@@ -496,7 +496,9 @@ class AssetService:
                 col_info["mean"] = round(float(df[col].mean()), 2) if not df[col].isnull().all() else None
             elif df[col].dtype == "object":
                 col_info["avg_length"] = round(df[col].astype(str).str.len().mean(), 1)
-                col_info["top_values"] = df[col].value_counts().head(3).to_dict()
+                # Convert keys to strings to avoid JSONB key type errors
+                top_values = df[col].value_counts().head(3)
+                col_info["top_values"] = {str(k): v for k, v in top_values.items()}
 
             profile["columns"].append(col_info)
 

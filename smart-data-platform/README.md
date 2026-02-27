@@ -39,6 +39,7 @@
 ## 技术栈
 
 ### 后端
+
 - **框架**: FastAPI
 - **ORM**: SQLAlchemy 2.0 (async)
 - **数据处理**: pandas, numpy
@@ -47,12 +48,14 @@
 - **OCR**: Tesseract, pdf2image
 
 ### 前端
+
 - **框架**: Next.js 14
 - **UI 组件**: Ant Design 5
 - **状态管理**: Zustand
 - **HTTP 客户端**: Axios
 
 ### 基础设施
+
 - **数据库**: PostgreSQL 15
 - **缓存/队列**: Redis 7
 - **对象存储**: MinIO
@@ -132,8 +135,9 @@ pytest --cov=app --cov-report=html
 ## API 文档
 
 启动后端服务后访问:
-- Swagger UI: http://localhost:8000/api/v1/docs
-- ReDoc: http://localhost:8000/api/v1/redoc
+
+- Swagger UI: <http://localhost:8000/api/v1/docs>
+- ReDoc: <http://localhost:8000/api/v1/redoc>
 
 ### 主要 API 端点
 

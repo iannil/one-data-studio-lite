@@ -111,9 +111,16 @@ class DatabaseConnector(BaseConnector):
                 # Handle schema.table format
                 if '.' in table_name:
                     schema, table = table_name.split('.', 1)
-                    sql = f'SELECT COUNT(*) FROM "{schema}"."{table}"'
+                    # Verify the schema exists in the database
+                    inspector = inspect(self.engine)
+                    existing_schemas = inspector.get_schema_names()
+                    if schema in existing_schemas:
+                        sql = f'SELECT COUNT(*) FROM "{schema}"."{table}"'
+                    else:
+                        # Schema doesn't exist, use default schema
+                        sql = f'SELECT COUNT(*) FROM "{table}"'
                 else:
-                    sql = f"SELECT COUNT(*) FROM {table_name}"
+                    sql = f'SELECT COUNT(*) FROM "{table_name}"'
                 result = conn.execute(text(sql))
                 return result.scalar() or 0
         except SQLAlchemyError as e:
@@ -132,9 +139,17 @@ class DatabaseConnector(BaseConnector):
                 # Handle schema.table format - quote properly for PostgreSQL
                 if '.' in table_name:
                     schema, table = table_name.split('.', 1)
-                    sql = f'SELECT * FROM "{schema}"."{table}"'
+                    # Verify the schema exists in the database
+                    inspector = inspect(self.engine)
+                    existing_schemas = inspector.get_schema_names()
+                    if schema in existing_schemas:
+                        sql = f'SELECT * FROM "{schema}"."{table}"'
+                    else:
+                        # Schema doesn't exist, use default schema (public)
+                        # This handles cases where the prefix was a data source name
+                        sql = f'SELECT * FROM "{table}"'
                 else:
-                    sql = f"SELECT * FROM {table_name}"
+                    sql = f'SELECT * FROM "{table_name}"'
                 if limit:
                     sql += f" LIMIT {limit}"
             else:

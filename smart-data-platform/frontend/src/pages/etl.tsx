@@ -68,6 +68,7 @@ export default function ETLPage() {
   const [executions, setExecutions] = useState<ETLExecution[]>([]);
   const [editorSteps, setEditorSteps] = useState<any[]>([]);
   const [visualEditorMode, setVisualEditorMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('pipelines');
   const [form] = Form.useForm();
 
   const fetchPipelines = async () => {
@@ -151,6 +152,7 @@ export default function ETLPage() {
 
   const handleViewExecutions = async (pipeline: ETLPipeline) => {
     setSelectedPipeline(pipeline);
+    setActiveTab('history');
     try {
       const response = await etlApi.listExecutions(pipeline.id);
       setExecutions(response.data);
@@ -383,6 +385,8 @@ export default function ETLPage() {
         }
       >
         <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
           items={[
             {
               key: 'pipelines',
@@ -396,12 +400,16 @@ export default function ETLPage() {
               label: '执行历史',
               children: selectedPipeline ? (
                 <>
-                  <Text strong>管道: {selectedPipeline.name}</Text>
+                  <Space style={{ marginBottom: 16 }}>
+                    <Text strong>管道: {selectedPipeline.name}</Text>
+                    <Button size="small" onClick={() => setActiveTab('pipelines')}>
+                      返回列表
+                    </Button>
+                  </Space>
                   <Table
                     columns={executionColumns}
                     dataSource={executions}
                     rowKey="id"
-                    style={{ marginTop: 16 }}
                   />
                 </>
               ) : (

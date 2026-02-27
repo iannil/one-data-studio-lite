@@ -3,7 +3,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "3101:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/smart_data
       - REDIS_URL=redis://redis:6379/0
@@ -42,9 +42,9 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "3100:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://localhost:3101/api/v1
     depends_on:
       - backend
     volumes:
@@ -56,7 +56,7 @@ services:
   postgres:
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "3102:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -73,7 +73,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6380:6379"
+      - "3103:6379"
     volumes:
       - redisdata:/data
     command: redis-server --appendonly yes
@@ -82,8 +82,8 @@ services:
   minio:
     image: minio/minio:latest
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "3104:9000"
+      - "3105:9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
@@ -95,21 +95,30 @@ services:
   superset:
     image: apache/superset:latest
     ports:
-      - "8088:8088"
+      - "3106:8088"
     environment:
       - SUPERSET_SECRET_KEY=your-secret-key-here
       - SUPERSET_LOAD_EXAMPLES=no
+      - SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - supersetdata:/app/superset_home
+      - ../superset:/app/pythonpath
     command: >
       bash -c "
+        pip3 install -q psycopg2-binary &&
+        cat > /app/pythonpath/superset_config.py << 'EOF'
+      import sys
+      sys.path.insert(0, \"/app/superset_home/.local/lib/python3.10/site-packages\")
+      WTF_CSRF_ENABLED = False
+      EOF
+        export SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py &&
         superset db upgrade &&
         superset fab create-admin --username admin --password admin --firstname Admin --lastname User --email admin@example.com || true &&
         superset init &&
-        superset run -h 0.0.0.0 -p 8088
+        exec env PYTHONPATH=/app/.venv/lib/python3.10/site-packages:/app/superset_home/.local/lib/python3.10/site-packages SUPERSET_CONFIG_PATH=/app/pythonpath/superset_config.py superset run -h 0.0.0.0 -p 8088 --with-threads --reload
       "
 
 volumes:

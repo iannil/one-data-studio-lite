@@ -33,6 +33,7 @@ import {
   DashboardOutlined,
   ApartmentOutlined,
   FileTextOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuthStore } from '@/stores/auth';
@@ -73,6 +74,11 @@ const menuItems: MenuProps['items'] = [
         key: '/standard',
         icon: <FileProtectOutlined />,
         label: '数据标准',
+      },
+      {
+        key: '/quality',
+        icon: <ExperimentOutlined />,
+        label: '数据质量',
       },
       {
         key: '/lineage',
@@ -157,7 +163,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { token } = theme.useToken();
 
   const getOpenKeys = (path: string): string[] => {
-    if (['/sources', '/metadata', '/collect', '/standard', '/lineage'].includes(path)) {
+    if (['/sources', '/metadata', '/collect', '/standard', '/quality', '/lineage'].includes(path)) {
       return ['data-management'];
     }
     if (['/etl', '/analysis', '/ocr'].includes(path)) {

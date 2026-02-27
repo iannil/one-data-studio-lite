@@ -62,7 +62,7 @@ async def test_data_source(auth_headers: dict[str, str]) -> DataSource:
             type="postgresql",
             connection_config={
                 "host": "localhost",
-                "port": 5502,
+                "port": 3102,
                 "database": "test_db",
                 "user": "test",
                 "password": "test",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,12 +11,14 @@ from PIL import Image
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 class OCRService:
     """Service for OCR and document processing."""
 
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
     async def process_document(
         self,
@@ -39,11 +42,18 @@ class OCRService:
             "raw_text": text,
             "file_name": path.name,
             "file_type": path.suffix.lower(),
+            "status": "success",
         }
 
         if extract_structured:
-            structured = await self._extract_structured_data(text)
-            result["structured_data"] = structured
+            try:
+                structured = await self._extract_structured_data(text)
+                result["structured_data"] = structured
+            except Exception as e:
+                # AI extraction failed, but we still have the raw text
+                logger.warning(f"AI structured extraction failed: {e}")
+                result["structured_data"] = None
+                result["ai_extraction_error"] = str(e)
 
         return result
 
@@ -63,8 +73,12 @@ class OCRService:
         image = Image.open(path)
         return pytesseract.image_to_string(image, lang="chi_sim+eng")
 
-    async def _extract_structured_data(self, text: str) -> dict[str, Any]:
+    async def _extract_structured_data(self, text: str) -> dict[str, Any] | None:
         """Use AI to extract structured data from OCR text."""
+        if not self.client:
+            logger.warning("OpenAI client not configured, skipping AI extraction")
+            return None
+
         prompt = f"""Extract structured information from the following OCR text.
 Identify and extract:
 1. Key-value pairs (e.g., Name: John, Date: 2024-01-01)
@@ -94,20 +108,24 @@ Respond in JSON format:
   "summary": "Brief summary of the document"
 }}"""
 
-        response = await self.client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a document analysis expert. Extract structured data from OCR text.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            response_format={"type": "json_object"},
-        )
+        try:
+            response = await self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a document analysis expert. Extract structured data from OCR text.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
 
-        import json
-        return json.loads(response.choices[0].message.content or "{}")
+            import json
+            return json.loads(response.choices[0].message.content or "{}")
+        except Exception as e:
+            logger.error(f"OpenAI API call failed: {e}")
+            raise
 
     async def batch_process(
         self,
@@ -120,12 +138,13 @@ Respond in JSON format:
         for file_path in file_paths:
             try:
                 result = await self.process_document(file_path, extract_structured)
-                result["status"] = "success"
             except Exception as e:
                 result = {
-                    "file_path": file_path,
+                    "file_name": Path(file_path).name,
+                    "file_type": Path(file_path).suffix.lower(),
                     "status": "error",
                     "error": str(e),
+                    "raw_text": "",
                 }
             results.append(result)
 

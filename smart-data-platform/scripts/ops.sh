@@ -2,7 +2,7 @@
 #
 # Smart Data Platform - 运维管理脚本
 # 功能: 统一启动、关闭、查看项目所有服务状态
-# 端口范围: 5500-5560
+# 端口范围: 3100-3150
 #
 
 set -e
@@ -23,6 +23,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
@@ -100,7 +101,7 @@ check_docker() {
 }
 
 # =====================================================
-# Docker 服务管理 (PostgreSQL, Redis, MinIO, Superset)
+# Docker 服务管理 (PostgreSQL, MySQL, Redis, MinIO, Superset)
 # =====================================================
 
 start_docker_services() {
@@ -111,10 +112,11 @@ start_docker_services() {
     cd "${PROJECT_ROOT}"
 
     # 使用自定义端口的 docker-compose (包含 Superset)
-    docker compose -f docker-compose.ops.yml up -d postgres redis minio superset
+    docker compose -f docker-compose.ops.yml up -d postgres mysql redis minio superset
 
     # 等待服务就绪
     wait_for_service "PostgreSQL" ${POSTGRES_PORT} 60
+    wait_for_service "MySQL" ${MYSQL_PORT} 60
     wait_for_service "Redis" ${REDIS_PORT} 30
     wait_for_service "MinIO" ${MINIO_API_PORT} 30
     wait_for_service "Superset" ${SUPERSET_PORT} 120
@@ -164,6 +166,7 @@ start_backend() {
     fi
 
     # 设置环境变量
+    export USE_CELERY="true"
     export DATABASE_URL="postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}"
     export REDIS_URL="redis://localhost:${REDIS_PORT}/0"
     export MINIO_ENDPOINT="localhost:${MINIO_API_PORT}"
@@ -328,6 +331,7 @@ status() {
     check_service_status "Backend" ${BACKEND_PORT} ""
     check_service_status "Frontend" ${FRONTEND_PORT} ""
     check_service_status "PostgreSQL" ${POSTGRES_PORT} "smart-data-platform-postgres"
+    check_service_status "MySQL" ${MYSQL_PORT} "smart-data-platform-mysql"
     check_service_status "Redis" ${REDIS_PORT} "smart-data-platform-redis"
     check_service_status "MinIO" ${MINIO_API_PORT} "smart-data-platform-minio"
     check_service_status "MinIO Console" ${MINIO_CONSOLE_PORT} "smart-data-platform-minio"
@@ -338,6 +342,7 @@ status() {
     echo "  Backend:       ${BACKEND_PORT}"
     echo "  Frontend:      ${FRONTEND_PORT}"
     echo "  PostgreSQL:    ${POSTGRES_PORT}"
+    echo "  MySQL:         ${MYSQL_PORT}"
     echo "  Redis:         ${REDIS_PORT}"
     echo "  MinIO API:     ${MINIO_API_PORT}"
     echo "  MinIO Console: ${MINIO_CONSOLE_PORT}"
@@ -355,6 +360,64 @@ status() {
 # 日志查看
 # =====================================================
 
+# 获取日志颜色代码
+get_log_color() {
+    case $1 in
+        backend)  echo "${GREEN}"      ;;
+        frontend) echo "${CYAN}"       ;;
+        postgres) echo "${YELLOW}"     ;;
+        mysql)    echo "\033[0;33m"    ;;
+        redis)    echo "${BLUE}"       ;;
+        minio)    echo "${MAGENTA}"    ;;
+        superset) echo "\033[0;35m"    ;;
+        *)        echo "${NC}"         ;;
+    esac
+}
+
+# 获取日志短名称
+get_log_short_name() {
+    case $1 in
+        backend)  echo "BACK"  ;;
+        frontend) echo "FRONT" ;;
+        postgres) echo "PG"    ;;
+        mysql)    echo "MYSQL" ;;
+        redis)    echo "REDIS" ;;
+        minio)    echo "MINIO" ;;
+        superset) echo "SUPER" ;;
+        *)        echo "?????"  ;;
+    esac
+}
+
+# 单个日志流（带时间戳和标签）
+log_stream() {
+    local service=$1
+    local color=$2
+    local short_name=$3
+
+    case ${service} in
+        backend)
+            if [ -f "${LOG_DIR}/backend.log" ]; then
+                tail -f "${LOG_DIR}/backend.log" 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} $(date '+%H:%M:%S') ${line}"
+                done
+            fi
+            ;;
+        frontend)
+            if [ -f "${LOG_DIR}/frontend.log" ]; then
+                tail -f "${LOG_DIR}/frontend.log" 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} $(date '+%H:%M:%S') ${line}"
+                done
+            fi
+            ;;
+        postgres|mysql|redis|minio|superset)
+            local container="smart-data-platform-${service}"
+            docker logs -f --tail 0 ${container} 2>/dev/null | while IFS= read -r line; do
+                echo -e "${color}[${short_name}]${NC} $(date '+%H:%M:%S') ${line}"
+            done
+            ;;
+    esac
+}
+
 logs() {
     local service=$1
     local lines=${2:-100}
@@ -369,6 +432,9 @@ logs() {
         postgres)
             docker logs -f --tail ${lines} smart-data-platform-postgres
             ;;
+        mysql)
+            docker logs -f --tail ${lines} smart-data-platform-mysql
+            ;;
         redis)
             docker logs -f --tail ${lines} smart-data-platform-redis
             ;;
@@ -379,12 +445,192 @@ logs() {
             docker logs -f --tail ${lines} smart-data-platform-superset
             ;;
         all)
-            echo "查看所有日志请指定具体服务名称"
-            echo "可用服务: backend, frontend, postgres, redis, minio, superset"
+            echo "查看所有日志请使用: logs-all 或 logs-merge"
+            echo "可用服务: backend, frontend, postgres, mysql, redis, minio, superset"
             ;;
         *)
             print_error "未知服务: ${service}"
-            echo "可用服务: backend, frontend, postgres, redis, minio, superset"
+            echo "可用服务: backend, frontend, postgres, mysql, redis, minio, superset"
+            exit 1
+            ;;
+    esac
+}
+
+# 聚合所有日志到单一输出流（合并模式）
+logs_merge() {
+    local lines=${1:-50}
+
+    print_info "聚合所有服务日志 (最近 ${lines} 行，按 Ctrl+C 退出)"
+    echo ""
+
+    # 使用 trap 确保后台进程被清理
+    trap 'kill $(jobs -p) 2>/dev/null; exit 0' INT TERM EXIT
+
+    # 启动所有日志流作为后台进程
+    for service in backend frontend postgres mysql redis minio; do
+        local color=$(get_log_color ${service})
+        local short_name=$(get_log_short_name ${service})
+
+        case ${service} in
+            backend)
+                if [ -f "${LOG_DIR}/backend.log" ]; then
+                    tail -n ${lines} -f "${LOG_DIR}/backend.log" 2>/dev/null | while IFS= read -r line; do
+                        echo -e "${color}[${short_name}]${NC} ${line}"
+                    done &
+                fi
+                ;;
+            frontend)
+                if [ -f "${LOG_DIR}/frontend.log" ]; then
+                    tail -n ${lines} -f "${LOG_DIR}/frontend.log" 2>/dev/null | while IFS= read -r line; do
+                        echo -e "${color}[${short_name}]${NC} ${line}"
+                    done &
+                fi
+                ;;
+            postgres)
+                docker logs -f --tail ${lines} smart-data-platform-postgres 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} ${line}"
+                done &
+                ;;
+            mysql)
+                docker logs -f --tail ${lines} smart-data-platform-mysql 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} ${line}"
+                done &
+                ;;
+            redis)
+                docker logs -f --tail ${lines} smart-data-platform-redis 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} ${line}"
+                done &
+                ;;
+            minio)
+                docker logs -f --tail ${lines} smart-data-platform-minio 2>/dev/null | while IFS= read -r line; do
+                    echo -e "${color}[${short_name}]${NC} ${line}"
+                done &
+                ;;
+        esac
+    done
+
+    # 等待所有后台进程
+    wait
+}
+
+# 分屏显示所有日志（使用 multitail）
+logs_all_multitail() {
+    if ! command -v multitail &> /dev/null; then
+        print_warning "multitail 未安装，使用合并模式"
+        logs_merge
+        return
+    fi
+
+    print_info "分屏显示所有服务日志"
+
+    local backend_log="${LOG_DIR}/backend.log"
+    local frontend_log="${LOG_DIR}/frontend.log"
+
+    # 检查文件存在性
+    [ ! -f "${backend_log}" ] && backend_log=/dev/null
+    [ ! -f "${frontend_log}" ] && frontend_log=/dev/null
+
+    # 使用 multitail 分屏显示
+    multitail \
+        -s 4 \
+        -l "docker logs -f --tail 50 smart-data-platform-postgres 2>/dev/null" \
+        -l "docker logs -f --tail 50 smart-data-platform-mysql 2>/dev/null" \
+        -l "docker logs -f --tail 50 smart-data-platform-redis 2>/dev/null" \
+        -l "docker logs -f --tail 50 smart-data-platform-minio 2>/dev/null" \
+        "${backend_log}" \
+        "${frontend_log}"
+}
+
+# 简化版：使用 tmux 分屏
+logs_all_tmux() {
+    if ! command -v tmux &> /dev/null; then
+        print_warning "tmux 未安装，使用合并模式"
+        logs_merge
+        return
+    fi
+
+    local session_name="sdp-logs"
+
+    # 检查是否已在 tmux 会话中
+    if [ -n "$TMUX" ]; then
+        print_warning "已在 tmux 会话中，使用合并模式"
+        logs_merge
+        return
+    fi
+
+    # 检查会话是否已存在
+    if tmux has-session -t ${session_name} 2>/dev/null; then
+        print_info "附加到现有日志会话"
+        tmux attach-session -t ${session_name}
+        return
+    fi
+
+    print_info "创建 tmux 日志分屏会话"
+
+    local backend_log="${LOG_DIR}/backend.log"
+    local frontend_log="${LOG_DIR}/frontend.log"
+
+    [ ! -f "${backend_log}" ] && backend_log=/dev/null
+    [ ! -f "${frontend_log}" ] && frontend_log=/dev/null
+
+    # 创建新会话
+    tmux new-session -d -s ${session_name} -n "Logs"
+
+    # 分割窗口 (3行 x 3列)
+    tmux split-window -t ${session_name}:0 -v
+    tmux split-window -t ${session_name}:0 -v
+    tmux select-pane -t ${session_name}:0.0
+    tmux split-window -t ${session_name}:0 -h
+    tmux select-pane -t ${session_name}:0.2
+    tmux split-window -t ${session_name}:0 -h
+    tmux select-pane -t ${session_name}:0.4
+    tmux split-window -t ${session_name}:0 -h
+
+    # 设置各个面板
+    # 左列: postgres, mysql, minio
+    tmux send-keys -t ${session_name}:0.0 "docker logs -f --tail 50 smart-data-platform-postgres" C-m
+    tmux send-keys -t ${session_name}:0.2 "docker logs -f --tail 50 smart-data-platform-mysql" C-m
+    tmux send-keys -t ${session_name}:0.4 "docker logs -f --tail 50 smart-data-platform-minio" C-m
+    # 中列: redis, backend
+    tmux send-keys -t ${session_name}:0.1 "docker logs -f --tail 50 smart-data-platform-redis" C-m
+    tmux send-keys -t ${session_name}:0.3 "tail -f ${backend_log}" C-m
+    # 右列: frontend
+    tmux send-keys -t ${session_name}:0.5 "tail -f ${frontend_log}" C-m
+
+    # 同步滚动（可选）
+    # tmux set-option -w -t ${session_name}:0 synchronize-panes on
+
+    # 附加会话
+    tmux attach-session -t ${session_name}
+}
+
+# 主日志聚合命令
+logs_all() {
+    local mode=${1:-auto}
+
+    case ${mode} in
+        merge|combined)
+            logs_merge
+            ;;
+        multitail)
+            logs_all_multitail
+            ;;
+        tmux|split)
+            logs_all_tmux
+            ;;
+        auto)
+            # 自动选择最佳模式
+            if command -v tmux &> /dev/null && [ -z "$TMUX" ]; then
+                logs_all_tmux
+            elif command -v multitail &> /dev/null; then
+                logs_all_multitail
+            else
+                logs_merge
+            fi
+            ;;
+        *)
+            print_error "未知模式: ${mode}"
+            echo "可用模式: auto, merge, tmux, multitail"
             exit 1
             ;;
     esac
@@ -467,21 +713,35 @@ usage() {
     echo "  stop-backend       仅停止 Backend"
     echo "  start-frontend     仅启动 Frontend"
     echo "  stop-frontend      仅停止 Frontend"
-    echo "  start-docker       仅启动 Docker 服务 (PostgreSQL, Redis, MinIO)"
+    echo "  start-docker       仅启动 Docker 服务 (PostgreSQL, MySQL, Redis, MinIO)"
     echo "  stop-docker        仅停止 Docker 服务"
     echo "  start-superset     启动 Superset"
     echo "  stop-superset      停止 Superset"
     echo ""
-    echo "  logs <service>     查看服务日志 (backend|frontend|postgres|redis|minio|superset)"
+    echo "  logs <service>     查看单个服务日志"
+    echo "                     服务: backend|frontend|postgres|mysql|redis|minio|superset"
+    echo "  logs-all [mode]    聚合显示所有服务日志"
+    echo "                     模式: auto(默认) | merge | tmux | multitail"
+    echo "                       auto   - 自动选择最佳模式"
+    echo "                       merge  - 合并所有日志到单一流"
+    echo "                       tmux   - 使用 tmux 分屏显示"
+    echo "                       multitail - 使用 multitail 分屏"
     echo ""
-    echo "端口分配 (5500-5560):"
+    echo "端口分配 (3100-3150):"
     echo "  Backend:       ${BACKEND_PORT}"
     echo "  Frontend:      ${FRONTEND_PORT}"
     echo "  PostgreSQL:    ${POSTGRES_PORT}"
+    echo "  MySQL:         ${MYSQL_PORT}"
     echo "  Redis:         ${REDIS_PORT}"
     echo "  MinIO API:     ${MINIO_API_PORT}"
     echo "  MinIO Console: ${MINIO_CONSOLE_PORT}"
     echo "  Superset:      ${SUPERSET_PORT}"
+    echo ""
+    echo "示例:"
+    echo "  $0 logs backend           # 查看 Backend 日志"
+    echo "  $0 logs-all               # 聚合显示所有日志（自动模式）"
+    echo "  $0 logs-all merge         # 合并模式显示所有日志"
+    echo "  $0 logs-all tmux          # 使用 tmux 分屏"
     echo ""
 }
 
@@ -530,6 +790,9 @@ case "${1:-}" in
         ;;
     logs)
         logs "${2:-all}" "${3:-100}"
+        ;;
+    logs-all)
+        logs_all "${2:-auto}"
         ;;
     help|--help|-h)
         usage

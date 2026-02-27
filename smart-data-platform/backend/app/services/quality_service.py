@@ -220,7 +220,15 @@ class DataQualityService:
             return 50.0
 
         # Calculate days since latest data
-        days_old = (datetime.now(timezone.utc) - most_recent.to_pydatetime()).days
+        # Handle both timezone-aware and naive datetimes
+        now = datetime.now(timezone.utc)
+        most_recent_dt = most_recent.to_pydatetime()
+
+        # If most_recent is naive, assume it's UTC
+        if most_recent_dt.tzinfo is None:
+            most_recent_dt = most_recent_dt.replace(tzinfo=timezone.utc)
+
+        days_old = (now - most_recent_dt).days
 
         # Score based on data freshness
         if days_old <= 1:

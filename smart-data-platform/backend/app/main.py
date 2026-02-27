@@ -20,7 +20,7 @@ from app.middleware.rate_limit import RateLimitMiddleware
 # Conditionally import APScheduler (only when USE_CELERY=false)
 USE_CELERY = os.getenv("USE_CELERY", "false").lower() == "true"
 if not USE_CELERY:
-    from app.core import scheduler
+    from app.core.scheduler import scheduler
 
 
 # API metadata for OpenAPI documentation
@@ -217,25 +217,45 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Get allowed origins from environment or use defaults
+import os
 
-# Add security headers middleware (innermost - adds headers to all responses)
-app.add_middleware(SecurityHeadersMiddleware)
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+if not allowed_origins or allowed_origins == [""]:
+    # Development defaults
+    allowed_origins = [
+        "http://localhost:3100",
+        "http://localhost:3101",
+        "http://127.0.0.1:3100",
+        "http://127.0.0.1:3101",
+    ]
 
-# Add input validation middleware
-app.add_middleware(ValidationMiddleware, max_body_size=10 * 1024 * 1024)
+# IMPORTANT: In FastAPI, middleware executes in LIFO (last-in-first-out) order.
+# The LAST middleware added executes FIRST. Therefore, CORS must be added LAST
+# to be the OUTERMOST middleware, handling preflight OPTIONS requests before
+# any authentication, rate limiting, or validation.
+
+# Add audit logging middleware (innermost - runs after all other middleware)
+app.add_middleware(AuditMiddleware)
 
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware, trust_headers=True)
 
-# Add audit logging middleware for write operations
-app.add_middleware(AuditMiddleware)
+# Add input validation middleware
+app.add_middleware(ValidationMiddleware, max_body_size=10 * 1024 * 1024)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Add CORS middleware LAST (outermost - runs first, handles preflight requests)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+)
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 

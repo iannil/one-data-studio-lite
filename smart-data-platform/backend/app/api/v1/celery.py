@@ -333,7 +333,7 @@ async def get_flower_url(
 
     Returns the configured Flower URL for direct access.
     """
-    flower_url = os.getenv("FLOWER_URL", "http://localhost:5507")
+    flower_url = os.getenv("FLOWER_URL", "http://localhost:3107")
 
     return {
         "url": flower_url,

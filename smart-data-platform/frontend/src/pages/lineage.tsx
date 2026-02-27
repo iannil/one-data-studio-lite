@@ -9,7 +9,6 @@ import {
   Select,
   Row,
   Col,
-  message,
   Spin,
   Empty,
   Tabs,
@@ -22,6 +21,7 @@ import {
   Progress,
   Descriptions,
   Badge,
+  App,
 } from 'antd';
 import {
   ApartmentOutlined,
@@ -94,6 +94,7 @@ interface DiscoverRelationsResponse {
 }
 
 export default function LineagePage() {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [buildLoading, setBuildLoading] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);

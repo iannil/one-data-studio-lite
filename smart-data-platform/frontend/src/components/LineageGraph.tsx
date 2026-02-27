@@ -166,6 +166,7 @@ export default function LineageGraph({
 }: LineageGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Graph | null>(null);
+  const isGraphDestroyedRef = useRef(false);
 
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
@@ -360,6 +361,7 @@ export default function LineageGraph({
     const g6Data = transformDataForG6();
 
     if (!graphRef.current) {
+      isGraphDestroyedRef.current = false;
       const graph = new Graph({
         container: containerRef.current,
         width: containerRef.current.clientWidth,
@@ -447,23 +449,35 @@ export default function LineageGraph({
     }
 
     const graph = graphRef.current;
-    graph.setData(g6Data);
-    graph.render().catch((err: Error) => {
+    try {
+      graph.setData(g6Data);
+      graph.render().then(() => setGraphReady(true)).catch((err: Error) => {
+        console.error('Graph render error:', err);
+        setGraphReady(false);
+      });
+    } catch (err) {
       console.error('Graph render error:', err);
-    });
+      setGraphReady(false);
+    }
 
     return () => {
-      // Cleanup handled by component unmount
+      // Cleanup is handled by the separate unmount effect
+      // This prevents issues with React Fast Refresh
     };
-  }, [viewMode, filteredData.nodes.length, graphHeight, transformDataForG6]);
+  }, [viewMode, filteredData.nodes.length, graphHeight]);
 
   useEffect(() => {
-    if (graphRef.current && viewMode === 'graph' && graphReady) {
+    if (graphRef.current && viewMode === 'graph' && graphReady && !isGraphDestroyedRef.current) {
       const g6Data = transformDataForG6();
-      graphRef.current.setData(g6Data);
-      graphRef.current.draw().catch((err: Error) => {
-        console.error('Graph draw error:', err);
-      });
+      // Check if graph is still valid before drawing (handles Fast Refresh)
+      try {
+        graphRef.current.setData(g6Data);
+        graphRef.current.draw().catch((err: Error) => {
+          console.error('Graph draw error:', err);
+        });
+      } catch (error) {
+        console.warn('Graph instance invalid, skipping draw:', error);
+      }
     }
   }, [
     transformDataForG6,
@@ -477,17 +491,23 @@ export default function LineageGraph({
   ]);
 
   useEffect(() => {
-    if (graphRef.current && containerRef.current) {
+    if (graphRef.current && containerRef.current && !isGraphDestroyedRef.current) {
       graphRef.current.setSize(containerRef.current.clientWidth, graphHeight);
     }
   }, [graphHeight, isFullscreen]);
 
   useEffect(() => {
     return () => {
+      isGraphDestroyedRef.current = true;
       if (graphRef.current) {
-        graphRef.current.destroy();
-        graphRef.current = null;
-        setGraphReady(false);
+        try {
+          graphRef.current.destroy();
+        } catch (error) {
+          console.warn('Graph destroy warning:', error);
+        } finally {
+          graphRef.current = null;
+          setGraphReady(false);
+        }
       }
     };
   }, []);
@@ -558,7 +578,7 @@ export default function LineageGraph({
   }, []);
 
   const handleZoomIn = useCallback(() => {
-    if (graphRef.current) {
+    if (graphRef.current && !isGraphDestroyedRef.current) {
       const currentZoom = graphRef.current.getZoom();
       graphRef.current.zoomTo(Math.min(currentZoom * 1.2, 3));
       setZoomLevel(Math.round(graphRef.current.getZoom() * 100));
@@ -566,7 +586,7 @@ export default function LineageGraph({
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    if (graphRef.current) {
+    if (graphRef.current && !isGraphDestroyedRef.current) {
       const currentZoom = graphRef.current.getZoom();
       graphRef.current.zoomTo(Math.max(currentZoom / 1.2, 0.3));
       setZoomLevel(Math.round(graphRef.current.getZoom() * 100));
@@ -574,21 +594,21 @@ export default function LineageGraph({
   }, []);
 
   const handleReset = useCallback(() => {
-    if (graphRef.current) {
+    if (graphRef.current && !isGraphDestroyedRef.current) {
       graphRef.current.fitView();
       setZoomLevel(100);
     }
   }, []);
 
   const handleFocusNode = useCallback((nodeId: string) => {
-    if (graphRef.current) {
+    if (graphRef.current && !isGraphDestroyedRef.current) {
       graphRef.current.focusElement(nodeId);
     }
   }, []);
 
   const handleSearch = (value: string) => {
     setSearchKeyword(value);
-    if (value.trim() && graphRef.current) {
+    if (value.trim() && graphRef.current && !isGraphDestroyedRef.current) {
       const matchedNodes = filteredData.nodes.filter(n =>
         n.name.toLowerCase().includes(value.toLowerCase()) ||
         n.description?.toLowerCase().includes(value.toLowerCase())

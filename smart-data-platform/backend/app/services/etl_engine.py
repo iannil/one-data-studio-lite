@@ -10,7 +10,7 @@ import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.connectors import get_connector
-from app.core.observability import LifecycleTracker, track_operation, get_trace_id
+from app.core.observability import LifecycleTracker, track_operation_async, get_trace_id
 from app.models import DataSource, ETLPipeline, ETLStepType
 
 
@@ -832,7 +832,7 @@ class ETLEngine:
         trace_id = get_trace_id()
 
         try:
-            async with track_operation("etl_load_source", pipeline_id=str(pipeline.id), preview_mode=preview_mode):
+            async with track_operation_async("etl_load_source", pipeline_id=str(pipeline.id), preview_mode=preview_mode):
                 df = await self._load_source_data(pipeline, preview_rows if preview_mode else None)
                 rows_input = len(df)
 
@@ -842,7 +842,7 @@ class ETLEngine:
             )
 
             for step in enabled_steps:
-                async with track_operation("etl_process_step", step_type=step.step_type.value, step_name=step.name):
+                async with track_operation_async("etl_process_step", step_type=step.step_type.value, step_name=step.name):
                     step_start = datetime.now(timezone.utc)
 
                     step_class = STEP_REGISTRY.get(step.step_type)
@@ -860,18 +860,18 @@ class ETLEngine:
                     }
 
             if not preview_mode:
-                async with track_operation("etl_write_target", pipeline_id=str(pipeline.id)):
+                async with track_operation_async("etl_write_target", pipeline_id=str(pipeline.id)):
                     await self._write_target_data(pipeline, df)
 
-                async with track_operation("etl_update_lineage", pipeline_id=str(pipeline.id)):
+                async with track_operation_async("etl_update_lineage", pipeline_id=str(pipeline.id)):
                     # 自动更新数据资产血缘关系
                     await self._update_lineage(pipeline)
 
-                async with track_operation("etl_catalog_asset", pipeline_id=str(pipeline.id)):
+                async with track_operation_async("etl_catalog_asset", pipeline_id=str(pipeline.id)):
                     # 自动编目：创建或更新数据资产
                     catalog_result = await self._auto_catalog_asset(pipeline, df)
 
-                async with track_operation("etl_sync_bi", pipeline_id=str(pipeline.id)):
+                async with track_operation_async("etl_sync_bi", pipeline_id=str(pipeline.id)):
                     # 可选：同步到 Superset BI
                     bi_result = await self._sync_to_bi(pipeline)
             else:
@@ -960,17 +960,56 @@ class ETLEngine:
         if target_type == "table":
             table_name = target_config.get("table_name")
             if_exists = target_config.get("if_exists", "append")
-            schema = target_config.get("schema")
+            schema = target_config.get("schema", "public")
+            target_source_id = target_config.get("source_id")
 
             from sqlalchemy import create_engine
-            from app.core.config import settings
-            sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+
+            # If target source_id is specified, write to that database
+            if target_source_id:
+                from sqlalchemy import select
+                result = await self.db.execute(
+                    select(DataSource).where(DataSource.id == uuid.UUID(target_source_id))
+                )
+                target_source = result.scalar_one_or_none()
+                if target_source:
+                    # Build sync URL from source connection config
+                    conn_config = target_source.connection_config
+                    source_type = target_source.type.value
+
+                    if source_type == "postgresql":
+                        sync_url = (
+                            f"postgresql+psycopg2://"
+                            f"{conn_config.get('username', 'postgres')}:"
+                            f"{conn_config.get('password', 'postgres')}@"
+                            f"{conn_config.get('host', 'localhost')}:"
+                            f"{conn_config.get('port', 5432)}/"
+                            f"{conn_config.get('database', 'postgres')}"
+                        )
+                    elif source_type == "mysql":
+                        sync_url = (
+                            f"mysql+pymysql://"
+                            f"{conn_config.get('username', 'root')}:"
+                            f"{conn_config.get('password', 'password')}@"
+                            f"{conn_config.get('host', 'localhost')}:"
+                            f"{conn_config.get('port', 3306)}/"
+                            f"{conn_config.get('database', 'mysql')}"
+                        )
+                    else:
+                        raise ValueError(f"Unsupported source type for write: {source_type}")
+                else:
+                    raise ValueError(f"Target source not found: {target_source_id}")
+            else:
+                # Default to platform database
+                from app.core.config import settings
+                sync_url = settings.DATABASE_URL.replace("+asyncpg", "")
+
             sync_engine = create_engine(sync_url)
 
             df.to_sql(
                 table_name,
                 sync_engine,
-                schema=schema,
+                schema=schema if schema and schema != "public" else None,
                 if_exists=if_exists,
                 index=False,
             )

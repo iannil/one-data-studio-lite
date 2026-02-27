@@ -1,13 +1,11 @@
 -- Medical Health System Schema (MySQL)
--- Database: medical
+-- Database: medical_db
 -- Data Volume: ~4M records total
 
--- Create database
-CREATE DATABASE IF NOT EXISTS medical
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- Note: Database creation is handled by the generator
+-- This script assumes the database already exists
 
-USE medical;
+USE medical_db;
 
 -- Disable foreign key checks for table drops
 SET FOREIGN_KEY_CHECKS = 0;

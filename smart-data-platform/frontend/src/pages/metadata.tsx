@@ -419,7 +419,7 @@ export default function MetadataPage() {
               </Space>
             }
             style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-            bodyStyle={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}
+            styles={{ body: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 } }}
           >
             <Search
               placeholder="搜索表名..."
@@ -482,7 +482,7 @@ export default function MetadataPage() {
                 </Text>
               }
               style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-              bodyStyle={{ flex: 1, overflow: 'auto' }}
+              styles={{ body: { flex: 1, overflow: 'auto' } }}
             >
               <Spin spinning={detailLoading}>
                 <Descriptions
@@ -542,7 +542,7 @@ export default function MetadataPage() {
                   rowKey="id"
                   pagination={false}
                   size="small"
-                  scroll={{ y: 'calc(100vh - 450px)' }}
+                  scroll={{ x: 'max-content', y: 'calc(100vh - 450px)' }}
                 />
               </Spin>
             </Card>

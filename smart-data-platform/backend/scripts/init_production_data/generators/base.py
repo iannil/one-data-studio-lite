@@ -8,6 +8,7 @@ batch processing, and progress tracking.
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import time
 from abc import ABC, abstractmethod
@@ -18,12 +19,103 @@ from typing import Any, Generator, Iterator
 from faker import Faker
 from sqlalchemy import MetaData, Table, Column, create_engine, insert, text
 from sqlalchemy.engine import Engine
+from sqlalchemy.dialects.mysql import JSON as MySQLJSON
+from sqlalchemy.exc import ProgrammingError
 
 from ..config import (
     CHINESE_GIVEN_NAMES,
     CHINESE_SURNAMES,
     GENERATOR_CONFIG,
 )
+
+
+def create_postgresql_database(
+    admin_connection_string: str,
+    database_name: str,
+) -> None:
+    """Create a PostgreSQL database if it doesn't exist.
+
+    Args:
+        admin_connection_string: Connection string to postgres database
+        database_name: Name of the database to create
+    """
+    engine = create_engine(admin_connection_string, isolation_level="AUTOCOMMIT")
+
+    try:
+        with engine.connect() as conn:
+            # Check if database exists
+            result = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
+                {"db_name": database_name}
+            )
+            exists = result.scalar() is not None
+
+            if not exists:
+                conn.execute(
+                    text(f"CREATE DATABASE {database_name} ENCODING 'UTF8'")
+                )
+                print(f"Created database: {database_name}")
+            else:
+                print(f"Database already exists: {database_name}")
+    except Exception as e:
+        print(f"Error creating database {database_name}: {e}")
+        raise
+    finally:
+        engine.dispose()
+
+
+def create_mysql_database(
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+    database_name: str,
+) -> None:
+    """Create a MySQL database if it doesn't exist.
+
+    Args:
+        host: MySQL host
+        port: MySQL port
+        user: MySQL user
+        password: MySQL password
+        database_name: Name of the database to create
+    """
+    import pymysql
+
+    try:
+        # Connect to MySQL server (without database)
+        connection = pymysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            charset='utf8mb4'
+        )
+
+        with connection.cursor() as cursor:
+            # Check if database exists
+            cursor.execute(
+                f"SELECT 1 FROM information_schema.schemata "
+                f"WHERE schema_name = '{database_name}'"
+            )
+            exists = cursor.fetchone() is not None
+
+            if not exists:
+                cursor.execute(
+                    f"CREATE DATABASE `{database_name}` "
+                    f"CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+                print(f"Created database: {database_name}")
+            else:
+                print(f"Database already exists: {database_name}")
+
+        connection.commit()
+    except Exception as e:
+        print(f"Error creating database {database_name}: {e}")
+        raise
+    finally:
+        if 'connection' in locals():
+            connection.close()
 
 
 class BaseDataGenerator(ABC):
@@ -74,6 +166,11 @@ class BaseDataGenerator(ABC):
             connection.close()
 
     @abstractmethod
+    def create_database(self) -> None:
+        """Create the database if it doesn't exist."""
+        pass
+
+    @abstractmethod
     def create_schema(self) -> None:
         """Create database schema (tables, indexes, constraints)."""
         pass
@@ -90,11 +187,15 @@ class BaseDataGenerator(ABC):
         print(f"Starting {self.__class__.__name__}")
         print(f"{'=' * 60}")
 
-        print("\n[1/2] Creating schema...")
+        print("\n[1/3] Creating database...")
+        self.create_database()
+        print("Database created successfully.")
+
+        print("\n[2/3] Creating schema...")
         self.create_schema()
         print("Schema created successfully.")
 
-        print("\n[2/2] Generating data...")
+        print("\n[3/3] Generating data...")
         self.generate_data()
 
         elapsed = time.time() - start_time
@@ -134,7 +235,12 @@ class BaseDataGenerator(ABC):
 
         with self.get_connection() as conn:
             for row in data_iterator:
-                batch.append(dict(zip(columns, row)))
+                row_dict = dict(zip(columns, row))
+                # Convert dict/list values to JSON string with ensure_ascii=False
+                for key, value in row_dict.items():
+                    if isinstance(value, (dict, list)):
+                        row_dict[key] = json.dumps(value, ensure_ascii=False)
+                batch.append(row_dict)
 
                 if len(batch) >= self.batch_size:
                     conn.execute(insert(table), batch)

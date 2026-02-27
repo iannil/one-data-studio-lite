@@ -24,6 +24,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models import CollectTask, CollectTaskStatus
 
+
+def _parse_cron_to_celery(cron_expression: str) -> celery_crontab:
+    """Parse a 5-part cron expression to Celery crontab schedule.
+
+    Args:
+        cron_expression: Standard cron expression (e.g., "* * * * *")
+
+    Returns:
+        Celery crontab schedule instance
+    """
+    parts = cron_expression.strip().split()
+    if len(parts) != 5:
+        raise ValueError(
+            f"Cron expression must have 5 parts, got {len(parts)}: {cron_expression}"
+        )
+
+    minute, hour, day_of_month, month, day_of_week = parts
+
+    return celery_crontab(
+        minute=minute,
+        hour=hour,
+        day_of_month=day_of_month,
+        month_of_year=month,
+        day_of_week=day_of_week,
+    )
+
 # Use Celery if environment variable is set
 USE_CELERY = os.getenv("USE_CELERY", "false").lower() == "true"
 
@@ -127,7 +153,7 @@ class SchedulerService:
             # Use Celery Beat for scheduling
             schedule_entry = {
                 "task": "collect.execute_task",
-                "schedule": celery_crontab.from_crontab(cron_expression),
+                "schedule": _parse_cron_to_celery(cron_expression),
                 "args": [str(task_id)],
             }
 
@@ -302,7 +328,7 @@ class SchedulerService:
             # Re-add to Celery Beat schedule
             schedule_entry = {
                 "task": "collect.execute_task",
-                "schedule": celery_crontab.from_crontab(task.schedule_cron),
+                "schedule": _parse_cron_to_celery(task.schedule_cron),
                 "args": [str(task_id)],
             }
             celery_app.conf.beat_schedule[job_id] = schedule_entry
@@ -493,7 +519,7 @@ class SchedulerService:
                     # Add to Celery Beat schedule
                     schedule_entry = {
                         "task": "collect.execute_task",
-                        "schedule": celery_crontab.from_crontab(task.schedule_cron),
+                        "schedule": _parse_cron_to_celery(task.schedule_cron),
                         "args": [str(task.id)],
                     }
                     celery_app.conf.beat_schedule[job_id] = schedule_entry

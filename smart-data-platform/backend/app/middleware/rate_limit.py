@@ -12,7 +12,7 @@ from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from app.core.observability import track_operation
+from app.core.observability import track_operation_async
 
 
 class RateLimitExceeded(HTTPException):
@@ -232,11 +232,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         )
 
         if not is_allowed:
-            await track_operation(
+            async with track_operation_async(
                 "rate_limit_blocked",
                 client_id=client_id,
                 endpoint=endpoint,
-            )
+            ):
+                pass  # Log the blocked request
 
             response = Response(
                 content='{"error":"Rate limit exceeded","retry_after":' + str(retry_after) + '}',

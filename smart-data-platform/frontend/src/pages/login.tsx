@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, Form, Input, Button, message, Typography } from 'antd';
+import { Card, Form, Input, Button, Typography, App } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 
@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuthStore();
+  const { message } = App.useApp();
 
   const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);

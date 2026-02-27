@@ -1,7 +1,7 @@
 """
 Medical Health System Data Generator.
 
-Generates production-level test data for the medical database (MySQL):
+Generates production-level test data for the medical_db database (MySQL):
 - hospitals (200)
 - departments (2,000)
 - doctors (20,000)
@@ -25,15 +25,15 @@ from typing import Any, Iterator
 
 from sqlalchemy import text
 
-from .base import BaseDataGenerator
+from .base import BaseDataGenerator, create_mysql_database
 from .. import config
 from ..config import (
     CHINESE_CITIES,
     CHINESE_PROVINCES,
     HOSPITAL_LEVELS,
     ICD10_CODES,
+    MEDICAL_DB_CONFIG,
     MEDICAL_DEPARTMENTS,
-    MYSQL_CONFIG,
 )
 
 
@@ -43,7 +43,7 @@ class MedicalDataGenerator(BaseDataGenerator):
     SCHEMA_FILE = Path(__file__).parent.parent / "schemas" / "medical.sql"
 
     def __init__(self):
-        super().__init__(MYSQL_CONFIG.connection_string)
+        super().__init__(MEDICAL_DB_CONFIG.connection_string)
         self.hospital_ids: list[int] = []
         self.department_ids: list[int] = []
         self.doctor_ids: list[int] = []
@@ -53,13 +53,23 @@ class MedicalDataGenerator(BaseDataGenerator):
         self.prescription_ids: list[int] = []
         self.lab_test_ids: list[int] = []
 
+    def create_database(self) -> None:
+        """Create the medical_db database if it doesn't exist."""
+        create_mysql_database(
+            MEDICAL_DB_CONFIG.host,
+            MEDICAL_DB_CONFIG.port,
+            MEDICAL_DB_CONFIG.user,
+            MEDICAL_DB_CONFIG.password,
+            MEDICAL_DB_CONFIG.database
+        )
+
     def create_schema(self) -> None:
-        """Create the medical database and schema."""
+        """Create the medical database schema (tables)."""
         # Check if tables already exist - skip if they do
         with self.get_connection() as conn:
             result = conn.execute(text(
                 "SELECT COUNT(*) FROM information_schema.tables "
-                "WHERE table_schema = 'medical' AND table_name = 'patients'"
+                f"WHERE table_schema = '{MEDICAL_DB_CONFIG.database}' AND table_name = 'patients'"
             ))
             if result.scalar() > 0:
                 print("  (Tables already exist, skipping schema creation)")
@@ -147,10 +157,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     random.randint(100, 2000),
                     random.randint(100000, 5000000),
                     random.randint(10000, 200000),
-                    json.dumps(random.sample(MEDICAL_DEPARTMENTS, k=min(10, len(MEDICAL_DEPARTMENTS)))),
-                    json.dumps(["CT", "MRI", "超声", "X光", "内镜"]),
-                    json.dumps(["ISO9001", "JCI认证"]) if random.random() > 0.5 else None,
-                    json.dumps(random.sample(insurance_types, k=random.randint(2, 4))),
+                    random.sample(MEDICAL_DEPARTMENTS, k=min(10, len(MEDICAL_DEPARTMENTS))),
+                    ["CT", "MRI", "超声", "X光", "内镜"],
+                    ["ISO9001", "JCI认证"] if random.random() > 0.5 else None,
+                    random.sample(insurance_types, k=random.randint(2, 4)),
                     lat,
                     lon,
                     random.choices(["active", "inactive"], weights=[0.95, 0.05])[0],
@@ -158,10 +168,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("hospitals", columns, data_generator(), total, schema="medical")
+        self.batch_insert("hospitals", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.hospitals"))
+            result = conn.execute(text("SELECT id FROM hospitals"))
             self.hospital_ids = [row[0] for row in result]
 
     def _generate_departments(self) -> None:
@@ -202,8 +212,8 @@ class MedicalDataGenerator(BaseDataGenerator):
                         f"0{random.randint(10, 99)}-{random.randint(10000000, 99999999)}",
                         f"{dept_name}提供专业医疗服务",
                         f"{dept_name}相关疾病诊治",
-                        json.dumps(["门诊", "住院", "手术"]),
-                        json.dumps({"weekday": "08:00-17:00", "weekend": "08:00-12:00"}),
+                        ["门诊", "住院", "手术"],
+                        {"weekday": "08:00-17:00", "weekend": "08:00-12:00"},
                         not is_emergency,
                         random.randint(50, 200) if not is_emergency else None,
                         round(random.uniform(10, 100), 2),
@@ -216,10 +226,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                         now
                     )
 
-        self.batch_insert("departments", columns, data_generator(), total, schema="medical")
+        self.batch_insert("departments", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.departments"))
+            result = conn.execute(text("SELECT id FROM departments"))
             self.department_ids = [row[0] for row in result]
 
     def _generate_doctors(self) -> None:
@@ -275,8 +285,8 @@ class MedicalDataGenerator(BaseDataGenerator):
                     random.choice(education_levels),
                     random.choice(medical_schools),
                     birth_year + 24,
-                    json.dumps([random.choice(MEDICAL_DEPARTMENTS)[:4] + "疾病"]),
-                    json.dumps(["执业医师资格证"]),
+                    [random.choice(MEDICAL_DEPARTMENTS)[:4] + "疾病"],
+                    ["执业医师资格证"],
                     "临床医学研究",
                     random.randint(0, 100) if title_idx < 2 else random.randint(0, 20),
                     max(0, exp_years),
@@ -286,8 +296,8 @@ class MedicalDataGenerator(BaseDataGenerator):
                     random.random() > 0.1,
                     random.randint(20, 50),
                     random.choice([10, 15, 20, 30]),
-                    json.dumps({"mon": "08:00-12:00", "tue": "08:00-12:00", "wed": "14:00-17:00"}),
-                    json.dumps(["中文", "英文"]) if random.random() > 0.7 else json.dumps(["中文"]),
+                    {"mon": "08:00-12:00", "tue": "08:00-12:00", "wed": "14:00-17:00"},
+                    ["中文", "英文"] if random.random() > 0.7 else ["中文"],
                     None,
                     f"{name}医生，从医{exp_years}年，擅长{random.choice(MEDICAL_DEPARTMENTS)[:4]}疾病诊治",
                     round(random.uniform(4.0, 5.0), 2),
@@ -299,10 +309,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("doctors", columns, data_generator(), total, schema="medical")
+        self.batch_insert("doctors", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.doctors"))
+            result = conn.execute(text("SELECT id FROM doctors"))
             self.doctor_ids = [row[0] for row in result]
 
     def _generate_patients(self) -> None:
@@ -361,9 +371,9 @@ class MedicalDataGenerator(BaseDataGenerator):
                     self.generate_phone_number(),
                     random.choice(["父母", "配偶", "子女", "兄弟姐妹"]),
                     random.choice(blood_types) if random.random() > 0.3 else None,
-                    json.dumps([random.choice(allergies_list)]) if random.random() > 0.7 else None,
-                    json.dumps([random.choice(chronic_list)]) if random.random() > 0.6 else None,
-                    json.dumps(["阿司匹林"]) if random.random() > 0.8 else None,
+                    [random.choice(allergies_list)] if random.random() > 0.7 else None,
+                    [random.choice(chronic_list)] if random.random() > 0.6 else None,
+                    ["阿司匹林"] if random.random() > 0.8 else None,
                     "既往体健" if random.random() > 0.5 else "有高血压病史",
                     "父亲有高血压" if random.random() > 0.7 else "家族史无特殊",
                     random.choice(["医保", "自费", "商业保险"]),
@@ -388,10 +398,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("patients", columns, data_generator(), total, schema="medical")
+        self.batch_insert("patients", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.patients"))
+            result = conn.execute(text("SELECT id FROM patients"))
             self.patient_ids = [row[0] for row in result]
 
     def _generate_appointments(self) -> None:
@@ -459,7 +469,7 @@ class MedicalDataGenerator(BaseDataGenerator):
                     slot[1],
                     random.randint(1, 100),
                     random.choice(symptoms_list) + "，" + random.choice(["3天", "1周", "半月", "1月"]),
-                    json.dumps(random.sample(symptoms_list, k=random.randint(1, 3))),
+                    random.sample(symptoms_list, k=random.randint(1, 3)),
                     random.choice(["1天", "3天", "1周", "2周", "1月"]),
                     random.choice(["mild", "moderate", "severe"]),
                     random.random() > 0.3,
@@ -485,10 +495,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("appointments", columns, data_generator(), total, schema="medical")
+        self.batch_insert("appointments", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.appointments WHERE status = 'completed'"))
+            result = conn.execute(text("SELECT id FROM appointments WHERE status = 'completed'"))
             self.appointment_ids = [row[0] for row in result]
 
     def _generate_diagnoses(self) -> None:
@@ -541,9 +551,9 @@ class MedicalDataGenerator(BaseDataGenerator):
                     random.choice(["acute", "chronic", "recurrent"]),
                     f"患者主诉{icd_name}相关症状，经检查诊断为{icd_name}",
                     "体格检查未见明显异常" if severity == "mild" else "体格检查发现异常体征",
-                    json.dumps({"blood_pressure": f"{random.randint(90, 140)}/{random.randint(60, 90)}", "heart_rate": random.randint(60, 100), "temperature": round(random.uniform(36.0, 38.5), 1)}),
+                    {"blood_pressure": f"{random.randint(90, 140)}/{random.randint(60, 90)}", "heart_rate": random.randint(60, 100), "temperature": round(random.uniform(36.0, 38.5), 1)},
                     "一般情况尚可，神志清楚",
-                    json.dumps([random.choice(list(ICD10_CODES.values()))]) if random.random() > 0.7 else None,
+                    [random.choice(list(ICD10_CODES.values()))] if random.random() > 0.7 else None,
                     f"建议{random.choice(['药物治疗', '手术治疗', '保守治疗', '中西医结合治疗'])}",
                     random.random() > 0.3,
                     onset_date + timedelta(days=random.randint(7, 30)) if random.random() > 0.3 else None,
@@ -559,10 +569,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("diagnoses", columns, data_generator(), total, schema="medical")
+        self.batch_insert("diagnoses", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.diagnoses"))
+            result = conn.execute(text("SELECT id FROM diagnoses"))
             self.diagnosis_ids = [row[0] for row in result]
 
     def _generate_prescriptions(self) -> None:
@@ -623,7 +633,7 @@ class MedicalDataGenerator(BaseDataGenerator):
                     "按时服药，注意饮食",
                     True,
                     True,
-                    json.dumps(["注意药物相互作用"]) if random.random() > 0.8 else None,
+                    ["注意药物相互作用"] if random.random() > 0.8 else None,
                     random.random() < 0.02,
                     random.random() < 0.03,
                     random.random() < 0.3,
@@ -634,10 +644,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("prescriptions", columns, data_generator(), total, schema="medical")
+        self.batch_insert("prescriptions", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.prescriptions"))
+            result = conn.execute(text("SELECT id FROM prescriptions"))
             self.prescription_ids = [row[0] for row in result]
 
     def _generate_prescription_items(self) -> None:
@@ -723,7 +733,7 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("prescription_items", columns, data_generator(), total, schema="medical")
+        self.batch_insert("prescription_items", columns, data_generator(), total)
 
     def _generate_lab_tests(self) -> None:
         """Generate lab test data."""
@@ -783,7 +793,7 @@ class MedicalDataGenerator(BaseDataGenerator):
                     config["category"],
                     config["type"],
                     config["name"],
-                    json.dumps(config["items"]),
+                    config["items"],
                     random.choice(["routine", "urgent", "stat"]),
                     config["category"] == "blood",
                     config["category"] if config["category"] != "imaging" else None,
@@ -814,10 +824,10 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("lab_tests", columns, data_generator(), total, schema="medical")
+        self.batch_insert("lab_tests", columns, data_generator(), total)
 
         with self.get_connection() as conn:
-            result = conn.execute(text("SELECT id FROM medical.lab_tests WHERE status = 'completed'"))
+            result = conn.execute(text("SELECT id FROM lab_tests WHERE status = 'completed'"))
             self.lab_test_ids = [row[0] for row in result]
 
     def _generate_lab_results(self) -> None:
@@ -894,4 +904,4 @@ class MedicalDataGenerator(BaseDataGenerator):
                     now
                 )
 
-        self.batch_insert("lab_results", columns, data_generator(), total, schema="medical")
+        self.batch_insert("lab_results", columns, data_generator(), total)

@@ -7,7 +7,7 @@
 
 import { test, expect } from "@playwright/test";
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5501";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3100";
 
 test.describe("Celery Task Scheduling", () => {
   test.beforeEach(async ({ page }) => {

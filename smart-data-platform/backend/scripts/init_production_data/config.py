@@ -13,10 +13,10 @@ from typing import Any
 
 @dataclass(frozen=True)
 class PostgreSQLConfig:
-    """PostgreSQL connection configuration."""
+    """PostgreSQL connection configuration for platform database."""
 
     host: str = os.getenv("PG_HOST", "localhost")
-    port: int = int(os.getenv("PG_PORT", "5502"))
+    port: int = int(os.getenv("PG_PORT", "3102"))
     user: str = os.getenv("PG_USER", "postgres")
     password: str = os.getenv("PG_PASSWORD", "postgres")
     database: str = os.getenv("PG_DATABASE", "smart_data")
@@ -29,13 +29,78 @@ class PostgreSQLConfig:
     def async_connection_string(self) -> str:
         return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
 
+    @property
+    def admin_connection_string(self) -> str:
+        """Connection string for admin operations (database creation)."""
+        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/postgres"
+
+
+@dataclass(frozen=True)
+class FinanceDBConfig:
+    """Finance database configuration."""
+
+    host: str = os.getenv("PG_HOST", "localhost")
+    port: int = int(os.getenv("PG_PORT", "3102"))
+    user: str = os.getenv("PG_USER", "postgres")
+    password: str = os.getenv("PG_PASSWORD", "postgres")
+    database: str = "finance_db"
+
+    @property
+    def connection_string(self) -> str:
+        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+@dataclass(frozen=True)
+class IoTDBConfig:
+    """IoT database configuration."""
+
+    host: str = os.getenv("PG_HOST", "localhost")
+    port: int = int(os.getenv("PG_PORT", "3102"))
+    user: str = os.getenv("PG_USER", "postgres")
+    password: str = os.getenv("PG_PASSWORD", "postgres")
+    database: str = "iot_db"
+
+    @property
+    def connection_string(self) -> str:
+        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+@dataclass(frozen=True)
+class MedicalDBConfig:
+    """Medical database configuration (MySQL)."""
+
+    host: str = os.getenv("MYSQL_HOST", "localhost")
+    port: int = int(os.getenv("MYSQL_PORT", "3108"))
+    user: str = os.getenv("MYSQL_USER", "root")
+    password: str = os.getenv("MYSQL_PASSWORD", "mysql123")
+    database: str = "medical_db"
+
+    @property
+    def connection_string(self) -> str:
+        return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
+
+@dataclass(frozen=True)
+class HRDBConfig:
+    """HR database configuration (MySQL)."""
+
+    host: str = os.getenv("MYSQL_HOST", "localhost")
+    port: int = int(os.getenv("MYSQL_PORT", "3108"))
+    user: str = os.getenv("MYSQL_USER", "root")
+    password: str = os.getenv("MYSQL_PASSWORD", "mysql123")
+    database: str = "hr_system_db"
+
+    @property
+    def connection_string(self) -> str:
+        return f"mysql+pymysql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
 
 @dataclass(frozen=True)
 class MySQLConfig:
     """MySQL connection configuration."""
 
     host: str = os.getenv("MYSQL_HOST", "localhost")
-    port: int = int(os.getenv("MYSQL_PORT", "5510"))
+    port: int = int(os.getenv("MYSQL_PORT", "3108"))
     user: str = os.getenv("MYSQL_USER", "root")
     password: str = os.getenv("MYSQL_PASSWORD", "mysql123")
 
@@ -51,7 +116,7 @@ class MySQLConfig:
 class DataVolumeConfig:
     """Data volume configuration for each system."""
 
-    # Finance System (PostgreSQL - finance schema)
+    # Finance System (PostgreSQL - finance_db database)
     finance_customers: int = 100_000
     finance_accounts: int = 200_000
     finance_transactions: int = 3_000_000
@@ -60,7 +125,7 @@ class DataVolumeConfig:
     finance_risk_assessments: int = 100_000
     finance_audit_logs: int = 1_000_000
 
-    # IoT Platform (PostgreSQL - iot schema)
+    # IoT Platform (PostgreSQL - iot_db database)
     iot_device_types: int = 100
     iot_devices: int = 50_000
     iot_sensors: int = 200_000
@@ -69,7 +134,7 @@ class DataVolumeConfig:
     iot_alerts: int = 100_000
     iot_maintenance_logs: int = 50_000
 
-    # HR System (MySQL - hr_system database)
+    # HR System (MySQL - hr_system_db database)
     hr_departments: int = 500
     hr_positions: int = 1_000
     hr_employees: int = 100_000
@@ -79,7 +144,7 @@ class DataVolumeConfig:
     hr_training_records: int = 150_000
     hr_leave_requests: int = 100_000
 
-    # Medical System (MySQL - medical database)
+    # Medical System (MySQL - medical_db database)
     medical_hospitals: int = 200
     medical_departments: int = 2_000
     medical_doctors: int = 20_000
@@ -143,6 +208,10 @@ class GeneratorConfig:
 # Default configuration instances
 POSTGRESQL_CONFIG = PostgreSQLConfig()
 MYSQL_CONFIG = MySQLConfig()
+FINANCE_DB_CONFIG = FinanceDBConfig()
+IOT_DB_CONFIG = IoTDBConfig()
+MEDICAL_DB_CONFIG = MedicalDBConfig()
+HR_DB_CONFIG = HRDBConfig()
 DATA_VOLUME_CONFIG = DataVolumeConfig()
 GENERATOR_CONFIG = GeneratorConfig()
 
