@@ -167,25 +167,137 @@ services:
 
   # MLflow Tracking Server
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.9.0
+    image: ghcr.io/mlflow/mlflow:v2.12.0
     container_name: onedata-mlflow
     environment:
       - BACKEND_STORE_URI=postgresql://postgres:postgres@postgres:5432/mlflow
       - DEFAULT_ARTIFACT_ROOT=s3://mlflow/
+      # AWS S3 credentials for MinIO
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - MLFLOW_S3_IGNORE_TLS=true
     ports:
       - "5000:5000"
     volumes:
       - mlflowdata:/mlflow
+      - ./infrastructure/mlflow:/mlflow/config
     command: >
       server
       --backend-store-uri postgresql://postgres:postgres@postgres:5432/mlflow
       --default-artifact-root s3://mlflow/
       --host 0.0.0.0
+      --workers 2
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - onedata-network
+
+  # TensorFlow Serving
+  tf-serving:
+    image: tensorflow/serving:2.15.0-gpu
+    container_name: onedata-tf-serving
+    ports:
+      - "8501:8501"  # REST API
+      - "9000:9000"  # gRPC API
+    environment:
+      - MODEL_BASE_PATH=/models
+      - MODEL_NAME=sample_model
+      - TF_CPP_MIN_LOG_LEVEL=3
+    volumes:
+      - ./models/tf-serving:/models
+      - tf_serving_models:/models/config
+    command: >
+      tensorflow_model_server
+      --port=9000
+      --rest_api_port=8501
+      --model_name=sample_model
+      --model_base_path=/models/sample_model
+      --enable_batching=true
+      --batching_parameters_file=/models/config/batching_params.txt
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - onedata-network
+    profiles:
+      - gpu
+      - mlops
+
+  # TorchServe
+  torchserve:
+    image: pytorch/torchserve:0.10.0-gpu
+    container_name: onedata-torchserve
+    ports:
+      - "8080:8080"  # Inference API
+      - "8081:8081"  # Management API
+      - "8082:8082"  # Metrics API
+    environment:
+      - TS_ENABLE_NEW_API=true
+      - TS_METRICS_MODE=prometheus
+    volumes:
+      - ./models/torchserve:/home/model-server/model-store
+      - ./infrastructure/torchserve/config:/home/model-server/config
+      - torchserve_logs:/home/model-server/logs
+    command: >
+      bash -c "
+      torchserve --start --ncs --model-store=/home/model-server/model-store --ts-config=/home/model-server/config/config.properties
+      "
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - onedata-network
+    profiles:
+      - gpu
+      - mlops
+
+  # Triton Inference Server (Multi-framework)
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.01-py3
+    container_name: onedata-triton
+    ports:
+      - "8001:8001"  # HTTP/REST
+      - "8002:8002"  # gRPC
+      - "8003:8003"  # Metrics
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ./models/triton:/models
+      - ./infrastructure/triton/config:/triton_config
+    command: >
+      tritonserver
+      --model-repository=/models
+      --http-port=8001
+      --grpc-port=8002
+      --metrics-port=8003
+      --log-verbose=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - onedata-network
+    profiles:
+      - gpu
+      - mlops
 
   # Jupyter Hub
   jupyter:
@@ -336,6 +448,13 @@ volumes:
   supersetdata:
     driver: local
   pgadmindata:
+    driver: local
+  # Model serving volumes
+  tf_serving_models:
+    driver: local
+  torchserve_logs:
+    driver: local
+  triton_models:
     driver: local
 
 networks:

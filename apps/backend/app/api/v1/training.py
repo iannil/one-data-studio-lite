@@ -4,10 +4,15 @@ Training API endpoints
 REST API for managing distributed training jobs.
 """
 
+import asyncio
+import json
+import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from pydantic import BaseModel, Field, validator
+
+logger = logging.getLogger(__name__)
 
 from app.api.deps import get_current_user, require_permission
 from app.models.user import User
@@ -692,3 +697,470 @@ async def list_training_templates(
         templates = [t for t in templates if t["framework"] == framework.value]
 
     return templates
+
+
+# =============================================================================
+# WebSocket Endpoints for Real-time Updates
+# =============================================================================
+
+from fastapi import WebSocket
+
+from app.services.training.websocket import (
+    get_ws_manager,
+    get_metrics_broadcaster,
+    WebSocketMessage,
+    EventType,
+)
+
+
+@router.websocket("/ws/jobs/{job_id}/metrics")
+async def websocket_training_metrics(
+    websocket: WebSocket,
+    job_id: str,
+):
+    """
+    WebSocket endpoint for real-time training metrics
+
+    Connect to receive live updates for a training job including:
+    - Metric updates (loss, accuracy, etc.)
+    - Progress updates
+    - Status changes
+    - Log entries
+    - GPU utilization
+
+    Usage:
+        const ws = new WebSocket('ws://localhost:3101/api/v1/training/ws/jobs/{job_id}/metrics');
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            console.log(data.event_type, data.data);
+        };
+    """
+    manager = get_ws_manager()
+    await websocket.accept()
+
+    await manager.connect(websocket, job_id)
+
+    try:
+        # Send initial connection message
+        initial_message = WebSocketMessage(
+            event_type=EventType.STATUS_UPDATE,
+            data={
+                "status": "connected",
+                "message": "WebSocket connection established",
+                "job_id": job_id,
+            },
+            timestamp=datetime.utcnow().isoformat(),
+            job_id=job_id,
+        )
+        await websocket.send_text(initial_message.to_json())
+
+        # Keep connection alive and handle incoming messages
+        while True:
+            data = await websocket.receive_text()
+
+            # Handle client requests (like ping/pong, subscription updates)
+            try:
+                message = json.loads(data)
+                if message.get("action") == "ping":
+                    await websocket.send_text(json.dumps({"action": "pong"}))
+                elif message.get("action") == "subscribe":
+                    # Client can subscribe to specific event types
+                    pass
+            except json.JSONDecodeError:
+                pass
+
+    except Exception as e:
+        logger.error(f"WebSocket error for job {job_id}: {e}")
+    finally:
+        manager.disconnect(websocket)
+
+
+@router.websocket("/ws/jobs/{job_id}/logs")
+async def websocket_training_logs(
+    websocket: WebSocket,
+    job_id: str,
+):
+    """
+    WebSocket endpoint for real-time training logs
+
+    Streams log entries from the training job.
+    """
+    manager = get_ws_manager()
+    await websocket.accept()
+
+    await manager.connect(websocket, job_id)
+
+    try:
+        while True:
+            # This is a simplified version
+            # In production, this would read from a log stream
+            data = await websocket.receive_text()
+
+            if data == "ping":
+                await websocket.send_text("pong")
+
+    except Exception as e:
+        logger.error(f"WebSocket logs error for job {job_id}: {e}")
+    finally:
+        manager.disconnect(websocket)
+
+
+@router.websocket("/ws/metrics/global")
+async def websocket_global_metrics(
+    websocket: WebSocket,
+):
+    """
+    WebSocket endpoint for global training metrics
+
+    Broadcasts metrics for all active training jobs.
+    """
+    manager = get_ws_manager()
+    await websocket.accept()
+
+    try:
+        while True:
+            await asyncio.sleep(5)
+            # Send global metrics summary
+            await websocket.send_text(json.dumps({
+                "event_type": "global_metrics",
+                "active_jobs": len(manager.active_connections),
+                "timestamp": datetime.utcnow().isoformat(),
+            }))
+    except Exception as e:
+        logger.error(f"Global metrics WebSocket error: {e}")
+    finally:
+        if websocket in manager.connection_jobs:
+            manager.disconnect(websocket)
+
+
+# =============================================================================
+# Test/Simulation Endpoints
+# =============================================================================
+
+@router.post("/ws/jobs/{job_id}/simulate")
+async def simulate_metrics_stream(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Simulate metrics streaming for testing WebSocket connections
+
+    This endpoint generates fake training metrics and broadcasts them
+    to connected WebSocket clients.
+    """
+    broadcaster = get_metrics_broadcaster()
+    manager = get_ws_manager()
+
+    # Run simulation in background
+    async def run_simulation():
+        for epoch in range(5):
+            for step in range(10):
+                loss = 1.0 - (epoch * 0.15) - (step * 0.01)
+                accuracy = 0.5 + (epoch * 0.1) + (step * 0.02)
+
+                await broadcaster.log_metric(job_id, "loss", loss, step)
+                await broadcaster.log_metric(job_id, "accuracy", accuracy, step)
+                await broadcaster.log_metric(job_id, "learning_rate", 0.001 * (0.95 ** epoch), step)
+
+                await broadcaster.broadcast_progress(
+                    job_id,
+                    current_step=epoch * 10 + step,
+                    total_steps=50,
+                    epoch=epoch,
+                    total_epochs=5,
+                    metrics={"loss": loss, "accuracy": accuracy},
+                )
+
+                await asyncio.sleep(0.5)
+
+        # Send completion
+        await manager.broadcast_status(job_id, "completed", "Simulation completed")
+
+    # Start simulation
+    asyncio.create_task(run_simulation())
+
+    return {
+        "message": f"Started metrics simulation for job {job_id}",
+        "connections": manager.get_connection_count(job_id),
+    }
+
+
+# =============================================================================
+# GPU Monitoring Endpoints
+# =============================================================================
+
+from app.services.training.gpu_monitor import (
+    get_gpu_monitor,
+    get_multi_job_gpu_monitor,
+    GPUMetrics,
+)
+
+
+@router.get("/gpu/metrics")
+async def get_current_gpu_metrics(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get current GPU metrics from nvidia-smi
+
+    Returns real-time GPU utilization, memory, temperature, and power metrics.
+    """
+    monitor = get_gpu_monitor()
+    metrics = await monitor.get_gpu_metrics()
+
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "gpu_count": len(metrics),
+        "gpus": [
+            {
+                "gpu_id": m.gpu_id,
+                "name": m.name,
+                "utilization_percent": m.utilization_percent,
+                "memory_used_mb": m.memory_used_mb,
+                "memory_total_mb": m.memory_total_mb,
+                "memory_used_percent": m.memory_used_percent,
+                "temperature_celsius": m.temperature_celsius,
+                "power_draw_watts": m.power_draw_watts,
+                "is_healthy": m.is_healthy,
+                "utilization_status": m.utilization_status,
+                "processes": m.processes,
+            }
+            for m in metrics
+        ],
+    }
+
+
+@router.get("/jobs/{job_id}/gpu/summary")
+async def get_job_gpu_summary(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get GPU monitoring summary for a training job
+
+    Returns statistics including average utilization, temperature,
+    memory usage, and alerts.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+    summary = multi_monitor.get_job_metrics_summary(job_id)
+
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No GPU monitoring data found for job {job_id}",
+        )
+
+    return summary
+
+
+@router.get("/jobs/{job_id}/gpu/history")
+async def get_job_gpu_history(
+    job_id: str,
+    limit: Optional[int] = Query(None, ge=1, le=10000),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get GPU metrics history for a training job
+
+    Returns historical GPU metrics with optional limit.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+
+    # Get the job monitor
+    if job_id not in multi_monitor.job_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} is not being monitored",
+        )
+
+    job_monitor = multi_monitor.job_monitors[job_id]
+    history = job_monitor.get_metrics_history(limit)
+
+    return {
+        "job_id": job_id,
+        "count": len(history),
+        "metrics": history,
+    }
+
+
+@router.get("/jobs/{job_id}/gpu/alerts")
+async def get_job_gpu_alerts(
+    job_id: str,
+    severity: Optional[str] = Query(None, description="Filter by severity: info, warning, critical"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get GPU alerts for a training job
+
+    Returns alerts generated during monitoring, optionally filtered by severity.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+
+    if job_id not in multi_monitor.job_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} is not being monitored",
+        )
+
+    job_monitor = multi_monitor.job_monitors[job_id]
+    alerts = job_monitor.get_alerts(severity)
+
+    return {
+        "job_id": job_id,
+        "count": len(alerts),
+        "alerts": alerts,
+    }
+
+
+@router.get("/jobs/{job_id}/gpu/efficiency")
+async def get_job_gpu_efficiency(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get GPU efficiency metrics for a training job
+
+    Returns per-GPU efficiency statistics.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+
+    if job_id not in multi_monitor.job_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} is not being monitored",
+        )
+
+    job_monitor = multi_monitor.job_monitors[job_id]
+    efficiency = job_monitor.get_gpu_efficiency()
+
+    return {
+        "job_id": job_id,
+        "efficiency": efficiency,
+    }
+
+
+@router.post("/jobs/{job_id}/gpu/monitor/start")
+async def start_job_gpu_monitoring(
+    job_id: str,
+    duration_minutes: Optional[float] = Query(None, description="Monitoring duration in minutes"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Start GPU monitoring for a training job
+
+    Begins collecting GPU metrics for the specified job.
+    Optionally specify a duration for automatic stopping.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+
+    try:
+        await multi_monitor.start_job_monitoring(job_id, duration_minutes)
+        return {
+            "message": f"Started GPU monitoring for job {job_id}",
+            "job_id": job_id,
+            "duration_minutes": duration_minutes,
+        }
+    except Exception as e:
+        logger.error(f"Failed to start GPU monitoring for job {job_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start GPU monitoring: {str(e)}",
+        )
+
+
+@router.post("/jobs/{job_id}/gpu/monitor/stop")
+async def stop_job_gpu_monitoring(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Stop GPU monitoring for a training job
+
+    Stops collecting GPU metrics for the specified job.
+    """
+    multi_monitor = get_multi_job_gpu_monitor()
+
+    if job_id not in multi_monitor.job_monitors:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} is not being monitored",
+        )
+
+    try:
+        await multi_monitor.stop_job_monitoring(job_id)
+        return {
+            "message": f"Stopped GPU monitoring for job {job_id}",
+            "job_id": job_id,
+        }
+    except Exception as e:
+        logger.error(f"Failed to stop GPU monitoring for job {job_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stop GPU monitoring: {str(e)}",
+        )
+
+
+@router.websocket("/ws/gpu/metrics")
+async def websocket_gpu_metrics(
+    websocket: WebSocket,
+):
+    """
+    WebSocket endpoint for real-time GPU metrics
+
+    Streams GPU utilization, temperature, and memory metrics in real-time.
+    """
+    manager = get_ws_manager()
+    monitor = get_gpu_monitor()
+
+    await websocket.accept()
+
+    try:
+        # Create a unique job ID for GPU monitoring
+        gpu_job_id = "global-gpu-monitor"
+
+        await manager.connect(websocket, gpu_job_id)
+
+        # Send initial message
+        initial_metrics = await monitor.get_gpu_metrics()
+        await manager.broadcast_gpu(
+            gpu_job_id,
+            [
+                {
+                    "gpu_id": m.gpu_id,
+                    "name": m.name,
+                    "utilization_percent": m.utilization_percent,
+                    "memory_used_percent": m.memory_used_percent,
+                    "temperature_celsius": m.temperature_celsius,
+                    "is_healthy": m.is_healthy,
+                }
+                for m in initial_metrics
+            ],
+        )
+
+        # Continuously poll and broadcast
+        while True:
+            await asyncio.sleep(5)  # Poll every 5 seconds
+
+            metrics = await monitor.get_gpu_metrics()
+            gpu_stats = [
+                {
+                    "gpu_id": m.gpu_id,
+                    "name": m.name,
+                    "utilization_percent": m.utilization_percent,
+                    "memory_used_mb": m.memory_used_mb,
+                    "memory_total_mb": m.memory_total_mb,
+                    "memory_used_percent": m.memory_used_percent,
+                    "temperature_celsius": m.temperature_celsius,
+                    "power_draw_watts": m.power_draw_watts,
+                    "is_healthy": m.is_healthy,
+                    "utilization_status": m.utilization_status,
+                }
+                for m in metrics
+            ]
+
+            await manager.broadcast_gpu(gpu_job_id, gpu_stats)
+
+    except Exception as e:
+        logger.error(f"GPU metrics WebSocket error: {e}")
+    finally:
+        manager.disconnect(websocket)

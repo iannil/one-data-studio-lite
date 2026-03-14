@@ -8,6 +8,7 @@ from .dag_engine import DAGEngine
 from .task_runner import TaskRunner
 from .scheduler import WorkflowScheduler
 from .task_types import TaskType, TaskRegistry
+from .airflow_sync import AirflowSyncService, get_airflow_sync_service
 
 __all__ = [
     "DAGEngine",
@@ -15,4 +16,6 @@ __all__ = [
     "WorkflowScheduler",
     "TaskType",
     "TaskRegistry",
+    "AirflowSyncService",
+    "get_airflow_sync_service",
 ]

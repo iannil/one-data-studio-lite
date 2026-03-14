@@ -1,0 +1,223 @@
+# Smart Data Platform - MLOps Services
+# Optional ML/AI services that can be started on demand
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.mlops.yml up -d
+
+version: '3.8'
+
+services:
+  # ========================================================================
+  # Model Serving Services
+  # ========================================================================
+
+  # TensorFlow Serving (CPU version for development)
+  tf-serving-cpu:
+    image: tensorflow/serving:2.15.0
+    container_name: onedata-tf-serving-cpu
+    ports:
+      - "8501:8501"  # REST API
+      - "9000:9000"  # gRPC API
+    environment:
+      - MODEL_BASE_PATH=/models
+      - MODEL_NAME=sample_model
+    volumes:
+      - ./models/tf-serving:/models
+      - tf_serving_models_cpu:/models/config
+    command: >
+      tensorflow_model_server
+      --port=9000
+      --rest_api_port=8501
+      --model_name=sample_model
+      --model_base_path=/models
+      --enable_batching=true
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-cpu
+
+  # TorchServe (CPU version for development)
+  torchserve-cpu:
+    image: pytorch/torchserve:0.10.0-cpu
+    container_name: onedata-torchserve-cpu
+    ports:
+      - "8080:8080"  # Inference API
+      - "8081:8081"  # Management API
+      - "8082:8082"  # Metrics API
+    environment:
+      - TS_ENABLE_NEW_API=true
+      - TS_METRICS_MODE=prometheus
+    volumes:
+      - ./models/torchserve:/home/model-server/model-store
+      - ./infrastructure/torchserve/config:/home/model-server/config
+      - torchserve_logs_cpu:/home/model-server/logs
+    command: >
+      bash -c "
+      torchserve --start --ncs --model-store=/home/model-server/model-store --ts-config=/home/model-server/config/config.properties
+      "
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-cpu
+
+  # ONNX Runtime Server
+  onnxruntime:
+    image: mcr.microsoft.com/onnxtutorials/onnxruntime-server:latest
+    container_name: onedata-onnxruntime
+    ports:
+      - "8001:8001"  # REST API
+      - "8002:8002"  # gRPC API
+    volumes:
+      - ./models/onnx:/models
+    environment:
+      - MODEL_PATH=/models/model.onnx
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-cpu
+
+  # XGBoost Model Server
+  xgboost-server:
+    build:
+      context: ./infrastructure/xgboost
+      dockerfile: Dockerfile
+    container_name: onedata-xgboost-server
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./models/xgboost:/models
+    environment:
+      - MODEL_PATH=/models/model.json
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-cpu
+
+  # ========================================================================
+  # Hyperparameter Optimization
+  # ========================================================================
+
+  # Optuna Dashboard for visualization
+  optuna:
+    image: optuna/optuna:latest
+    container_name: onedata-optuna
+    ports:
+      - "8083:8083"
+    command: >
+      optuna-dashboard
+      --storage postgresql://postgres:postgres@postgres:5432/optuna
+      --host 0.0.0.0
+      --port 8083
+    depends_on:
+      - postgres
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-optuna
+
+  # Ray Dashboard for distributed computing
+  ray-head:
+    image: rayproject/ray:2.9.0
+    container_name: onedata-ray-head
+    ports:
+      - "8265:8265"  # Ray Dashboard
+      - "10001:10001"  # Client port
+      - "8000:8000"  # Ray Serve
+    environment:
+      - RAY_PORT=10001
+      - RAY_DASHBOARD_PORT=8265
+    command: >
+      bash -c "
+      ray start --head --port=10001 --dashboard-port=8265 --dashboard-host=0.0.0.0 &&
+      ray serve start --http-port=8000
+      "
+    volumes:
+      - ./infrastructure/ray:/ray/config
+      - ray_storage:/ray/storage
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-ray
+
+  # ========================================================================
+  # Model Monitoring
+  # ========================================================================
+
+  # Evidently AI for model monitoring
+  evidently:
+    image: evidentlyai/evidently:latest
+    container_name: onedata-evidently
+    ports:
+      - "8084:8000"
+    volumes:
+      - ./infrastructure/monitoring/evidently:/app/projects
+      - evidently_data:/app/data
+    environment:
+      - SERVICE_TYPE=workspace
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-monitoring
+
+  # ========================================================================
+  # Feature Store
+  # ========================================================================
+
+  # Feast Feature Store
+  feast:
+    image: feastdev/feature-server:latest
+    container_name: onedata-feast
+    ports:
+      - "6566:6566"
+    volumes:
+      - ./infrastructure/feature_store:/feast
+      - feast_data:/data
+    environment:
+      - FEATURE_STORE_CONFIG=/feast/feature_store.yaml
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-feast
+
+  # Hopsworks Feature Store (local)
+  hopsworks:
+    image: hopsworks/hopsworks:latest
+    container_name: onedata-hopsworks
+    ports:
+      - "8085:8080"
+    environment:
+      - MYSQL_HOST=postgres
+      - MYSQL_DATABASE=hopsworks
+    volumes:
+      - hopsworks_data:/data
+    depends_on:
+      - postgres
+    networks:
+      - onedata-network
+    profiles:
+      - mlops-hopsworks
+
+volumes:
+  # Model serving volumes
+  tf_serving_models_cpu:
+    driver: local
+  torchserve_logs_cpu:
+    driver: local
+  # Optimization volumes
+  optuna_storage:
+    driver: local
+  ray_storage:
+    driver: local
+  # Monitoring volumes
+  evidently_data:
+    driver: local
+  # Feature store volumes
+  feast_data:
+    driver: local
+  hopsworks_data:
+    driver: local
+
+networks:
+  onedata-network:
+    external: true

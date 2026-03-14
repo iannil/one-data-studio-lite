@@ -1,0 +1,226 @@
+# Smart Data Platform - Airflow Services
+# Separate compose file for Apache Airflow integration
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f infrastructure/airflow/docker-compose-airflow.yml up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL for Airflow metadata
+  airflow-postgres:
+    image: postgres:15-alpine
+    container_name: onedata-airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - onedata-network
+
+  # Redis for Airflow Celery broker
+  airflow-redis:
+    image: redis:7-alpine
+    container_name: onedata-airflow-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - airflow_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - onedata-network
+
+  # Airflow Webserver
+  airflow-webserver:
+    image: apache/airflow:2.8.0-python3.10
+    container_name: onedata-airflow-webserver
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-redis:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://:@airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-temporary_secret_key_change_in_production}
+      AIRFLOW__WEBSERVER__BASE_URL: http://localhost:3108
+      AIRFLOW__API__AUTH_BACKEND: airflow.api.auth.backend.basic_auth
+      AIRFLOW__CORE__UNIT_TEST_MODE: 'False'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'True'
+      AIRFLOW__LOGGING__REMOTE_LOGGING: 'False'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '30'
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: 'False'
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_USERNAME:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_PASSWORD:-admin}
+      _PIP_ADDITIONAL_REQUIREMENTS: >
+        apache-airflow-providers-postgres==5.10.0
+        apache-airflow-providers-redis==3.6.0
+        apache-airflow-providers-celery==3.6.0
+        apache-airflow-providers-http==4.6.0
+        apache-airflow-providers-ssh==3.6.0
+        apache-airflow-providers-ftp==3.6.0
+        apache-airflow-providers-microsoft-azure==8.4.0
+        apache-airflow-providers-amazon==8.12.0
+        pyspark>=3.5.0
+        pandas>=2.0.0
+        numpy>=1.24.0
+        requests>=2.31.0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config/airflow.cfg:/opt/airflow/airflow.cfg
+    ports:
+      - "3108:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - onedata-network
+
+  # Airflow Scheduler
+  airflow-scheduler:
+    image: apache/airflow:2.8.0-python3.10
+    container_name: onedata-airflow-scheduler
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-redis:
+        condition: service_healthy
+      airflow-webserver:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://:@airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-temporary_secret_key_change_in_production}
+      AIRFLOW__WEBSERVER__BASE_URL: http://localhost:3108
+      AIRFLOW__CORE__UNIT_TEST_MODE: 'False'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '30'
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: 'False'
+      _PIP_ADDITIONAL_REQUIREMENTS: >
+        apache-airflow-providers-postgres==5.10.0
+        apache-airflow-providers-redis==3.6.0
+        apache-airflow-providers-celery==3.6.0
+        apache-airflow-providers-http==4.6.0
+        apache-airflow-providers-ssh==3.6.0
+        apache-airflow-providers-ftp==3.6.0
+        apache-airflow-providers-microsoft-azure==8.4.0
+        apache-airflow-providers-amazon==8.12.0
+        pyspark>=3.5.0
+        pandas>=2.0.0
+        numpy>=1.24.0
+        requests>=2.31.0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config/airflow.cfg:/opt/airflow/airflow.cfg
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep scheduler"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # Airflow Worker
+  airflow-worker:
+    image: apache/airflow:2.8.0-python3.10
+    container_name: onedata-airflow-worker
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      airflow-redis:
+        condition: service_healthy
+      airflow-scheduler:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://:@airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-temporary_secret_key_change_in_production}
+      AIRFLOW__CORE__UNIT_TEST_MODE: 'False'
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '30'
+      AIRFLOW__CORE__PLUGINS_FOLDER: /opt/airflow/plugins
+      AIRFLOW__CORE__DAG_DISCOVERY_SAFE_MODE: 'False'
+      _PIP_ADDITIONAL_REQUIREMENTS: >
+        apache-airflow-providers-postgres==5.10.0
+        apache-airflow-providers-redis==3.6.0
+        apache-airflow-providers-celery==3.6.0
+        apache-airflow-providers-http==4.6.0
+        apache-airflow-providers-ssh==3.6.0
+        apache-airflow-providers-ftp==3.6.0
+        apache-airflow-providers-microsoft-azure==8.4.0
+        apache-airflow-providers-amazon==8.12.0
+        pyspark>=3.5.0
+        pandas>=2.0.0
+        numpy>=1.24.0
+        requests>=2.31.0
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./config/airflow.cfg:/opt/airflow/airflow.cfg
+    command: celery worker
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep 'celery worker'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # Airflow Flower (Celery monitoring)
+  airflow-flower:
+    image: apache/airflow:2.8.0-python3.10
+    container_name: onedata-airflow-flower
+    depends_on:
+      airflow-redis:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CELERY__BROKER_URL: redis://:@airflow-redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres:5432/airflow
+    ports:
+      - "3109:5555"
+    command: celery flower
+    networks:
+      - onedata-network
+
+volumes:
+  airflow_pgdata:
+    driver: local
+  airflow_redisdata:
+    driver: local
+
+networks:
+  onedata-network:
+    external: true

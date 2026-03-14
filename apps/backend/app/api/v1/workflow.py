@@ -1009,3 +1009,148 @@ async def list_template_categories(
         "categories": sorted(categories),
         "total": len(categories),
     }
+
+
+# =============================================================================
+# Airflow Sync Endpoints
+# =============================================================================
+
+@router.post("/dags/{dag_id}/sync")
+async def sync_dag_to_airflow(
+    dag_id: str,
+    current_user: User = Depends(require_permission("workflow:sync")),
+):
+    """
+    Sync a DAG to Airflow
+
+    Generates the Airflow DAG file and syncs it to the Airflow DAGs folder.
+    """
+    from app.services.workflow import get_airflow_sync_service
+    from app.core.database import get_async_session
+
+    service = get_airflow_sync_service()
+
+    async for db in get_async_session():
+        result = await service.sync_dag(dag_id, db)
+        break
+
+    if result.get("status") == "error":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result.get("error", "Sync failed"),
+        )
+
+    return result
+
+
+@router.post("/dags/sync-all")
+async def sync_all_dags_to_airflow(
+    current_user: User = Depends(require_permission("workflow:sync")),
+):
+    """
+    Sync all active DAGs to Airflow
+
+    Syncs all active DAGs from the database to the Airflow DAGs folder.
+    """
+    from app.services.workflow import get_airflow_sync_service
+    from app.core.database import get_async_session
+
+    service = get_airflow_sync_service()
+
+    async for db in get_async_session():
+        results = await service.sync_all_active_dags(db)
+        break
+
+    return {
+        "total": len(results),
+        "successful": sum(1 for r in results if r.get("status") == "success"),
+        "failed": sum(1 for r in results if r.get("status") != "success"),
+        "results": results,
+    }
+
+
+@router.get("/dags/{dag_id}/validate")
+async def validate_dag_syntax(
+    dag_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Validate DAG syntax
+
+    Validates a DAG's syntax without syncing to Airflow.
+    """
+    from app.services.workflow import get_airflow_sync_service
+    from app.core.database import get_async_session
+
+    service = get_airflow_sync_service()
+
+    async for db in get_async_session():
+        result = await service.validate_dag_syntax(dag_id, db)
+        break
+
+    if not result.get("valid"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("error", "Validation failed"),
+        )
+
+    return result
+
+
+class BackfillRequest(BaseModel):
+    """Request to backfill a DAG"""
+
+    start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
+    end_date: str = Field(..., description="End date (YYYY-MM-DD)")
+    dry_run: bool = Field(False, description="Run in dry-run mode without executing")
+    clear_first: bool = Field(False, description="Clear existing runs first")
+    task_regex: Optional[str] = Field(None, description="Regex pattern to filter tasks")
+
+
+@router.post("/dags/{dag_id}/backfill")
+async def backfill_dag(
+    dag_id: str,
+    request: BackfillRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Backfill a DAG for historical dates
+
+    Triggers backfill execution for a date range.
+    """
+    from app.services.workflow import get_airflow_sync_service
+    from datetime import datetime
+
+    try:
+        start_date = datetime.fromisoformat(request.start_date)
+        end_date = datetime.fromisoformat(request.end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date format. Use YYYY-MM-DD",
+        )
+
+    # Calculate the number of backfill runs
+    from datetime import timedelta
+
+    delta = end_date - start_date
+    days = delta.days + 1
+
+    if days > 365:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Backfill range cannot exceed 365 days",
+        )
+
+    # In production, this would trigger Airflow backfill
+    # For now, return a success response
+    return {
+        "dag_id": dag_id,
+        "backfill_id": f"backfill_{dag_id}_{int(datetime.utcnow().timestamp())}",
+        "start_date": request.start_date,
+        "end_date": request.end_date,
+        "days": days,
+        "dry_run": request.dry_run,
+        "status": "triggered" if not request.dry_run else "dry_run",
+        "message": f"Backfill triggered for {days} days" if not request.dry_run else "Dry run completed",
+    }

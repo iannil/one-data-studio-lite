@@ -20,6 +20,7 @@ import type {
   TemplateComplexity,
 } from '@/types/template';
 import { api } from '@/services/api';
+import { useAuthStore } from './auth';
 
 // ============================================================================
 // Template State
@@ -52,6 +53,7 @@ interface TemplateState {
 
   // Actions
   fetchTemplates: () => Promise<void>;
+  fetchMarketTemplates: (filters?: TemplateFilters) => Promise<void>;
   fetchTemplate: (id: string) => Promise<void>;
   createTemplate: (data: CreateTemplateRequest) => Promise<WorkflowTemplate>;
   updateTemplate: (id: string, data: UpdateTemplateRequest) => Promise<void>;
@@ -65,6 +67,8 @@ interface TemplateState {
   fetchTrendingTemplates: (limit?: number) => Promise<void>;
   fetchRecommendedTemplates: (limit?: number) => Promise<void>;
   fetchCategories: () => Promise<void>;
+  recordUsage: (templateId: string) => Promise<void>;
+  recordDownload: (templateId: string) => Promise<void>;
 
   // Reviews
   fetchReviews: (templateId: string) => Promise<void>;
@@ -107,6 +111,28 @@ export const useTemplateStore = create<TemplateState>()(
       // ======================================================================
       // Template Actions
       // ======================================================================
+
+      fetchMarketTemplates: async (filters) => {
+        set({ loading: true, error: null });
+        try {
+          const params = new URLSearchParams();
+          if (filters?.category) params.append('category', filters.category);
+          if (filters?.complexity) params.append('complexity', filters.complexity);
+          if (filters?.tags?.length) params.append('tags', filters.tags.join(','));
+          if (filters?.sort_by) params.append('sort_by', filters.sort_by);
+          if (filters?.featured_only) params.append('featured_only', 'true');
+          if (filters?.verified_only) params.append('verified_only', 'true');
+          if (filters?.search) params.append('search', filters.search);
+
+          const response = await api.get(`/templates/market?${params.toString()}`);
+          set({ templates: response.data || [], loading: false });
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch templates',
+            loading: false,
+          });
+        }
+      },
 
       fetchTemplates: async () => {
         set({ loading: true, error: null });
@@ -298,6 +324,50 @@ export const useTemplateStore = create<TemplateState>()(
         }
       },
 
+      recordUsage: async (templateId) => {
+        try {
+          await api.post(`/templates/market/${templateId}/use`);
+          // Update local stats
+          set((state) => ({
+            templates: state.templates.map((t) =>
+              t.id === templateId
+                ? {
+                    ...t,
+                    stats: {
+                      ...t.stats,
+                      usage_count: (t.stats?.usage_count || 0) + 1,
+                    },
+                  }
+                : t
+            ),
+          }));
+        } catch (error: any) {
+          console.error('Failed to record usage:', error);
+        }
+      },
+
+      recordDownload: async (templateId) => {
+        try {
+          await api.post(`/templates/market/${templateId}/download`);
+          // Update local stats
+          set((state) => ({
+            templates: state.templates.map((t) =>
+              t.id === templateId
+                ? {
+                    ...t,
+                    stats: {
+                      ...t.stats,
+                      download_count: (t.stats?.download_count || 0) + 1,
+                    },
+                  }
+                : t
+            ),
+          }));
+        } catch (error: any) {
+          console.error('Failed to record download:', error);
+        }
+      },
+
       // ======================================================================
       // Review Actions
       // ======================================================================
@@ -318,7 +388,19 @@ export const useTemplateStore = create<TemplateState>()(
 
       addReview: async (templateId, data) => {
         try {
-          const response = await api.post(`/templates/${templateId}/reviews`, data);
+          // Get current user from auth store
+          const authState = useAuthStore.getState();
+          const user = authState.user;
+
+          if (!user) {
+            throw new Error('You must be logged in to submit a review');
+          }
+
+          const response = await api.post(`/templates/market/${templateId}/reviews`, {
+            ...data,
+            user_id: parseInt(user.id),
+            user_name: user.full_name || user.email,
+          });
           const newReview = response.data as TemplateReview;
 
           set((state) => ({
@@ -330,6 +412,16 @@ export const useTemplateStore = create<TemplateState>()(
               ],
             },
           }));
+
+          // Update current template with new review
+          if (state.currentTemplate?.id === templateId) {
+            set({
+              currentTemplate: {
+                ...state.currentTemplate,
+                reviews: [...(state.currentTemplate.reviews || []), newReview],
+              },
+            });
+          }
         } catch (error: any) {
           throw new Error(error.response?.data?.detail || 'Failed to add review');
         }

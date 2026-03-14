@@ -40,6 +40,12 @@ interface TrainingState {
     total: number;
   };
 
+  // GPU monitoring state
+  gpuMetrics: any[];
+  gpuMonitoring: boolean;
+  gpuAlerts: Record<string, any[]>;
+  gpuHistory: Record<string, any[]>;
+
   // Actions - Jobs
   fetchJobs: () => Promise<void>;
   fetchJob: (jobId: string) => Promise<TrainingJob | null>;
@@ -57,6 +63,15 @@ interface TrainingState {
 
   // Actions - Validation
   validateConfig: (config: TrainingConfig) => Promise<ValidationResult>;
+
+  // Actions - GPU Monitoring
+  fetchGPUMetrics: () => Promise<void>;
+  startGPUMonitoring: (jobId: string, durationMinutes?: number) => Promise<void>;
+  stopGPUMonitoring: (jobId: string) => Promise<void>;
+  fetchJobGPUSummary: (jobId: string) => Promise<any>;
+  fetchJobGPUHistory: (jobId: string, limit?: number) => Promise<void>;
+  fetchJobGPUAlerts: (jobId: string, severity?: string) => Promise<void>;
+  fetchJobGPUEfficiency: (jobId: string) => Promise<any>;
 
   // Actions - Selection
   selectJob: (jobId: string) => void;
@@ -95,6 +110,10 @@ export const useTrainingStore = create<TrainingState>()(
         pageSize: 20,
         total: 0,
       },
+      gpuMetrics: [],
+      gpuMonitoring: false,
+      gpuAlerts: {},
+      gpuHistory: {},
 
       // Fetch all jobs
       fetchJobs: async () => {
@@ -369,6 +388,103 @@ export const useTrainingStore = create<TrainingState>()(
             valid: false,
             errors: [error.response?.data?.detail || 'Validation failed'],
           };
+        }
+      },
+
+      // Fetch GPU metrics
+      fetchGPUMetrics: async () => {
+        try {
+          const response = await api.get('/training/gpu/metrics');
+          set({ gpuMetrics: response.data?.gpus || [] });
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch GPU metrics',
+          });
+        }
+      },
+
+      // Start GPU monitoring for a job
+      startGPUMonitoring: async (jobId: string, durationMinutes?: number) => {
+        try {
+          const params = durationMinutes ? `?duration_minutes=${durationMinutes}` : '';
+          await api.post(`/training/jobs/${jobId}/gpu/monitor/start${params}`);
+          set({ gpuMonitoring: true });
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to start GPU monitoring',
+          });
+          throw error;
+        }
+      },
+
+      // Stop GPU monitoring for a job
+      stopGPUMonitoring: async (jobId: string) => {
+        try {
+          await api.post(`/training/jobs/${jobId}/gpu/monitor/stop`);
+          set({ gpuMonitoring: false });
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to stop GPU monitoring',
+          });
+          throw error;
+        }
+      },
+
+      // Fetch job GPU summary
+      fetchJobGPUSummary: async (jobId: string) => {
+        try {
+          const response = await api.get(`/training/jobs/${jobId}/gpu/summary`);
+          return response.data;
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch GPU summary',
+          });
+          throw error;
+        }
+      },
+
+      // Fetch job GPU history
+      fetchJobGPUHistory: async (jobId: string, limit?: number) => {
+        try {
+          const params = limit ? `?limit=${limit}` : '';
+          const response = await api.get(`/training/jobs/${jobId}/gpu/history${params}`);
+          set((state) => ({
+            gpuHistory: { ...state.gpuHistory, [jobId]: response.data?.metrics || [] },
+          }));
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch GPU history',
+          });
+        }
+      },
+
+      // Fetch job GPU alerts
+      fetchJobGPUAlerts: async (jobId: string, severity?: string) => {
+        try {
+          const params = severity ? `?severity=${severity}` : '';
+          const response = await api.get(`/training/jobs/${jobId}/gpu/alerts${params}`);
+          set((state) => ({
+            gpuAlerts: { ...state.gpuAlerts, [jobId]: response.data?.alerts || [] },
+          }));
+          return response.data?.alerts || [];
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch GPU alerts',
+          });
+          return [];
+        }
+      },
+
+      // Fetch job GPU efficiency
+      fetchJobGPUEfficiency: async (jobId: string) => {
+        try {
+          const response = await api.get(`/training/jobs/${jobId}/gpu/efficiency`);
+          return response.data?.efficiency || {};
+        } catch (error: any) {
+          set({
+            error: error.response?.data?.detail || 'Failed to fetch GPU efficiency',
+          });
+          return {};
         }
       },
 
