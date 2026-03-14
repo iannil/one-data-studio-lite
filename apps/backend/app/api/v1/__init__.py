@@ -19,6 +19,18 @@ from app.api.v1.celery import router as celery_router
 from app.api.v1.annotation import router as annotation_router
 from app.api.v1.aihub import router as aihub_router
 from app.api.v1.llm import router as llm_router
+from app.api.v1.training import router as training_router
+from app.api.v1.workflow import router as workflow_router, template_router
+from app.api.v1.serving import router as serving_router
+from app.api.v1.argo import router as argo_router
+from app.api.v1.operator import router as operator_router
+from app.api.v1.gpu import router as gpu_router
+from app.api.v1.tenant import router as tenant_router
+from app.api.v1.sso import router as sso_router
+from app.api.v1.monitoring import router as monitoring_router
+from app.api.v1.ide import router as ide_router
+from app.api.v1.feature_store import router as feature_store_router
+from app.api.v1.automl import router as automl_router
 
 api_router = APIRouter()
 
@@ -84,3 +96,40 @@ api_router.include_router(aihub_router)
 
 # LLM / Knowledge Base
 api_router.include_router(llm_router)
+
+# Distributed Training
+api_router.include_router(training_router)
+
+# Workflow / DAG
+api_router.include_router(workflow_router)
+api_router.include_router(template_router)
+
+# Model Serving
+api_router.include_router(serving_router)
+
+# Argo Workflows
+api_router.include_router(argo_router)
+
+# Kubernetes Operators
+api_router.include_router(operator_router)
+
+# GPU Resource Management
+api_router.include_router(gpu_router)
+
+# Multi-Tenant Management
+api_router.include_router(tenant_router)
+
+# Single Sign-On
+api_router.include_router(sso_router)
+
+# Enterprise Monitoring
+api_router.include_router(monitoring_router)
+
+# IDE Management
+api_router.include_router(ide_router)
+
+# Feature Store
+api_router.include_router(feature_store_router)
+
+# AutoML
+api_router.include_router(automl_router)

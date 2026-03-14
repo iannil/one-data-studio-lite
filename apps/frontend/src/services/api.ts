@@ -516,4 +516,27 @@ export const celeryApi = {
   restartPools: () => api.post('/celery/worker/pool/restart'),
 };
 
+// Enterprise Monitoring
+export const monitoringApi = {
+  getMetrics: () => api.get('/monitoring/metrics', { responseType: 'text' }),
+  getSystemMetrics: () => api.get('/monitoring/system'),
+  listRules: (params?: { severity?: string; enabled_only?: boolean }) =>
+    api.get('/monitoring/rules', { params }),
+  getRule: (id: string) => api.get(`/monitoring/rules/${id}`),
+  createRule: (data: any) => api.post('/monitoring/rules', data),
+  updateRule: (id: string, data: any) => api.put(`/monitoring/rules/${id}`, data),
+  deleteRule: (id: string) => api.delete(`/monitoring/rules/${id}`),
+  testRule: (data: any) => api.post('/monitoring/rules/test', data),
+  getActiveAlerts: (params?: { severity?: string }) =>
+    api.get('/monitoring/alerts/active', { params }),
+  getAlertHistory: (params?: { rule_id?: string; limit?: number; offset?: number }) =>
+    api.get('/monitoring/alerts/history', { params }),
+  getAlert: (id: string) => api.get(`/monitoring/alerts/${id}`),
+  resolveAlert: (id: string) => api.post(`/monitoring/alerts/${id}/resolve`),
+  silenceAlert: (id: string, duration_minutes?: number) =>
+    api.post(`/monitoring/alerts/${id}/silence`, { duration_minutes }),
+  getDashboardData: (timeRange?: string) =>
+    api.get('/monitoring/dashboard', { params: { time_range: timeRange } }),
+};
+
 export default api;

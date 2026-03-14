@@ -40,6 +40,17 @@ import {
   MessageOutlined,
   CommentOutlined,
   DollarOutlined,
+  CodeOutlined,
+  FundOutlined,
+  NodeIndexOutlined,
+  ThunderboltOutlined,
+  DeploymentUnitOutlined,
+  ShopOutlined,
+  BlockOutlined,
+  ClusterOutlined,
+  TeamOutlined,
+  RadarChartOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useAuthStore } from '@/stores/auth';
@@ -143,6 +154,35 @@ const menuItems: MenuProps['items'] = [
     ],
   },
   {
+    key: 'feature-store',
+    icon: <FundOutlined />,
+    label: '特征存储',
+    children: [
+      {
+        key: '/feature-store',
+        icon: <FundOutlined />,
+        label: '特征管理',
+      },
+    ],
+  },
+  {
+    key: 'workflow',
+    icon: <NodeIndexOutlined />,
+    label: '工作流编排',
+    children: [
+      {
+        key: '/workflow',
+        icon: <NodeIndexOutlined />,
+        label: '工作流管理',
+      },
+      {
+        key: '/templates',
+        icon: <ShopOutlined />,
+        label: '模板市场',
+      },
+    ],
+  },
+  {
     key: 'ai-ml',
     icon: <ExperimentOutlined />,
     label: 'AI/ML 平台',
@@ -176,6 +216,77 @@ const menuItems: MenuProps['items'] = [
         key: '/models',
         icon: <RocketOutlined />,
         label: '模型中心',
+      },
+      {
+        key: '/training',
+        icon: <ThunderboltOutlined />,
+        label: '分布式训练',
+      },
+      {
+        key: '/serving',
+        icon: <DeploymentUnitOutlined />,
+        label: '模型推理服务',
+      },
+      {
+        key: '/automl',
+        icon: <RobotOutlined />,
+        label: 'AutoML',
+      },
+    ],
+  },
+  {
+    key: 'development',
+    icon: <CodeOutlined />,
+    label: '开发工具',
+    children: [
+      {
+        key: '/notebook',
+        icon: <CodeOutlined />,
+        label: 'Notebook',
+      },
+      {
+        key: '/ide',
+        icon: <CodeOutlined />,
+        label: '在线IDE',
+      },
+    ],
+  },
+  {
+    key: 'cloud-native',
+    icon: <BlockOutlined />,
+    label: '云原生',
+    children: [
+      {
+        key: '/argo',
+        icon: <BlockOutlined />,
+        label: 'Argo工作流',
+      },
+      {
+        key: '/operator',
+        icon: <ClusterOutlined />,
+        label: 'K8s Operator',
+      },
+      {
+        key: '/gpu-pool',
+        icon: <RadarChartOutlined />,
+        label: 'GPU资源池',
+      },
+    ],
+  },
+  {
+    key: 'enterprise',
+    icon: <TeamOutlined />,
+    label: '企业版',
+    children: [
+      {
+        key: '/tenant',
+        icon: <TeamOutlined />,
+        label: '多租户管理',
+      },
+      {
+        key: '/monitoring',
+        icon: <RadarChartOutlined />,
+        label: '企业监控',
       },
     ],
   },
@@ -225,8 +336,26 @@ export default function MainLayout({ children }: MainLayoutProps) {
     if (['/assets', '/data-service', '/bi', '/reports'].includes(path)) {
       return ['data-service'];
     }
-    if (['/aihub', '/llm', '/knowledge', '/annotation', '/experiments', '/models'].includes(path) || path.startsWith('/aihub/') || path.startsWith('/llm/') || path.startsWith('/knowledge/') || path.startsWith('/annotation/') || path.startsWith('/experiments/') || path.startsWith('/models/')) {
+    if (path === '/feature-store' || path.startsWith('/feature-store/')) {
+      return ['feature-store'];
+    }
+    if (['/workflow', '/templates'].includes(path) || path.startsWith('/workflow/') || path.startsWith('/templates/')) {
+      return ['workflow'];
+    }
+    if (['/aihub', '/llm', '/knowledge', '/annotation', '/experiments', '/models', '/training', '/serving', '/automl'].includes(path) ||
+        path.startsWith('/aihub/') || path.startsWith('/llm/') || path.startsWith('/knowledge/') ||
+        path.startsWith('/annotation/') || path.startsWith('/experiments/') || path.startsWith('/models/') ||
+        path.startsWith('/training/') || path.startsWith('/serving/') || path.startsWith('/automl/')) {
       return ['ai-ml'];
+    }
+    if (['/notebook', '/ide'].includes(path) || path.startsWith('/notebook/') || path.startsWith('/ide/')) {
+      return ['development'];
+    }
+    if (['/argo', '/operator', '/gpu-pool'].includes(path) || path.startsWith('/argo/') || path.startsWith('/operator/') || path.startsWith('/gpu-pool/')) {
+      return ['cloud-native'];
+    }
+    if (['/tenant', '/monitoring'].includes(path) || path.startsWith('/tenant/') || path.startsWith('/monitoring/')) {
+      return ['enterprise'];
     }
     if (['/security', '/permission', '/billing', '/cluster'].includes(path)) {
       return ['system-management'];

@@ -37,7 +37,7 @@ class DAGUpdateRequest(BaseModel):
     description: Optional[str] = None
     schedule_interval: Optional[str] = None
     tags: Optional[List[str]] = None
-    tasks: Optional[List[Dict[str, Any]] = None
+    tasks: Optional[List[Dict[str, Any]]] = None
 
 
 class TaskConfigSchema(BaseModel):
@@ -707,3 +707,305 @@ async def list_etl_pipelines(
             }
             for p in pipelines
         ]
+
+
+# =============================================================================
+# Template Management Endpoints
+# =============================================================================
+
+class TemplateCreateRequest(BaseModel):
+    """Request to create a workflow template"""
+
+    id: Optional[str] = Field(None, description="Template ID (auto-generated if not provided)")
+    name: str = Field(..., description="Template name")
+    description: str = Field(..., description="Template description")
+    category: str = Field(..., description="Template category")
+    icon: Optional[str] = Field(None, description="Template icon (emoji)")
+    tags: Optional[List[str]] = Field(default_factory=list, description="Template tags")
+    tasks: List[Dict[str, Any]] = Field(..., description="Template tasks")
+    variables: Optional[List[Dict[str, Any]]] = Field(None, description="Template variables")
+
+
+class TemplateInstantiateRequest(BaseModel):
+    """Request to instantiate a template"""
+
+    variables: Dict[str, Any] = Field(..., description="Variable values")
+    dag_name: Optional[str] = Field(None, description="Name for the instantiated DAG")
+
+
+@router.get("/templates", response_model=List[Dict[str, Any]])
+async def list_templates(
+    category: Optional[str] = Query(None, description="Filter by category"),
+    tags: Optional[str] = Query(None, description="Filter by tags (comma-separated)"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List workflow templates
+
+    Returns all available workflow templates with optional filtering.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    tag_list = tags.split(",") if tags else None
+
+    templates = await service.list_templates(category=category, tags=tag_list)
+
+    return templates
+
+
+@router.get("/templates/{template_id}")
+async def get_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get a specific template
+
+    Returns detailed information about a workflow template.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+    template = await service.get_template(template_id)
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Template {template_id} not found",
+        )
+
+    return template
+
+
+@router.post("/templates", response_model=Dict[str, Any], status_code=status.HTTP_201_CREATED)
+async def create_template(
+    request: TemplateCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a new workflow template
+
+    Creates a custom workflow template.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    try:
+        template_data = await service.create_template(
+            template_data=request.dict(),
+            author=current_user.username,
+        )
+        return template_data
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.put("/templates/{template_id}")
+async def update_template(
+    template_id: str,
+    request: TemplateCreateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update a workflow template
+
+    Updates an existing custom workflow template.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    try:
+        template = await service.update_template(
+            template_id=template_id,
+            template_data=request.dict(),
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Template {template_id} not found",
+            )
+        return template
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a workflow template
+
+    Deletes a custom workflow template (cannot delete built-in templates).
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    try:
+        deleted = await service.delete_template(template_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Template {template_id} not found",
+            )
+        return {"message": f"Template {template_id} deleted successfully"}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/templates/{template_id}/instantiate")
+async def instantiate_template(
+    template_id: str,
+    request: TemplateInstantiateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Instantiate a workflow template
+
+    Creates a new DAG from a template with variable substitution.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    try:
+        dag_config = await service.instantiate_template(
+            template_id=template_id,
+            variables=request.variables,
+            dag_name=request.dag_name,
+        )
+
+        # Create the DAG
+        from app.services.workflow.task_types import TaskConfig, TaskType
+        from app.services.workflow.dag_engine import DAGConfig
+
+        task_configs = []
+        for task_data in dag_config.get("tasks", []):
+            task_config = TaskConfig(
+                task_id=task_data["task_id"],
+                task_type=TaskType(task_data["task_type"]),
+                name=task_data["name"],
+                description=task_data.get("description"),
+                depends_on=task_data.get("depends_on"),
+                parameters=task_data.get("parameters", {}),
+            )
+            task_configs.append(task_config)
+
+        dag_config_full = DAGConfig(
+            dag_id=dag_config["dag_id"],
+            name=dag_config["name"],
+            description=dag_config.get("description"),
+            schedule_interval=dag_config.get("schedule_interval"),
+            tags=dag_config.get("tags", []),
+            owner=current_user.username,
+            tasks=task_configs,
+        )
+
+        # Create DAG using workflow service
+        from app.services.workflow import WorkflowScheduler
+
+        workflow_service = WorkflowScheduler()
+        result = await workflow_service.create_dag(dag_config_full)
+
+        return {
+            "message": "DAG created from template successfully",
+            "dag_id": result["dag_id"],
+            "dag_name": dag_config["name"],
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/templates/{template_id}/export")
+async def export_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Export a workflow template
+
+    Exports a template for sharing or backup.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+    export_data = await service.export_template(template_id)
+
+    if not export_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Template {template_id} not found",
+        )
+
+    return export_data
+
+
+@router.post("/templates/import")
+async def import_template(
+    import_data: Dict[str, Any],
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Import a workflow template
+
+    Imports a template from export data.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+
+    try:
+        template = await service.import_template(
+            import_data=import_data,
+            author=current_user.username,
+        )
+        return {
+            "message": "Template imported successfully",
+            "template_id": template["id"],
+            "template_name": template["name"],
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/templates/categories")
+async def list_template_categories(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List template categories
+
+    Returns all available template categories.
+    """
+    from app.services.template import get_template_service
+
+    service = get_template_service()
+    templates = await service.list_templates()
+
+    categories = set(t.get("category") for t in templates)
+
+    return {
+        "categories": sorted(categories),
+        "total": len(categories),
+    }

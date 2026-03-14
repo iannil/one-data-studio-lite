@@ -197,7 +197,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       // Delete DAG
       deleteDag: async (dagId: string) => {
         set({ loading: true, error: null });
-        try:
+        try {
           await api.delete(`/workflows/dags/${dagId}`);
           set((state) => ({
             dags: state.dags.filter((dag) => dag.dag_id !== dagId),
@@ -215,7 +215,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       // Trigger DAG run
       triggerDagRun: async (dagId: string, conf?: any) => {
         set({ loading: true, error: null });
-        try:
+        try {
           await api.post(`/workflows/dags/${dagId}/run`, { conf });
           set({ loading: false });
         } catch (error: any) {
@@ -230,7 +230,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       // Pause DAG
       pauseDag: async (dagId: string) => {
         set({ loading: true, error: null });
-        try:
+        try {
           await api.post(`/workflows/dags/${dagId}/pause`);
           set((state) => ({
             dags: state.dags.map((dag) =>
@@ -250,7 +250,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       // Unpause DAG
       unpauseDag: async (dagId: string) => {
         set({ loading: true, error: null });
-        try:
+        try {
           await api.post(`/workflows/dags/${dagId}/unpause`);
           set((state) => ({
             dags: state.dags.map((dag) =>
@@ -269,7 +269,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       // Get DAG runs
       getDagRuns: async (dagId: string) => {
-        try:
+        try {
           const response = await api.get(`/workflows/dags/${dagId}/runs`);
           return response.data;
         } catch (error: any) {
@@ -282,7 +282,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       // Get task instances
       getTaskInstances: async (runId: string) => {
-        try:
+        try {
           const response = await api.get(`/workflows/runs/${runId}/tasks`);
           return response.data;
         } catch (error: any) {

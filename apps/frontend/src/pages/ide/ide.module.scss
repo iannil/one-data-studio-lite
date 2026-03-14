@@ -1,0 +1,135 @@
+// IDE Page Styles
+
+.idePage {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+
+  .titleSection {
+    .titleIcon {
+      margin-right: 12px;
+      color: #1890ff;
+    }
+  }
+}
+
+.infoAlert {
+  margin-bottom: 24px;
+}
+
+.ideSelectionCard {
+  margin-bottom: 24px;
+
+  :global {
+    .ant-card-head-title {
+      font-weight: 600;
+    }
+  }
+}
+
+.ideCard {
+  height: 100%;
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .ideHeader {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+
+    .ideIcon {
+      font-size: 32px;
+      margin-right: 12px;
+    }
+
+    .ideTitle {
+      margin: 0;
+    }
+  }
+
+  .ideDescription {
+    min-height: 48px;
+    margin-bottom: 16px;
+    color: #666;
+  }
+
+  .ideFeatures {
+    margin-bottom: 16px;
+    min-height: 32px;
+  }
+}
+
+.instancesCard {
+  :global {
+    .ant-card-head-title {
+      font-weight: 600;
+    }
+  }
+}
+
+.instanceCard {
+  height: 100%;
+
+  .instanceInfo {
+    margin-bottom: 12px;
+
+    .instanceDetail {
+      display: block;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  }
+
+  .extensionsSection {
+    margin-bottom: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+
+    .extensionsLabel {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .extensionsList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+  }
+
+  .instanceActions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 60px 24px;
+
+  .emptyIcon {
+    font-size: 64px;
+    color: #d9d9d9;
+    margin-bottom: 16px;
+  }
+}

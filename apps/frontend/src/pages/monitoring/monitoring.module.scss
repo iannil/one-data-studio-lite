@@ -1,0 +1,190 @@
+// Enterprise Monitoring Dashboard Styles
+
+.monitoringDashboard {
+  padding: 24px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 64px);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+
+  .titleSection {
+    .titleIcon {
+      margin-right: 12px;
+      color: #1890ff;
+    }
+  }
+}
+
+.alertBanner {
+  margin-bottom: 24px;
+}
+
+.summaryRow {
+  margin-bottom: 24px;
+
+  .summaryCard {
+    :global {
+      .ant-statistic-title {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+
+      .ant-statistic-content {
+        font-size: 28px;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+.sectionCard {
+  margin-bottom: 24px;
+
+  :global {
+    .ant-card-head-title {
+      font-weight: 600;
+    }
+  }
+}
+
+.metricCard {
+  height: 100%;
+
+  :global {
+    .ant-statistic-title {
+      margin-bottom: 8px;
+    }
+
+    .ant-statistic-content {
+      font-size: 24px;
+      font-weight: 600;
+    }
+  }
+}
+
+.memoryProgress {
+  margin-top: 16px;
+}
+
+// GPU Card Styles
+.gpuCard {
+  .gpuHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .gpuMetrics {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .gpuMetric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    .metricLabel {
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+  }
+}
+
+// Loading State
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100px 0;
+}
+
+// Empty State
+.emptyState {
+  text-align: center;
+  padding: 60px 24px;
+
+  .emptyIcon {
+    font-size: 64px;
+    color: #52c41a;
+    margin-bottom: 16px;
+  }
+}
+
+// Alerts List
+.alertsList {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+
+  :global {
+    .ant-list-item {
+      padding: 16px;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+
+  .alertLabels {
+    margin-top: 8px;
+  }
+
+  .labelTag {
+    margin-right: 4px;
+    font-size: 12px;
+  }
+
+  .alertTime {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+  }
+}
+
+// Rules List
+.rulesList {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+
+  :global {
+    .ant-list-item {
+      padding: 16px;
+      border-bottom: 1px solid #f0f0f0;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+  }
+}
+
+// Content Tabs
+.contentTabs {
+  :global {
+    .ant-tabs-nav {
+      background: #fff;
+      padding: 0 24px;
+      border-radius: 8px 8px 0 0;
+      margin-bottom: 0;
+    }
+
+    .ant-tabs-content-holder {
+      background: #fff;
+      border-radius: 0 0 8px 8px;
+      padding: 24px;
+    }
+  }
+}

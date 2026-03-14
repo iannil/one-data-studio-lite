@@ -379,3 +379,311 @@ class ModelStage(Base):
 
 # Update ModelVersion to add the relationship
 ModelVersion.registered_model = relationship("RegisteredModel", back_populates="versions")
+
+
+# =============================================================================
+# Distributed Training Models
+# =============================================================================
+
+class TrainingJob(Base):
+    """
+    Distributed Training Job model
+
+    Tracks distributed training jobs submitted to the cluster.
+    """
+
+    __tablename__ = "training_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(256), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Training configuration
+    backend = Column(String(32), nullable=False)  # pytorch, tensorflow, jax
+    strategy = Column(String(64), nullable=False)  # ddp, fsdp, mirrored, etc.
+
+    # Entry point
+    entry_point = Column(String(512), nullable=False)
+    entry_point_args = Column(JSON, nullable=True)
+
+    # Distributed settings
+    num_nodes = Column(Integer, nullable=False, default=1)
+    num_processes_per_node = Column(Integer, nullable=False, default=1)
+    master_addr = Column(String(256), nullable=True)
+    master_port = Column(Integer, nullable=True)
+
+    # Hyperparameters
+    hyperparameters = Column(JSON, nullable=True)
+
+    # Data and model config
+    data_config = Column(JSON, nullable=True)
+    model_config = Column(JSON, nullable=True)
+
+    # Resource configuration
+    resources = Column(JSON, nullable=True)
+
+    # Training settings
+    max_steps = Column(Integer, nullable=True)
+    max_epochs = Column(Integer, nullable=True)
+    max_duration = Column(String(64), nullable=True)
+
+    # Checkpointing
+    checkpoint_path = Column(String(512), nullable=True)
+    resume_from_checkpoint = Column(String(512), nullable=True)
+
+    # Docker image
+    image = Column(String(256), nullable=True)
+
+    # Status
+    status = Column(
+        SQLEnum("pending", "starting", "running", "completed", "failed", "cancelled", "paused",
+               name="training_job_status"),
+        nullable=False,
+        default="pending",
+        index=True,
+    )
+
+    # Timing
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    # Results
+    exit_code = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+
+    # Metrics (latest values)
+    metrics = Column(JSON, nullable=True)
+
+    # Kubernetes resources
+    namespace = Column(String(64), nullable=True)
+    pod_names = Column(JSON, nullable=True)
+    service_name = Column(String(256), nullable=True)
+
+    # Ownership
+    experiment_id = Column(Integer, ForeignKey("experiments.id"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Tags
+    tags = Column(JSON, nullable=True)
+
+    # Relationships
+    experiment = relationship("Experiment", backref="training_jobs")
+
+    __table_args__ = (
+        Index("ix_training_jobs_status", "status"),
+        Index("ix_training_jobs_experiment", "experiment_id"),
+        Index("ix_training_jobs_owner", "owner_id"),
+    )
+
+    def __repr__(self):
+        return f"<TrainingJob(id={self.id}, job_id='{self.job_id}', status='{self.status}')>"
+
+
+class TrainingNode(Base):
+    """
+    Training Node model
+
+    Tracks individual nodes participating in distributed training.
+    """
+
+    __tablename__ = "training_nodes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    training_job_id = Column(Integer, ForeignKey("training_jobs.id"), nullable=False, index=True)
+
+    # Node identification
+    node_rank = Column(Integer, nullable=False)
+    node_name = Column(String(256), nullable=True)
+    pod_name = Column(String(256), nullable=True)
+
+    # Node status
+    status = Column(
+        SQLEnum("pending", "running", "succeeded", "failed", "unknown",
+               name="training_node_status"),
+        nullable=False,
+        default="pending",
+    )
+
+    # Host info
+    hostname = Column(String(256), nullable=True)
+    ip_address = Column(String(64), nullable=True)
+
+    # GPU assignment
+    gpu_ids = Column(JSON, nullable=True)  # List of GPU IDs assigned to this node
+
+    # Timing
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    # Logs
+    log_url = Column(String(512), nullable=True)
+
+    # Metrics (node-specific)
+    metrics = Column(JSON, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    training_job = relationship("TrainingJob", backref="nodes")
+
+    def __repr__(self):
+        return f"<TrainingNode(id={self.id}, node_rank={self.node_rank}, status='{self.status}')>"
+
+
+class TrainingCheckpoint(Base):
+    """
+    Training Checkpoint model
+
+    Tracks model checkpoints saved during training.
+    """
+
+    __tablename__ = "training_checkpoints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    training_job_id = Column(Integer, ForeignKey("training_jobs.id"), nullable=False, index=True)
+
+    # Checkpoint info
+    checkpoint_path = Column(String(512), nullable=False)
+    step = Column(Integer, nullable=False)
+    epoch = Column(Integer, nullable=True)
+
+    # Metrics at checkpoint
+    metrics = Column(JSON, nullable=True)
+
+    # File info
+    file_size = Column(Integer, nullable=True)  # Size in bytes
+
+    # Classification
+    is_best = Column(Integer, default=0)  # 1 if this is the best checkpoint
+    is_latest = Column(Integer, default=0)  # 1 if this is the latest checkpoint
+
+    # Timestamps
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # Relationships
+    training_job = relationship("TrainingJob", backref="checkpoints")
+
+    __table_args__ = (
+        Index("ix_training_checkpoints_job_step", "training_job_id", "step"),
+        Index("ix_training_checkpoints_best", "training_job_id", "is_best"),
+    )
+
+    def __repr__(self):
+        return f"<TrainingCheckpoint(id={self.id}, step={self.step}, is_best={bool(self.is_best)})>"
+
+
+class HyperparameterTune(Base):
+    """
+    Hyperparameter Tuning Job model
+
+    Tracks automated hyperparameter tuning experiments.
+    """
+
+    __tablename__ = "hyperparameter_tunes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tune_id = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(256), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Tuning configuration
+    tuning_strategy = Column(String(64), nullable=False)  # bayesian, random, grid, hyperband
+    optimization_metric = Column(String(64), nullable=False)  # Metric to optimize
+    optimization_mode = Column(String(8), nullable=False)  # min, max
+
+    # Search space
+    search_space = Column(JSON, nullable=True)  # Parameter search space
+
+    # Tuning settings
+    max_trials = Column(Integer, nullable=False, default=10)
+    parallel_trials = Column(Integer, nullable=False, default=1)
+    max_duration = Column(String(64), nullable=True)
+
+    # Base training config
+    base_config = Column(JSON, nullable=True)
+
+    # Status
+    status = Column(
+        SQLEnum("pending", "running", "completed", "failed", "cancelled",
+               name="tune_status"),
+        nullable=False,
+        default="pending",
+    )
+
+    # Results
+    best_trial_id = Column(Integer, nullable=True)
+    best_value = Column(Float, nullable=True)
+
+    # Timing
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    # Ownership
+    experiment_id = Column(Integer, ForeignKey("experiments.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Tags
+    tags = Column(JSON, nullable=True)
+
+    # Relationships
+    experiment = relationship("Experiment", backref="hyperparameter_tunes")
+    trials = relationship("HyperparameterTrial", back_populates="tune", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<HyperparameterTune(id={self.id}, tune_id='{self.tune_id}', status='{self.status}')>"
+
+
+class HyperparameterTrial(Base):
+    """
+    Hyperparameter Trial model
+
+    Individual trial in a hyperparameter tuning experiment.
+    """
+
+    __tablename__ = "hyperparameter_trials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tune_id = Column(Integer, ForeignKey("hyperparameter_tunes.id"), nullable=False, index=True)
+
+    # Trial number
+    trial_number = Column(Integer, nullable=False)
+
+    # Hyperparameters used
+    hyperparameters = Column(JSON, nullable=False)
+
+    # Results
+    metrics = Column(JSON, nullable=True)
+
+    # Training job reference (if launched)
+    training_job_id = Column(Integer, ForeignKey("training_jobs.id"), nullable=True)
+
+    # Status
+    status = Column(
+        SQLEnum("pending", "running", "completed", "failed", "cancelled",
+               name="trial_status"),
+        nullable=False,
+        default="pending",
+    )
+
+    # Timing
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    finished_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    tune = relationship("HyperparameterTune", back_populates="trials")
+    training_job = relationship("TrainingJob", backref="hyperparameter_trial")
+
+    __table_args__ = (
+        Index("ix_hyperparameter_trials_tune_number", "tune_id", "trial_number"),
+    )
+
+    def __repr__(self):
+        return f"<HyperparameterTrial(id={self.id}, trial_number={self.trial_number}, status='{self.status}')>"
+
