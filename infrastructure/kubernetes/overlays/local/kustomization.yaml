@@ -1,0 +1,81 @@
+# One Data Studio Lite - Local Development Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: one-data-studio-local
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Common labels for local development
+commonLabels:
+  environment: local
+  team: developer
+
+# ConfigMap generator for local settings
+configMapGenerator:
+  - name: app-env
+    literals:
+      - APP_ENV=development
+      - LOG_LEVEL=DEBUG
+      - ENABLE_TRACING=false
+      - ENABLE_METRICS=true
+      - CORS_ORIGINS=http://localhost:3100,http://localhost:3000
+
+# Images for local (use local build)
+images:
+  - name: backend
+    newName: one-data-studio/backend
+    newTag: local
+  - name: frontend
+    newName: one-data-studio/frontend
+    newTag: local
+
+# Disable autoscaling for local
+patchesJson6902:
+  - target:
+      kind: HorizontalPodAutoscaler
+    patch: |-
+      - op: add
+        path: /metadata/annotations/local-development~1disabled
+        value: "true"
+
+# Resource overrides for local (minimal resources)
+patchesStrategicMerge:
+  - |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: backend
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: backend
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+  - |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: frontend
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: frontend
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi

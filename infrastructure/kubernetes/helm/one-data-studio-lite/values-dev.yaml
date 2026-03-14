@@ -1,0 +1,69 @@
+# One Data Studio Lite - Development Environment Values
+
+# Environment override
+platform:
+  environment: "development"
+  domain: "dev.one-data-studio.local"
+  apiDomain: "api.dev.one-data-studio.local"
+
+# Backend - Development
+backend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+
+# Frontend - Development
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# PostgreSQL - Development
+postgresql:
+  auth:
+    postgresPassword: dev123
+  primary:
+    persistence:
+      size: 5Gi
+
+# Redis - Development
+redis:
+  auth:
+    enabled: false
+
+# MinIO - Development
+minio:
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  persistence:
+    size: 10Gi
+
+# Monitoring - Disabled in dev
+monitoring:
+  enabled: false
+
+# Logging - Debug in dev
+logging:
+  level: DEBUG
+
+# Security - Relaxed in dev
+security:
+  podSecurityContext:
+    runAsNonRoot: false
+  securityContext:
+    readOnlyRootFilesystem: false

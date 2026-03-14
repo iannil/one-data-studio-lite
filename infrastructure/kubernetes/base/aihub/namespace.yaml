@@ -1,0 +1,10 @@
+---
+# AIHub Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aihub
+  labels:
+    name: aihub
+    app: one-data-studio
+    component: model-marketplace

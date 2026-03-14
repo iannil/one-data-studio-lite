@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: one-data-studio
+
+resources:
+  - ../../base
+
+# Production images
+images:
+  - name: one-data-studio/backend
+    newName: registry.example.com/one-data-studio/backend
+    newTag: v1.0.0
+  - name: one-data-studio/frontend
+    newName: registry.example.com/one-data-studio/frontend
+    newTag: v1.0.0
+
+# Production patches
+patches:
+  - path: backend-replicas.yaml
+    target:
+      kind: Deployment
+      name: backend
+  - path: frontend-replicas.yaml
+    target:
+      kind: Deployment
+      name: frontend
+
+# Production configmap generator
+configMapGenerator:
+  - name: frontend-config
+    behavior: merge
+    literals:
+      - NEXT_PUBLIC_API_URL=https://api.platform.example.com
+      - NEXT_PUBLIC_APP_URL=https://platform.example.com
+      - NEXT_PUBLIC_ENV=production

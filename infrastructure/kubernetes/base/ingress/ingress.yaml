@@ -1,0 +1,128 @@
+# One Data Studio Lite - Ingress Configuration
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: one-data-studio-ingress
+  namespace: one-data-studio
+  labels:
+    app: one-data-studio
+    component: ingress
+  annotations:
+    # Traefik annotations
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: "ingress-cookie"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.secure: "true"
+
+    # Nginx annotations (alternative)
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/use-regex: "true"
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # nginx.ingress.kubernetes.io/configuration-snippet: |
+    #   more_set_headers "X-Frame-Options: SAMEORIGIN";
+    #   more_set_headers "X-Content-Type-Options: nosniff";
+    #   more_set_headers "X-XSS-Protection: 1; mode=block";
+
+    # CORS annotations
+    # nginx.ingress.kubernetes.io/enable-cors: "true"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    # nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    # nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type"
+
+spec:
+  ingressClassName: traefik
+  # TLS configuration
+  tls:
+  - hosts:
+    - one-data-studio.local
+    - api.one-data-studio.local
+    secretName: one-data-studio-tls
+  rules:
+  # Frontend
+  - host: one-data-studio.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 3000
+  # Backend API
+  - host: api.one-data-studio.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8000
+  # Alternative: Single host with path-based routing
+  # - host: one-data-studio.local
+  #   http:
+  #     paths:
+  #     - path: /api(/|$)(.*)
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: backend
+  #           port:
+  #             number: 8000
+  #     - path: /(.*)
+  #       pathType: Prefix
+  #       backend:
+  #         service:
+  #           name: frontend
+  #           port:
+  #             number: 3000
+---
+# TLS Secret Template (self-signed for development)
+# Generate with: openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout tls.key -out tls.crt -subj "/CN=one-data-studio.local"
+apiVersion: v1
+kind: Secret
+metadata:
+  name: one-data-studio-tls
+  namespace: one-data-studio
+  labels:
+    app: one-data-studio
+    component: ingress
+type: kubernetes.io/tls
+data:
+  # Base64 encoded TLS certificate and key
+  # tls.crt: LS0tLS...
+  # tls.key: LS0tLS...
+---
+# Certificate for development (optional - use cert-manager for production)
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: one-data-studio-cert
+  namespace: one-data-studio
+  labels:
+    app: one-data-studio
+    component: ingress
+spec:
+  secretName: one-data-studio-tls
+  dnsNames:
+  - one-data-studio.local
+  - api.one-data-studio.local
+  - "*.one-data-studio.local"
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+# Self-signed Issuer for development
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: one-data-studio
+  labels:
+    app: one-data-studio
+    component: ingress
+spec:
+  selfSigned: {}

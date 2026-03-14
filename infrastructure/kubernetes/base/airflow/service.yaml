@@ -1,0 +1,59 @@
+# One Data Studio Lite - Airflow Services
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: one-data-studio
+  labels:
+    app: airflow
+    component: webserver
+spec:
+  type: ClusterIP
+  ports:
+  - name: webserver
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  selector:
+    app: airflow
+    component: webserver
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-flower
+  namespace: one-data-studio
+  labels:
+    app: airflow
+    component: flower
+spec:
+  type: ClusterIP
+  ports:
+  - name: flower
+    port: 5555
+    targetPort: 5555
+    protocol: TCP
+  selector:
+    app: airflow
+    component: flower
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: airflow-secrets
+  namespace: one-data-studio
+  labels:
+    app: airflow
+type: Opaque
+stringData:
+  # Database connection (change password in production)
+  database_connection: postgresql+psycopg2://airflow:airflow_password@postgres:5432/airflow
+
+  # Fernet key for encrypting passwords (generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+  fernet_key: "change-this-to-a-valid-fernet-key-in-production"
+
+  # Webserver secret key
+  webserver_secret_key: "change-this-to-a-random-string-in-production"
+
+  # Redis password (if using password-protected Redis)
+  redis_password: ""

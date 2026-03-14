@@ -1,0 +1,37 @@
+---
+# KServe Namespace and Runtime Configuration
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kserve
+  labels:
+    name: kserve
+---
+# KServe Runtime Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-inference
+  namespace: kserve
+data:
+  # Disable predictor fallback for multi-model serving
+  enablePredictorFallback: "false"
+  # Enable model agent for multi-model serving
+  enableModelAgent: "true"
+  # GRPC max message size in bytes
+  maxModelSize: "10737418240"  # 10GB
+---
+# KServe Certificate for TLS
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kserve-webhook-server-secret
+  namespace: kserve
+type: Opaque
+data:
+  caCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrRENDQVlDQVFBd0R6RU5NQXNHQTFVRUF3TUdZR3d6QWRCZ05WQkFNVElCS3dXQ2lqQlNC
+  # Base64 encoded certificate (placeholder)
+  tlsCert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJrRENDQVlDQVFBd0R6RU5NQXNHQTFVRUF3TUdZR3d6QWRCZ05WQkFNVElCS3dXQ2lqQlNC
+  # Base64 encoded certificate (placeholder)
+  tlsKey: LS0tLS1CRUdJTiBQUVFUklFWSBLRVktLS0tLQotLS0tLUVORCBDRVJUSUZJQ0FURSBLRVktLS0tLQo=
+  # Base64 encoded key (placeholder)

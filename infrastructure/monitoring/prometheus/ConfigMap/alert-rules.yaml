@@ -1,0 +1,272 @@
+# One Data Studio Lite - Prometheus Alert Rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: monitoring
+data:
+  alerts.yml: |
+    groups:
+    # Platform alerts
+    - name: one_data_studio_platform
+      interval: 30s
+      rules:
+      # Backend availability
+      - alert: BackendDown
+        expr: up{job="one-data-studio-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: Backend service is down
+          description: "Backend service has been down for more than 1 minute"
+
+      # Backend high error rate
+      - alert: BackendHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="one-data-studio-backend",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="one-data-studio-backend"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: Backend high error rate
+          description: "Backend error rate is above 5% for 5 minutes"
+
+      # Backend high latency
+      - alert: BackendHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{job="one-data-studio-backend"}[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: backend
+        annotations:
+          summary: Backend high latency
+          description: "Backend P99 latency is above 1 second for 5 minutes"
+
+      # Database connection pool exhausted
+      - alert: DatabasePoolExhausted
+        expr: |
+          (
+            sum(db_pool_active_connections{job="one-data-studio-backend"})
+            /
+            sum(db_pool_max_connections{job="one-data-studio-backend"})
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: Database connection pool nearly exhausted
+          description: "Database connection pool is above 90% capacity"
+
+      # Frontend availability
+      - alert: FrontendDown
+        expr: up{job="one-data-studio-frontend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: frontend
+        annotations:
+          summary: Frontend service is down
+          description: "Frontend service has been down for more than 1 minute"
+
+      # Redis down
+      - alert: RedisDown
+        expr: up{job="one-data-studio-redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+        annotations:
+          summary: Redis is down
+          description: "Redis has been down for more than 1 minute"
+
+      # Redis high memory usage
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (
+            redis_memory_used_bytes{job="one-data-studio-redis"}
+            /
+            redis_memory_max_bytes{job="one-data-studio-redis"}
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+        annotations:
+          summary: Redis high memory usage
+          description: "Redis memory usage is above 90%"
+
+      # PostgreSQL down
+      - alert: PostgresDown
+        expr: up{job="one-data-studio-postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgres
+        annotations:
+          summary: PostgreSQL is down
+          description: "PostgreSQL has been down for more than 1 minute"
+
+      # PostgreSQL high connections
+      - alert: PostgresHighConnections
+        expr: |
+          (
+            pg_stat_database_numbackends{datname="smart_data"}
+            /
+            pg_settings_max_connections
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: postgres
+        annotations:
+          summary: PostgreSQL high connections
+          description: "PostgreSQL connection usage is above 80%"
+
+      # MinIO down
+      - alert: MinIODown
+        expr: up{job="one-data-studio-minio"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: minio
+        annotations:
+          summary: MinIO is down
+          description: "MinIO has been down for more than 1 minute"
+
+      # MinIO disk space low
+      - alert: MinIODiskSpaceLow
+        expr: |
+          (
+            minio_storage_disk_free_bytes{job="one-data-studio-minio"}
+            /
+            minio_storage_disk_total_bytes{job="one-data-studio-minio"}
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: minio
+        annotations:
+          summary: MinIO disk space low
+          description: "MinIO disk space is below 10%"
+
+    # ETL Pipeline alerts
+    - name: etl_pipeline
+      interval: 30s
+      rules:
+      # ETL pipeline failure rate
+      - alert: ETLPipelineHighFailureRate
+        expr: |
+          (
+            sum(rate(etl_pipeline_executions_total{status="failed"}[15m]))
+            /
+            sum(rate(etl_pipeline_executions_total[15m]))
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          component: etl
+        annotations:
+          summary: ETL pipeline high failure rate
+          description: "ETL pipeline failure rate is above 20%"
+
+      # ETL execution time high
+      - alert: ETLPipelineSlowExecution
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(etl_pipeline_duration_seconds_bucket[15m])) by (le, pipeline_id)
+          ) > 3600
+        for: 15m
+        labels:
+          severity: warning
+          component: etl
+        annotations:
+          summary: ETL pipeline slow execution
+          description: "ETL pipeline P95 execution time is above 1 hour"
+
+    # ML Pipeline alerts
+    - name: ml_pipeline
+      interval: 30s
+      rules:
+      # Training job failure
+      - alert: TrainingJobFailed
+        expr: |
+          sum(ml_training_jobs_total{status="failed"}) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: ml
+        annotations:
+          summary: ML training job failed
+          description: "ML training job has failed"
+
+      # GPU memory high
+      - alert: GPUHighMemoryUsage
+        expr: |
+          (
+            gpu_memory_used_bytes
+            /
+            gpu_memory_total_bytes
+          ) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: gpu
+        annotations:
+          summary: GPU high memory usage
+          description: "GPU memory usage is above 90%"
+
+      # Model serving high latency
+      - alert: ModelServingHighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(model_serving_latency_seconds_bucket{job="one-data-studio-model-serving"}[5m])) by (le, model_name)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: model-serving
+        annotations:
+          summary: Model serving high latency
+          description: "Model serving P99 latency is above 500ms"
+
+    # Data Quality alerts
+    - name: data_quality
+      interval: 1m
+      rules:
+      # Data quality check failed
+      - alert: DataQualityCheckFailed
+        expr: |
+          sum(data_quality_checks_total{status="failed"}) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: data-quality
+        annotations:
+          summary: Data quality check failed
+          description: "Data quality check has failed"
+
+      # Data freshness issue
+      - alert: DataFreshnessIssue
+        expr: |
+          time() - data_last_update_timestamp > 3600
+        for: 5m
+        labels:
+          severity: warning
+          component: data-freshness
+        annotations:
+          summary: Data freshness issue
+          description: "Data has not been updated for over 1 hour"

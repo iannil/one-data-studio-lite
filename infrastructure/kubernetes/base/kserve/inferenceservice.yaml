@@ -1,0 +1,206 @@
+---
+# KServe InferenceService Example
+# This is a template for deploying models as inference services
+
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-example
+  namespace: one-data-studio
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+spec:
+  predictor:
+    # Model type: sklearn, xgboost, pytorch, tensorflow, triton, custom
+    sklearn:
+      # Storage URI for the model
+      storageUri: s3://mlflow-models/sklearn-example
+      # Runtime version
+      runtimeVersion: "1.7.0"
+      # Resource requirements
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      # Replicas
+      replicas: 1
+    # Container-specific configuration
+    containers:
+      - name: kserve-container
+        env:
+          - name: PROTOCOL
+            value: "v2"
+          - name: MODEL_CLASS_NAME
+            value: "Model"
+  # Explainer configuration (optional)
+  explainer:
+    # Type of explainer: art, shap, lime
+    art:
+      # Storage URI for the explainer
+      storageUri: s3://mlflow-models/sklearn-explainer
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+---
+# Example for PyTorch model with GPU support
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: pytorch-gpu-example
+  namespace: one-data-studio
+spec:
+  predictor:
+    pytorch:
+      storageUri: s3://mlflow-models/pytorch-example
+      runtimeVersion: "1.7.0"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "1Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+          nvidia.com/gpu: "1"
+      replicas: 1
+---
+# Example for XGBoost model
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: xgboost-example
+  namespace: one-data-studio
+spec:
+  predictor:
+    xgboost:
+      storageUri: s3://mlflow-models/xgboost-example
+      runtimeVersion: "1.7.0"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      replicas: 1
+---
+# InferenceService with autoscaling
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: model-with-autoscaling
+  namespace: one-data-studio
+spec:
+  predictor:
+    sklearn:
+      storageUri: s3://mlflow-models/autoscaling-example
+      runtimeVersion: "1.7.0"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      # Autoscaling configuration
+      replicas: 1
+    autoscaling:
+      # Enable autoscaling (requires KEDA/HPA)
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 5
+      # Target metrics for scaling
+      target:
+        # Target average value (e.g., requests per second)
+        value: "80"
+        # Type of metric (concurrency, rps, cpu, memory)
+        metricType: "concurrency"
+        # Window duration for metric aggregation
+        window: "2m"
+---
+# Canary deployment with traffic splitting
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: canary-example
+  namespace: one-data-studio
+spec:
+  predictor:
+    sklearn:
+      # Primary (stable) model
+      storageUri: s3://mlflow-models/model-v1
+      runtimeVersion: "1.7.0"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      replicas: 2
+    # Canary model configuration
+    canaryTrafficPercent: 20
+  sh:
+    # Canary variant
+    canary:
+      # Canary-specific model
+      storageUri: s3://mlflow-models/model-v2
+      runtimeVersion: "1.7.0"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "512Mi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+---
+# Service for external access
+apiVersion: v1
+kind: Service
+metadata:
+  name: sklearn-example
+  namespace: one-data-studio
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+    protocol: TCP
+  selector:
+    serving.kserve.io/inferenceservice: sklearn-example
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kserve-ingress
+  namespace: one-data-studio
+  annotations:
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: "selfsigned-issuer"
+    ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  rules:
+  - host: models.one-data-studio.local
+    http:
+      paths:
+      - path: /v2/models/(.*)/infer
+        pathType: Prefix
+        backend:
+          service:
+            name: sklearn-example
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - models.one-data-studio.local
+    secretName: one-data-studio-tls

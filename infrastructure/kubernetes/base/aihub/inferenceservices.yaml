@@ -1,0 +1,405 @@
+---
+# AIHub KServe InferenceService Examples
+# Templates for deploying various model types
+
+---
+# LLM Serving with vLLM backend
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: chatglm3-6b
+  namespace: aihub
+  labels:
+    app: aihub
+    model: chatglm3-6b
+    category: llm
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vllm
+      args:
+        - --model=THUDM/chatglm3-6b
+        - --tensor-parallel-size=1
+        - --dtype=half
+        - --gpu-memory-utilization=0.9
+        - --max-model-len=2048
+        - --trust-remote-code
+      resources:
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+    # Use custom runtime for vLLM
+    containers:
+      - name: kserve-container
+        image: vllm/vllm-openai:latest
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: huggingface-token
+                key: token
+          - name: PORT
+            value: "8000"
+  # Explainer for LLM (optional)
+  explainer:
+    minReplicas: 0
+    containers:
+      - name: explainer
+        image: kserve/lid-explainer:latest
+
+---
+# Multi-GPU LLM Serving (for 70B+ models)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen-72b
+  namespace: aihub
+  labels:
+    app: aihub
+    model: qwen-72b
+    category: llm
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vllm
+      args:
+        - --model=Qwen/Qwen-72B
+        - --tensor-parallel-size=4
+        - --dtype=half
+        - --gpu-memory-utilization=0.9
+        - --max-model-len=4096
+        - --trust-remote-code
+      resources:
+        requests:
+          cpu: "16"
+          memory: "64Gi"
+          nvidia.com/gpu: "4"
+        limits:
+          cpu: "32"
+          memory: "128Gi"
+          nvidia.com/gpu: "4"
+  # Enable autoscaling
+  annotations:
+    autoscaling.knative.dev/target: "1"
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/maxScale: "2"
+
+---
+# Embedding Model Serving
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: bge-large-zh
+  namespace: aihub
+  labels:
+    app: aihub
+    model: bge-large-zh
+    category: embedding
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sentence-transformers
+      args:
+        - --model-name=BAAI/bge-large-zh
+        - --max-batch-size=64
+        - --max-batch-time=0.1
+      resources:
+        requests:
+          cpu: "2"
+          memory: "8Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+  # Higher autoscaling for embeddings (high throughput)
+  annotations:
+    autoscaling.knative.dev/target: "100"
+    autoscaling.knative.dev/minScale: "2"
+    autoscaling.knative.dev/maxScale: "10"
+
+---
+# Vision Model Serving (YOLOv8)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: yolov8x
+  namespace: aihub
+  labels:
+    app: aihub
+    model: yolov8x
+    category: object-detection
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: pytorch
+      args:
+        - --model-name=ultralytics/yolov8x
+        - --task=detect
+      resources:
+        requests:
+          cpu: "2"
+          memory: "8Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+  annotations:
+    autoscaling.knative.dev/target: "10"
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/maxScale: "10"
+
+---
+# Vision-Language Model Serving (Qwen-VL)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen-vl-chat
+  namespace: aihub
+  labels:
+    app: aihub
+    model: qwen-vl-chat
+    category: vision-language
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vllm
+      args:
+        - --model=Qwen/Qwen-VL-Chat
+        - --tensor-parallel-size=1
+        - --dtype=half
+        - --gpu-memory-utilization=0.9
+        - --max-model-len=2048
+        - --trust-remote-code
+        - --limit-mm-per-prompt=image=1
+      resources:
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+    env:
+      - name: VLLM_USE_MODELSCOPE
+        value: "true"
+
+---
+# ASR Model Serving (Whisper)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: whisper-large-v3
+  namespace: aihub
+  labels:
+    app: aihub
+    model: whisper-large-v3
+    category: asr
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: pytorch
+      args:
+        - --model-name=openai/whisper-large-v3
+        - --task=transcribe
+        - --language=en
+      resources:
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+  annotations:
+    autoscaling.knative.dev/target: "5"
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/maxScale: "5"
+
+---
+# TTS Model Serving (VITS)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: vits-vctk
+  namespace: aihub
+  labels:
+    app: aihub
+    model: vits-vctk
+    category: tts
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: pytorch
+      args:
+        - --model-name=coqui-ai/TTS
+        - --model-name=vits-vctk
+      resources:
+        requests:
+          cpu: "2"
+          memory: "4Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: "8Gi"
+          nvidia.com/gpu: "1"
+  annotations:
+    autoscaling.knative.dev/target: "5"
+    autoscaling.knative.dev/minScale: "1"
+    autoscaling.knative.dev/maxScale: "5"
+
+---
+# LoRA Fine-tuned Model Serving
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: finetuned-llama3-8b
+  namespace: aihub
+  labels:
+    app: aihub
+    model: finetuned-llama3-8b
+    category: llm
+    finetuned: "true"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: vllm
+      args:
+        - --model=meta-llama/Meta-Llama-3-8B
+        - --lora-modules=finetuned=/mnt/models/finetuned-llama3-8b
+        - --tensor-parallel-size=1
+        - --dtype=half
+        - --gpu-memory-utilization=0.9
+        - --max-model-len=2048
+      resources:
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "8"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+    storage:
+      # Mount model storage for LoRA weights
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: finetuned-models-pvc
+      volumeMounts:
+        - name: model-storage
+          mountPath: /mnt/models
+
+---
+# Canary Deployment for A/B Testing
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: model-canary-test
+  namespace: aihub
+spec:
+  predictor:
+    # Canary deployment with 2 models
+    canaryTrafficPercent: 20  # 20% traffic to new model
+    model:
+      modelFormat:
+        name: vllm
+      args:
+        - --model=THUDM/chatglm3-6b
+      resources:
+        requests:
+          nvidia.com/gpu: "1"
+        limits:
+          nvidia.com/gpu: "1"
+  # Shadow traffic to new model
+  annotations:
+    serving.kserve.io/enable-canary: "true"
+    serving.kserve.io/canary-model-id: "chatglm3-6b-v2"
+
+---
+# Batch Inference Service
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: batch-embedding
+  namespace: aihub
+spec:
+  predictor:
+    # Higher batch size for throughput
+    model:
+      modelFormat:
+        name: sentence-transformers
+      args:
+        - --model-name=BAAI/bge-large-zh
+        - --max-batch-size=256
+        - --max-batch-time=0.5
+      resources:
+        requests:
+          cpu: "8"
+          memory: "16Gi"
+          nvidia.com/gpu: "2"
+        limits:
+          cpu: "16"
+          memory: "32Gi"
+          nvidia.com/gpu: "2"
+  # Fixed scale for batch processing
+  annotations:
+    autoscaling.knative.dev/target: "1"
+    autoscaling.knative.dev/class: "HPA"
+    autoscaling.knative.dev/metric: "cpu"
+    serving.kserve.io/deploymentMode: "Serverless"
+
+---
+# HuggingFace Token Secret for private models
+apiVersion: v1
+kind: Secret
+metadata:
+  name: huggingface-token
+  namespace: aihub
+type: Opaque
+stringData:
+  token: "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Replace with actual token
+---
+# PVC for storing fine-tuned models
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: finetuned-models-pvc
+  namespace: aihub
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+  storageClassName: nfs-storage
+---
+# PVC for model cache
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-cache-pvc
+  namespace: aihub
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: fast-ssd

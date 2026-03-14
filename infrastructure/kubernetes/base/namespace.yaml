@@ -1,0 +1,11 @@
+# One Data Studio Lite - Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: one-data-studio
+  labels:
+    name: one-data-studio
+    project: data-platform
+    component: platform
+spec: {}
+status: {}

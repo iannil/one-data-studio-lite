@@ -1,0 +1,204 @@
+# One Data Studio Lite - Production Environment Values
+
+# Environment override
+platform:
+  environment: "production"
+  domain: "one-data-studio.example.com"
+  apiDomain: "api.one-data-studio.example.com"
+
+  # CORS - Production origins only
+  cors:
+    origins: "https://one-data-studio.example.com"
+    credentials: "true"
+    methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    headers: "Authorization,Content-Type,X-Requested-With"
+
+  # All features enabled in production
+  features:
+    enableMonitoring: true
+    enableTracing: true
+    enableMetrics: true
+    enableAuditLog: true
+
+# Backend - Production
+backend:
+  replicaCount: 3
+  image:
+    tag: "v1.0.0"  # Use specific tag in production
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Pod Disruption Budget for production
+  podDisruptionBudget:
+    minAvailable: 2
+
+# Frontend - Production
+frontend:
+  replicaCount: 3
+  image:
+    tag: "v1.0.0"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+# PostgreSQL - Production (High Availability)
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""  # Use external secret
+  primary:
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+    persistence:
+      size: 100Gi
+      storageClass: fast-ssd
+
+# Redis - Production (Cluster mode)
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: ""  # Use external secret
+  master:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  replica:
+    replicaCount: 2
+  persistence:
+    enabled: true
+    size: 5Gi
+
+# MinIO - Production (Distributed mode)
+minio:
+  enabled: true
+  auth:
+    rootUser: ""  # Use external secret
+    rootPassword: ""  # Use external secret
+  mode: distributed
+  replicas: 4
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+  persistence:
+    size: 500Gi
+    storageClass: fast-ssd
+
+# Monitoring - Production enabled
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 15s
+    scrapeTimeout: 5s
+    labels:
+      release: prometheus-operator
+
+# Logging - Production settings
+logging:
+  enabled: true
+  format: json
+  level: INFO
+  # Send logs to external aggregator
+  aggregator:
+    enabled: true
+    type: loki  # or elasticsearch, cloudwatch
+    endpoint: ""
+
+# Security - Production hardened
+security:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# Service Account - Production
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # IAM role for AWS EKS
+  automountServiceAccountToken: false
+
+# Pod Disruption Budget - Production
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Node Selector - Production (use dedicated nodes)
+nodeSelector:
+  workload: production
+
+# Tolerations - Production
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "production"
+    effect: "NoSchedule"
+
+# Affinity - Spread across zones
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - backend
+            - frontend
+        topologyKey: topology.kubernetes.io/zone
+
+# Topology Spread Constraints
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app: backend

@@ -1,0 +1,9 @@
+---
+# Label Studio Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: label-studio
+  labels:
+    name: label-studio
+    app: one-data-studio

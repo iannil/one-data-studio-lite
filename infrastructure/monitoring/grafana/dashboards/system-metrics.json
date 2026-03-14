@@ -1,0 +1,453 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "palette-classic"
+        },
+        "custom": {
+          "axisCenteredZero": false,
+          "axisColorMode": "text",
+          "axisLabel": "",
+          "axisPlacement": "auto",
+          "barAlignment": 0,
+          "drawStyle": "line",
+          "fillOpacity": 10,
+          "gradientMode": "none",
+          "hideFrom": {
+            "tooltip": false,
+            "viz": false,
+            "legend": false
+          },
+          "lineInterpolation": "linear",
+          "lineWidth": 1,
+          "pointSize": 5,
+          "scaleDistribution": {
+            "type": "linear"
+          },
+          "showPoints": "never",
+          "spanNulls": true,
+          "stacking": {
+            "group": "A",
+            "mode": "none"
+          },
+          "thresholdsStyle": {
+            "mode": "off"
+          }
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            }
+          ]
+        },
+        "unit": "percent"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 0,
+      "y": 0
+      },
+      "id": 1,
+      "options": {
+      "legend": {
+        "calcs": [],
+        "displayMode": "list",
+        "placement": "bottom",
+        "showLegend": true
+      },
+      "tooltip": {
+        "mode": "single",
+        "sort": "none"
+      }
+      },
+      "targets": [
+      {
+        "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"one-data-studio\"}[5m])) by (pod) * 100",
+        "legendFormat": "{{pod}}",
+        "refId": "A"
+      }
+      ],
+      "title": "CPU Usage by Pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "palette-classic"
+        },
+        "custom": {
+          "axisCenteredZero": false,
+          "axisColorMode": "text",
+          "axisLabel": "",
+          "axisPlacement": "auto",
+          "barAlignment": 0,
+          "drawStyle": "line",
+          "fillOpacity": 10,
+          "gradientMode": "none",
+          "hideFrom": {
+            "tooltip": false,
+            "viz": false,
+            "legend": false
+          },
+          "lineInterpolation": "linear",
+          "lineWidth": 1,
+          "pointSize": 5,
+          "scaleDistribution": {
+            "type": "linear"
+          },
+          "showPoints": "never",
+          "spanNulls": true,
+          "stacking": {
+            "group": "A",
+            "mode": "none"
+          },
+          "thresholdsStyle": {
+            "mode": "off"
+          }
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            }
+          ]
+        },
+        "unit": "bytes"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 12,
+      "x": 12,
+      "y": 0
+      },
+      "id": 2,
+      "options": {
+      "legend": {
+        "calcs": [],
+        "displayMode": "list",
+        "placement": "bottom",
+        "showLegend": true
+      },
+      "tooltip": {
+        "mode": "single",
+        "sort": "none"
+      }
+      },
+      "targets": [
+      {
+        "expr": "sum(container_memory_working_set_bytes{namespace=\"one-data-studio\"}) by (pod)",
+        "legendFormat": "{{pod}}",
+        "refId": "A"
+      }
+      ],
+      "title": "Memory Usage by Pod",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            },
+            {
+              "color": "red",
+              "value": 80
+            }
+          ]
+        },
+        "unit": "percent"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 6,
+      "x": 0,
+      "y": 8
+      },
+      "id": 3,
+      "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ],
+        "fields": "",
+        "values": false
+      },
+      "textMode": "auto"
+      },
+      "targets": [
+      {
+        "expr": "sum(rate(http_requests_total{job=\"one-data-studio-backend\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"one-data-studio-backend\"}[5m])) * 100",
+        "refId": "A"
+      }
+      ],
+      "title": "Backend Error Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            },
+            {
+              "color": "yellow",
+              "value": 1
+            },
+            {
+              "color": "red",
+              "value": 5
+            }
+          ]
+        },
+        "unit": "s"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 6,
+      "x": 6,
+      "y": 8
+      },
+      "id": 4,
+      "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ],
+        "fields": "",
+        "values": false
+      },
+      "textMode": "auto"
+      },
+      "targets": [
+      {
+        "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"one-data-studio-backend\"}[5m])) by (le))",
+        "refId": "A"
+      }
+      ],
+      "title": "Backend P99 Latency",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            },
+            {
+              "color": "red",
+              "value": 1
+            }
+          ]
+        },
+        "unit": "short"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 6,
+      "x": 12,
+      "y": 8
+      },
+      "id": 5,
+      "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ],
+        "fields": "",
+        "values": false
+      },
+      "textMode": "auto"
+      },
+      "targets": [
+      {
+        "expr": "sum(up{job=\"one-data-studio-backend\"})",
+        "refId": "A"
+      }
+      ],
+      "title": "Backend Pods Running",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+      },
+      "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            },
+            {
+              "color": "yellow",
+              "value": 0.8
+            },
+            {
+              "color": "red",
+              "value": 0.9
+            }
+          ]
+        },
+        "unit": "percent"
+      },
+      "overrides": []
+      },
+      "gridPos": {
+      "h": 8,
+      "w": 6,
+      "x": 18,
+      "y": 8
+      },
+      "id": 6,
+      "options": {
+      "colorMode": "value",
+      "graphMode": "area",
+      "justifyMode": "auto",
+      "orientation": "auto",
+      "reduceOptions": {
+        "calcs": [
+          "lastNotNull"
+        ],
+        "fields": "",
+        "values": false
+      },
+      "textMode": "auto"
+      },
+      "targets": [
+      {
+        "expr": "sum(db_pool_active_connections{job=\"one-data-studio-backend\"}) / sum(db_pool_max_connections{job=\"one-data-studio-backend\"}) * 100",
+        "refId": "A"
+      }
+      ],
+      "title": "Database Pool Usage",
+      "type": "stat"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "one-data-studio",
+    "system",
+    "metrics"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "One Data Studio - System Metrics",
+  "uid": "one-data-studio-system",
+  "version": 1,
+  "weekStart": ""
+}

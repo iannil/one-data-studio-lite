@@ -1,0 +1,47 @@
+# One Data Studio Lite - Helm Chart
+apiVersion: v2
+name: one-data-studio-lite
+description: A Helm chart for One Data Studio Lite - Enterprise Data & MLOps Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - data-platform
+  - mlops
+  - etl
+  - analytics
+  - machine-learning
+home: https://github.com/one-data-studio/one-data-studio-lite
+icon: https://raw.githubusercontent.com/one-data-studio/one-data-studio-lite/main/docs/logo.png
+sources:
+  - https://github.com/one-data-studio/one-data-studio-lite
+maintainers:
+  - name: One Data Studio Team
+    email: dev@one-data-studio.local
+dependencies:
+  # Optional: PostgreSQL dependency
+  - name: postgresql
+    version: 12.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+    alias: postgresql
+  # Optional: Redis dependency
+  - name: redis
+    version: 17.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+    alias: redis
+  # Optional: MinIO dependency
+  - name: minio
+    version: 12.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: minio.enabled
+    alias: minio
+annotations:
+  artifacthub.io/category: "data"
+  artifacthub.io/license: "MIT"
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://docs.one-data-studio.local
+    - name: Support
+      url: https://github.com/one-data-studio/one-data-studio-lite/issues

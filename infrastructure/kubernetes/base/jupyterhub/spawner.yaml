@@ -1,0 +1,258 @@
+# One Data Studio Lite - Jupyter Hub Spawner Configuration
+# This file contains the custom KubeSpawner configuration for user notebook servers
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spawner-config
+  namespace: one-data-studio
+  labels:
+    app: jupyterhub
+    component: spawner
+data:
+  # Custom spawner profile configuration
+  spawner_profiles_config.py: |
+    """
+    Custom Spawner Profiles for One Data Studio Lite
+    Allows users to select different notebook configurations
+    """
+
+    # Image templates available to users
+    c.KubeSpawner.image_spec = 'one-data-studio/notebook-pytorch:latest'
+    c.KubeSpawner.image_pull_policy = 'IfNotPresent'
+
+    # Profile list for users to choose from
+    c.KubeSpawner.profile_list = [
+        {
+            'display_name': 'PyTorch (Recommended)',
+            'description': 'PyTorch 2.0 with CUDA support for deep learning',
+            'default': True,
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-pytorch:latest',
+                'cpu_limit': 2,
+                'cpu_guarantee': 0.5,
+                'mem_limit': '4G',
+                'mem_guarantee': '1G',
+                'extra_resource_limits': {},
+            }
+        },
+        {
+            'display_name': 'PyTorch with GPU',
+            'description': 'PyTorch with NVIDIA GPU support',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-pytorch:latest',
+                'cpu_limit': 4,
+                'cpu_guarantee': 1,
+                'mem_limit': '8G',
+                'mem_guarantee': '2G',
+                'extra_resource_limits': {
+                    'nvidia.com/gpu': '1'
+                },
+                'node_selector': {
+                    'accelerator': 'nvidia-tesla-k80'
+                }
+            }
+        },
+        {
+            'display_name': 'TensorFlow',
+            'description': 'TensorFlow 2.14 with Keras',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-tensorflow:latest',
+                'cpu_limit': 2,
+                'cpu_guarantee': 0.5,
+                'mem_limit': '4G',
+                'mem_guarantee': '1G',
+                'extra_resource_limits': {},
+            }
+        },
+        {
+            'display_name': 'TensorFlow with GPU',
+            'description': 'TensorFlow with NVIDIA GPU support',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-tensorflow:latest',
+                'cpu_limit': 4,
+                'cpu_guarantee': 1,
+                'mem_limit': '8G',
+                'mem_guarantee': '2G',
+                'extra_resource_limits': {
+                    'nvidia.com/gpu': '1'
+                },
+                'node_selector': {
+                    'accelerator': 'nvidia-tesla-k80'
+                }
+            }
+        },
+        {
+            'display_name': 'Data Science',
+            'description': 'Scikit-learn, pandas, numpy, matplotlib',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-sklearn:latest',
+                'cpu_limit': 2,
+                'cpu_guarantee': 0.5,
+                'mem_limit': '4G',
+                'mem_guarantee': '1G',
+                'extra_resource_limits': {},
+            }
+        },
+        {
+            'display_name': 'NLP',
+            'description': 'Transformers, spaCy, NLTK',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-nlp:latest',
+                'cpu_limit': 2,
+                'cpu_guarantee': 0.5,
+                'mem_limit': '4G',
+                'mem_guarantee': '1G',
+                'extra_resource_limits': {},
+            }
+        },
+        {
+            'display_name': 'Minimal',
+            'description': 'Minimal Python environment',
+            'kubespawner_override': {
+                'image_spec': 'one-data-studio/notebook-minimal:latest',
+                'cpu_limit': 1,
+                'cpu_guarantee': 0.25,
+                'mem_limit': '1G',
+                'mem_guarantee': '256M',
+                'extra_resource_limits': {},
+            }
+        }
+    ]
+
+    # Service configuration for user pods
+    c.KubeSpawner.service_account = 'jupyterhub-notebook'
+    c.KubeSpawner.extra_labels = {
+        'app': 'jupyterhub-notebook',
+        'component': 'user-notebook'
+    }
+
+    # Volume mounts
+    c.KubeSpawner.volumes = [
+        {
+            'name': 'data',
+            'persistentVolumeClaim': {
+                'claimName': 'jupyterhub-data'
+            }
+        },
+        {
+            'name': 'shared',
+            'persistentVolumeClaim': {
+                'claimName': 'jupyterhub-shared'
+            }
+        },
+        {
+            'name': 'datasets',
+            'persistentVolumeClaim': {
+                'claimName': 'ml-datasets'
+            },
+            'readOnly': True
+        }
+    ]
+
+    c.KubeSpawner.volume_mounts = [
+        {
+            'name': 'data',
+            'mountPath': '/home/jovyan/data'
+        },
+        {
+            'name': 'shared',
+            'mountPath': '/home/jovyan/shared'
+        },
+        {
+            'name': 'datasets',
+            'mountPath': '/home/jovyan/datasets',
+            'readOnly': True
+        }
+    ]
+
+    # Environment variables
+    c.KubeSpawner.environment = {
+        'JUPYTER_ENABLE_LAB': 'yes',
+        'CHOWN_HOME': 'yes',
+        'CHOWN_EXTRA': '/home/jovyan/data,/home/jovyan/shared,/home/jovyan/datasets',
+        'NB_USER': 'jovyan',
+        'NB_UID': '1000',
+        'NB_GID': '100',
+        'MLFLOW_TRACKING_URI': 'http://mlflow:5000',
+        'AWS_ENDPOINT': 'http://minio:9000',
+        'AWS_ACCESS_KEY_ID': 'minioadmin',
+        'AWS_SECRET_ACCESS_KEY': 'minioadmin',
+    }
+
+    # Lifecycle hooks
+    c.KubeSpawner.pre_spawn_hook = 'my_pre_spawn_hook'
+
+    # Import the hook function
+    def my_pre_spawn_hook(spawner):
+        """
+        Pre-spawn hook to configure user-specific settings
+        """
+        # Log user spawn
+        import logging
+        logger = logging.getLogger()
+        logger.info(f"Spawning notebook for user: {spawner.user.name}")
+
+        # Get user's quota from backend API
+        import requests
+        import os
+        try:
+            backend_url = os.environ.get('PLATFORM_API_URL', 'http://backend:8000/api/v1')
+            token = os.environ.get('PLATFORM_TOKEN', '')
+
+            if token:
+                headers = {'Authorization': f'Bearer {token}'}
+                response = requests.get(
+                    f"{backend_url}/users/{spawner.user.name}/quota",
+                    headers=headers,
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    quota = response.json()
+                    # Apply user's resource limits
+                    if quota.get('cpu'):
+                        spawner.cpu_limit = quota['cpu']
+                    if quota.get('memory'):
+                        spawner.mem_limit = quota['memory']
+                    if quota.get('gpu'):
+                        spawner.extra_resource_limits = {
+                            'nvidia.com/gpu': str(quota['gpu'])
+                        }
+                    logger.info(f"Applied quota for user {spawner.user.name}: {quota}")
+        except Exception as e:
+            logger.warning(f"Failed to get user quota: {e}")
+            # Continue with default limits
+
+    # Post-spawn hook
+    def my_post_spawn_hook(spawner):
+        """
+        Post-spawn hook to notify backend of notebook creation
+        """
+        import logging
+        import requests
+        import os
+
+        logger = logging.getLogger()
+        logger.info(f"Notebook spawned for user: {spawner.user.name}")
+
+        # Notify backend
+        try:
+            backend_url = os.environ.get('PLATFORM_API_URL', 'http://backend:8000/api/v1')
+            token = os.environ.get('PLATFORM_TOKEN', '')
+
+            if token:
+                headers = {'Authorization': f'Bearer {token}'}
+                requests.post(
+                    f"{backend_url}/notebooks/{spawner.user.name}/started",
+                    headers=headers,
+                    json={
+                        'pod_name': spawner.pod_name,
+                        'pod_ip': spawner.pod_ip,
+                        'service': spawner.user.server.name if spawner.user.server else None
+                    },
+                    timeout=5
+                )
+        except Exception as e:
+            logger.warning(f"Failed to notify backend: {e}")
+
+    c.KubeSpawner.post_spawn_hook = my_post_spawn_hook

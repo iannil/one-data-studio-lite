@@ -1,0 +1,111 @@
+# One Data Studio Lite - Jupyter Hub Proxy Configuration
+# This file contains the proxy settings for Jupyter Hub
+
+# Configurable HTTP Proxy settings
+# The proxy handles WebSocket connections and routing to user notebooks
+
+# Proxy environment variables (set in Deployment)
+# PROXY_PUBLIC_PORT: 8000
+# PROXY_API_PORT: 8001
+# PROXY_SERVICE_HOST: 0.0.0.0
+
+# WebSocket configuration
+# CHP-proxy is configured to handle WebSocket upgrades automatically
+# The following paths require WebSocket support:
+# - /user/{username}//*  - Notebook communication
+# - /api/kernels/*       - Kernel messages
+# - /terminals/*         - Terminal sessions
+
+# OAuth2 Proxy configuration (alternative authentication)
+# Uncomment to use OAuth2 proxy instead of dummy authenticator
+
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: oauth2-proxy-config
+#   namespace: one-data-studio
+# data:
+#   oauth2_proxy.cfg: |
+#     # OAuth2 Proxy Configuration
+#     provider = "oidc"
+#     # Redirect to Jupyter Hub after authentication
+#     redirect_url = "https://one-data-studio.example.com/oauth2/callback"
+#     # OAuth client credentials
+#     oidc_issuer_url = "https://auth.example.com"
+#     client_id = "jupyterhub"
+#     client_secret = "secret"
+#     # Cookie settings
+#     cookie_secret = "random-secret-string"
+#     cookie_expire = "168h"
+#     cookie_refresh = "1h"
+#     # Email domain validation
+#     email_domains = ["*"]
+#     # Upstream (Jupyter Hub)
+#     http_address = "0.0.0.0:4180"
+#     upstreams = [
+#       "http://jupyterhub:8000"
+#     ]
+#     # Skip auth for health checks
+#     skip_auth_regex = "^/health"
+#     # Pass authorization headers
+#     pass_access_token = true
+#     pass_authorization_header = true
+#     # Set headers
+#     set_authorization_header = true
+#     set_xauthrequest = true
+#     # SSL
+#     tls_cert_file = "/etc/tls/cert"
+#     tls_key_file = "/etc/tls/key"
+---
+# Traefik IngressRoute for Jupyter Hub (if using Traefik)
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: jupyterhub
+#   namespace: one-data-studio
+# spec:
+#   entryPoints:
+#     - websecure
+#   routes:
+#   - match: HostRegexp(`jupyterhub.one-data-studio.example.com`, `{subdomain:.+}.jupyterhub.one-data-studio.example.com`)
+#     kind: Rule
+#     services:
+#     - name: jupyterhub
+#       port: 8000
+#     middlewares:
+#     - name: jupyterhub-stripprefix
+#       namespace: one-data-studio
+#   - match: HostRegexp(`jupyterhub.one-data-studio.example.com`)
+#     kind: Rule
+#     services:
+#     - name: jupyterhub
+#       port: 8000
+#     middlewares:
+#     - name: jupyterhub-websocket
+#       namespace: one-data-studio
+#   tls:
+#     certResolver: default
+# ---
+# Middleware for WebSocket support
+# apiVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: jupyterhub-websocket
+#   namespace: one-data-studio
+# spec:
+#   headers:
+#     customRequestHeaders:
+#       X-Forwarded-Proto: "https"
+#       X-Websocket-Upgrade: "websocket"
+#   passHostHeader: true
+# ---
+# APIVersion: traefik.containo.us/v1alpha1
+# kind: Middleware
+# metadata:
+#   name: jupyterhub-stripprefix
+#   namespace: one-data-studio
+# spec:
+#   stripPrefix:
+#     prefixes:
+#       - /jupyter
+#     forceSlash: false

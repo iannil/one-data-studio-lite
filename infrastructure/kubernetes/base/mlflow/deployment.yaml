@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: one-data-studio
+  labels:
+    app: mlflow
+    component: mlops
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+        component: mlops
+    spec:
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow:v2.9.0
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        env:
+        - name: BACKEND_STORE_URI
+          value: postgresql://postgres:postgres@postgres:5432/mlflow
+        - name: DEFAULT_ARTIFACT_ROOT
+          value: s3://mlflow/
+        args:
+        - "server"
+        - "--backend-store-uri"
+        - "postgresql://postgres:postgres@postgres:5432/mlflow"
+        - "--default-artifact-root"
+        - "s3://mlflow/"
+        - "--host"
+        - "0.0.0.0"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        volumeMounts:
+        - name: mlflow-data
+          mountPath: /mlflow
+      volumes:
+      - name: mlflow-data
+        persistentVolumeClaim:
+          claimName: mlflow-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: one-data-studio
+  labels:
+    app: mlflow
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 5000
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: mlflow

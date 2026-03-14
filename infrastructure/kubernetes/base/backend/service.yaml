@@ -1,0 +1,38 @@
+# One Data Studio Lite - Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: one-data-studio
+  labels:
+    app: backend
+    component: api
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: backend
+---
+# Backend metrics service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-metrics
+  namespace: one-data-studio
+  labels:
+    app: backend
+    component: api
+    prometheus-monitoring: "true"
+spec:
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: backend

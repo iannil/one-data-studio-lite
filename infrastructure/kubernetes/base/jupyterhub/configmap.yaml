@@ -1,0 +1,284 @@
+# One Data Studio Lite - Jupyter Hub ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jupyterhub-config
+  namespace: one-data-studio
+  labels:
+    app: jupyterhub
+    component: notebook
+data:
+  # Jupyter Hub configuration
+  jupyterhub_config.py: |
+    """
+    Jupyter Hub configuration for One Data Studio Lite
+    """
+    import os
+    import sys
+
+    # Basic configuration
+    c.JupyterHub.spawner_class = 'kubespawner.KubeSpawner'
+
+    # Hub configuration
+    c.JupyterHub.hub_ip = '0.0.0.0'
+    c.JupyterHub.hub_port = 8081
+    c.JupyterHub.port = 8000
+    c.JupyterHub.base_url = '/jupyter'
+
+    # Proxy configuration
+    c.JupyterHub.proxy_api_ip = '0.0.0.0'
+    c.JupyterHub.proxy_api_port = 8001
+    c.JupyterHub.proxy_cmd = ['configurable-http-proxy', '--ip', '0.0.0.0', '--api-ip', '0.0.0.0', '--api-port', '8001', '--port', '8000']
+
+    # Database configuration
+    c.JupyterHub.db_url = 'postgresql://postgres:{{ .Values.postgres.password }}@postgres:5432/jupyterhub'
+
+    # Authentication - use JWT from platform
+    c.JupyterHub.authenticator_class = 'jupyterhub.auth.DummyAuthenticator'
+    c.DummyAuthenticator.password = os.environ.get('JUPYTERHUB Dummy password', '')
+
+    # OAuth2 alternative (uncomment to use)
+    # c.JupyterHub.authenticator_class = 'oauthenticator.GenericOAuthenticator'
+    # c.GenericOAuthenticator.client_id = os.environ['OAUTH_CLIENT_ID']
+    # c.GenericOAuthenticator.client_secret = os.environ['OAUTH_CLIENT_SECRET']
+    # c.GenericOAuthenticator.oauth_callback_url = os.environ['OAUTH_CALLBACK_URL']
+    # c.GenericOAuthenticator.userdata_url = os.environ['OAUTH_USERDATA_URL']
+    # c.GenericOAuthenticator.username_key = 'username'
+    # c.GenericOAuthenticator.token_url = os.environ['OAUTH_TOKEN_URL']
+    # c.GenericOAuthenticator.authorize_url = os.environ['OAUTH_AUTHORIZE_URL']
+
+    # Spawner configuration
+    c.KubeSpawner.namespace = os.environ.get('POD_NAMESPACE', 'one-data-studio')
+    c.KubeSpawner.enable_user_namespaces = False
+    c.KubeSpawner.enable_user_server_app = True
+
+    # Default image template
+    c.KubeSpawner.image_spec = os.environ.get('DEFAULT_NOTEBOOK_IMAGE', 'one-data-studio/notebook-pytorch:latest')
+
+    # Resource limits
+    c.KubeSpawner.cpu_limit = os.environ.get('NOTEBOOK_CPU_LIMIT', '2')
+    c.KubeSpawner.cpu_guarantee = os.environ.get('NOTEBOOK_CPU_GUARANTEE', '0.5')
+    c.KubeSpawner.mem_limit = os.environ.get('NOTEBOOK_MEM_LIMIT', '4G')
+    c.KubeSpawner.mem_guarantee = os.environ.get('NOTEBOOK_MEM_GUARANTEE', '1G')
+
+    # GPU configuration
+    c.KubeSpawner.extra_resource_limits = {
+        'nvidia.com/gpu': os.environ.get('NOTEBOOK_GPU_LIMIT', '0')
+    }
+    c.KubeSpawner.extra_resource_guarantees = {}
+
+    # Storage configuration
+    c.KubeSpawner.volumes = [
+        {
+            'name': 'data',
+            'persistentVolumeClaim': {
+                'claimName': 'jupyterhub-data'
+            }
+        }
+    ]
+    c.KubeSpawner.volume_mounts = [
+        {
+            'name': 'data',
+            'mountPath': '/home/jovyan/data'
+        }
+    ]
+
+    # Shared data volume for all users
+    c.KubeSpawner.extra_volumes = [
+        {
+            'name': 'shared',
+            'persistentVolumeClaim': {
+                'claimName': 'jupyterhub-shared'
+            }
+        }
+    ]
+    c.KubeSpawner.extra_volume_mounts = [
+        {
+            'name': 'shared',
+            'mountPath': '/home/jovyan/shared',
+            'readOnly': False
+        }
+    ]
+
+    # Environment variables for notebook pods
+    c.KubeSpawner.environment = {
+        'JUPYTER_ENABLE_LAB': 'yes',
+        'CHOWN_HOME': 'yes',
+        'CHOWN_HOME_OPTS': '-R',
+        'NB_USER': 'jovyan',
+        'NB_UID': '1000',
+        'NB_GID': '100',
+    }
+
+    # Service configuration
+    c.KubeSpawner.service_account = 'jupyterhub'
+    c.KubeSpawner.extra_labels = {
+        'app': 'jupyterhub-notebook',
+        'component': 'notebook-server'
+    }
+    c.KubeSpawner.extra_annotations = {
+        'prometheus.io/scrape': 'true',
+        'prometheus.io/port': '8081'
+    }
+
+    # Timeout configuration
+    c.KubeSpawner.http_timeout = 120
+    c.KubeSpawner.start_timeout = 600
+    c.KubeSpawner.shutdown_on_logout = True
+    c.KubeSpawner.pod_name_template = 'jupyter-{username}--{servername}'
+
+    # Concurrent spawn limit
+    c.Spawner.concurrent_spawn_limit = 10
+
+    # Logging configuration
+    c.JupyterHub.log_level = 'INFO'
+    c.Spawner.debug = False
+
+    # Admin users
+    c.JupyterHub.admin_access = True
+    c.Authenticator.admin_users = os.environ.get('JUPYTERHUB_ADMIN_USERS', 'admin').split(',')
+
+    # Service configuration
+    c.JupyterHub.services = [
+        {
+            'name': 'idle-culler',
+            'admin': True,
+            'command': [
+                'python3',
+                '-m',
+                'jupyterhub_idle_culler',
+                '--timeout=3600',
+                '--cull-every=300',
+                '--max-age=0',
+                '--concurrency=10'
+            ]
+        }
+    ]
+
+    # Custom spawner hooks
+    def spawner_environment_override(spawner):
+        """
+        Hook to add custom environment variables based on user profile
+        """
+        # Get user's GPU quota from backend API
+        import requests
+        try:
+            response = requests.get(
+                f"http://backend:8000/api/v1/users/{spawner.user.name}/quota",
+                headers={'Authorization': f"Bearer {os.environ.get('PLATFORM_TOKEN', '')}"},
+                timeout=5
+            )
+            if response.status_code == 200:
+                quota = response.json()
+                if quota.get('gpu', 0) > 0:
+                    spawner.extra_resource_limits = {
+                        'nvidia.com/gpu': str(quota['gpu'])
+                    }
+        except Exception as e:
+            print(f"Failed to get user quota: {e}")
+
+    c.KubeSpawner.environment_override = spawner_environment_override
+
+  # Notebook image templates
+  image_templates.json: |
+    {
+      "images": [
+        {
+          "id": "pytorch",
+          "name": "PyTorch",
+          "description": "PyTorch 2.0 with CUDA support",
+          "image": "one-data-studio/notebook-pytorch:latest",
+          "icon": "pytorch",
+          "packages": ["torch", "torchvision", "torchaudio"],
+          "default": true,
+          "gpu_required": false,
+          "gpu_recommended": true
+        },
+        {
+          "id": "tensorflow",
+          "name": "TensorFlow",
+          "description": "TensorFlow 2.14 with Keras",
+          "image": "one-data-studio/notebook-tensorflow:latest",
+          "icon": "tensorflow",
+          "packages": ["tensorflow", "keras"],
+          "gpu_required": false,
+          "gpu_recommended": true
+        },
+        {
+          "id": "sklearn",
+          "name": "Scikit-learn",
+          "description": "Python data science stack",
+          "image": "one-data-studio/notebook-sklearn:latest",
+          "icon": "sklearn",
+          "packages": ["scikit-learn", "pandas", "numpy", "matplotlib"],
+          "default": false,
+          "gpu_required": false,
+          "gpu_recommended": false
+        },
+        {
+          "id": "nlp",
+          "name": "NLP",
+          "description": "NLP with Transformers and spaCy",
+          "image": "one-data-studio/notebook-nlp:latest",
+          "icon": "nlp",
+          "packages": ["transformers", "spacy", "datasets"],
+          "default": false,
+          "gpu_required": false,
+          "gpu_recommended": true
+        },
+        {
+          "id": "minimal",
+          "name": "Minimal",
+          "description": "Minimal Python environment",
+          "image": "one-data-studio/notebook-minimal:latest",
+          "icon": "python",
+          "packages": ["python", "ipykernel"],
+          "default": false,
+          "gpu_required": false,
+          "gpu_recommended": false
+        }
+      ],
+      "resource_presets": [
+        {
+          "id": "small",
+          "name": "Small",
+          "description": "0.5 CPU, 1GB RAM",
+          "cpu": "0.5",
+          "memory": "1G",
+          "gpu": "0"
+        },
+        {
+          "id": "medium",
+          "name": "Medium",
+          "description": "2 CPU, 4GB RAM",
+          "cpu": "2",
+          "memory": "4G",
+          "gpu": "0",
+          "default": true
+        },
+        {
+          "id": "large",
+          "name": "Large",
+          "description": "4 CPU, 8GB RAM",
+          "cpu": "4",
+          "memory": "8G",
+          "gpu": "0"
+        },
+        {
+          "id": "gpu-small",
+          "name": "GPU Small",
+          "description": "2 CPU, 8GB RAM, 1 GPU",
+          "cpu": "2",
+          "memory": "8G",
+          "gpu": "1"
+        },
+        {
+          "id": "gpu-large",
+          "name": "GPU Large",
+          "description": "8 CPU, 16GB RAM, 2 GPU",
+          "cpu": "8",
+          "memory": "16G",
+          "gpu": "2"
+        }
+      ]
+    }

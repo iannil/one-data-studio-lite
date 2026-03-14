@@ -1,0 +1,146 @@
+# One Data Studio Lite - Jupyter Hub Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyterhub
+  namespace: one-data-studio
+  labels:
+    app: jupyterhub
+    component: notebook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyterhub
+  template:
+    metadata:
+      labels:
+        app: jupyterhub
+        component: notebook
+      annotations:
+        prometheus.io/scrape: "false"
+    spec:
+      serviceAccountName: jupyterhub
+      containers:
+      - name: jupyterhub
+        image: jupyterhub/k8s-hub:3.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: hub
+          containerPort: 8081
+          protocol: TCP
+        - name: proxy
+          containerPort: 8000
+          protocol: TCP
+        - name: api
+          containerPort: 8001
+          protocol: TCP
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: JUPYTERHUB_CRYPT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: jupyterhub-secret
+              key: JUPYTERHUB_CRYPT_KEY
+        - name: PLATFORM_API_URL
+          value: "http://backend:8000/api/v1"
+        - name: PLATFORM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: JUPYTERHUB_TOKEN
+              optional: true
+        volumeMounts:
+        - name: config
+          mountPath: /usr/local/etc/jupyterhub/jupyterhub_config.py
+          subPath: jupyterhub_config.py
+        - name: config
+          mountPath: /etc/jupyterhub/image_templates.json
+          subPath: image_templates.json
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /hub/health
+            port: hub
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /hub/health
+            port: hub
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      - name: culler
+        image: jupyterhub/k8s-hub:3.0.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - python3
+        - -m
+        - jupyterhub_idle_culler
+        - --timeout=3600
+        - --cull-every=300
+        - --max-age=0
+        env:
+        - name: JUPYTERHUB_API_URL
+          value: "http://localhost:8081/hub/api"
+        - name: JUPYTERHUB_SERVICE_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: jupyterhub-secret
+              key: JUPYTERHUB_CRYPT_KEY
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+      - name: config
+        configMap:
+          name: jupyterhub-config
+---
+# Jupyter Hub PVC for user data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyterhub-data
+  namespace: one-data-studio
+  labels:
+    app: jupyterhub
+    component: notebook
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+# Jupyter Hub Shared PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyterhub-shared
+  namespace: one-data-studio
+  labels:
+    app: jupyterhub
+    component: notebook
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard

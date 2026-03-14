@@ -1,0 +1,113 @@
+# One Data Studio Lite - Development Environment Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: one-data-studio-dev
+
+# Reference to base configuration
+resources:
+  - ../../base
+
+# Common labels for development
+commonLabels:
+  environment: development
+  team: data-platform
+
+# Patches for development environment
+patches:
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: backend-hpa
+      spec:
+        minReplicas: 1
+        maxReplicas: 3
+    target:
+      kind: HorizontalPodAutoscaler
+      name: backend-hpa
+  - patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: frontend-hpa
+      spec:
+        minReplicas: 1
+        maxReplicas: 2
+    target:
+      kind: HorizontalPodAutoscaler
+      name: frontend-hpa
+
+# ConfigMap generator for dev-specific settings
+configMapGenerator:
+  - name: app-env
+    literals:
+      - APP_ENV=development
+      - LOG_LEVEL=DEBUG
+      - ENABLE_TRACING=false
+      - ENABLE_METRICS=true
+
+# Images for development (use latest)
+images:
+  - name: backend
+    newName: one-data-studio/backend
+    newTag: dev-latest
+  - name: frontend
+    newName: one-data-studio/frontend
+    newTag: dev-latest
+
+# Resource overrides for development
+patchesStrategicMerge:
+  - |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: backend
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: backend
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+  - |-
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: frontend
+    spec:
+      replicas: 1
+      template:
+        spec:
+          containers:
+            - name: frontend
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+  - |-
+    apiVersion: apps/v1
+    kind: StatefulSet
+    metadata:
+      name: postgres
+    spec:
+      template:
+        spec:
+          containers:
+            - name: postgres
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi

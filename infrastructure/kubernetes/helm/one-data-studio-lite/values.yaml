@@ -1,0 +1,291 @@
+# One Data Studio Lite - Default Values
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: "standard"
+  # Common environment variables
+  env: {}
+  # Common labels
+  labels: {}
+  # Common annotations
+  annotations: {}
+
+# Platform settings
+platform:
+  name: "one-data-studio-lite"
+  environment: "production"
+  domain: "one-data-studio.local"
+  apiDomain: "api.one-data-studio.local"
+
+  # CORS settings
+  cors:
+    origins: "http://localhost:3100,http://localhost:3000"
+    credentials: "true"
+    methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    headers: "*"
+
+  # Feature flags
+  features:
+    enableMonitoring: true
+    enableTracing: true
+    enableMetrics: true
+    enableAuditLog: true
+
+# Backend settings
+backend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: one-data-studio/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Service settings
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+
+  # Ingress settings
+  ingress:
+    enabled: true
+    className: traefik
+    hosts:
+      - host: api.one-data-studio.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: one-data-studio-tls
+        hosts:
+          - api.one-data-studio.local
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Environment variables
+  env: {}
+  envFrom: []
+
+  # Volume mounts
+  volumeMounts: []
+  volumes: []
+
+  # Liveness/Readiness probes
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Frontend settings
+frontend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: one-data-studio/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Service settings
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+
+  # Ingress settings
+  ingress:
+    enabled: true
+    className: traefik
+    hosts:
+      - host: one-data-studio.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: one-data-studio-tls
+        hosts:
+          - one-data-studio.local
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Environment variables
+  env:
+    NEXT_PUBLIC_API_URL: "http://backend:8000/api/v1"
+    NODE_ENV: "production"
+
+# PostgreSQL dependency configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresUser: postgres
+    postgresPassword: changeme
+    database: smart_data
+  primary:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: standard
+
+# Redis dependency configuration
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  replica:
+    replicaCount: 0
+  persistence:
+    enabled: false
+
+# MinIO dependency configuration
+minio:
+  enabled: true
+  auth:
+    rootUser: minioadmin
+    rootPassword: changeme
+  defaultBuckets: one-data-studio,mlflow,models,datasets,exports
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: standard
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  # Prometheus settings
+  prometheus:
+    enabled: false
+    # Set to true to use external Prometheus
+    external:
+      enabled: false
+      url: ""
+
+  # Grafana settings
+  grafana:
+    enabled: false
+    # Set to true to use external Grafana
+    external:
+      enabled: false
+      url: ""
+
+  # ServiceMonitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Logging configuration
+logging:
+  enabled: true
+  format: json
+  level: INFO
+
+# Security configuration
+security:
+  # Pod Security Context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Container Security Context
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# Service Account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automountServiceAccountToken: false
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Topology spread constraints
+topologySpreadConstraints: []

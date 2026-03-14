@@ -1,0 +1,343 @@
+# Smart Data Platform - Docker Compose
+# Complete development environment with all services
+
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: ./apps/backend
+    container_name: onedata-backend
+    ports:
+      - "3101:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/smart_data
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=minio:9000
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    env_file:
+      - ./apps/backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    volumes:
+      - ./apps/backend:/app
+      - model_cache:/app/models
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # Celery Worker
+  celery-worker:
+    build: ./apps/backend
+    container_name: onedata-celery-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/smart_data
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - MINIO_ENDPOINT=minio:9000
+    env_file:
+      - ./apps/backend/.env
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    volumes:
+      - ./apps/backend:/app
+      - model_cache:/app/models
+    command: celery -A app.celery_worker worker --loglevel=info
+    networks:
+      - onedata-network
+
+  # Frontend
+  frontend:
+    build: ./apps/frontend
+    container_name: onedata-frontend
+    ports:
+      - "3100:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3101/api/v1
+      - NEXT_PUBLIC_APP_URL=http://localhost:3100
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: onedata-postgres
+    ports:
+      - "3102:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=smart_data
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - onedata-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: onedata-redis
+    ports:
+      - "3103:6379"
+    volumes:
+      - redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - onedata-network
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    container_name: onedata-minio
+    ports:
+      - "3104:9000"
+      - "3105:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - miniodata:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # RabbitMQ Message Queue
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: onedata-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - onedata-network
+
+  # MLflow Tracking Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.9.0
+    container_name: onedata-mlflow
+    environment:
+      - BACKEND_STORE_URI=postgresql://postgres:postgres@postgres:5432/mlflow
+      - DEFAULT_ARTIFACT_ROOT=s3://mlflow/
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflowdata:/mlflow
+    command: >
+      server
+      --backend-store-uri postgresql://postgres:postgres@postgres:5432/mlflow
+      --default-artifact-root s3://mlflow/
+      --host 0.0.0.0
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - onedata-network
+
+  # Jupyter Hub
+  jupyter:
+    image: jupyterhub/jupyterhub:4.0.2
+    container_name: onedata-jupyter
+    environment:
+      - JUPYTERHUB_CRYPT_KEY=0d06a5a5f8d4f4a5e8d4b4c4d4e4f4a5
+      - JUPYTERHUB_API_TOKEN=development-token-change-in-production
+    ports:
+      - "8001:8000"
+    volumes:
+      - jupyterdata:/data
+      - ./infrastructure/jupyter/jupyter_config.py:/srv/jupyterhub/jupyter_config.py
+    depends_on:
+      - backend
+    networks:
+      - onedata-network
+
+  # Label Studio
+  label-studio:
+    image: heartexlabs/label-studio:latest
+    container_name: onedata-label-studio
+    environment:
+      - LABEL_STUDIO_USERNAME=admin@onedatastudio.io
+      - LABEL_STUDIO_PASSWORD=admin123
+      - POSTGRES_NAME=smart_data
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    ports:
+      - "8080:8080"
+    volumes:
+      - labelstudiodata:/label-studio/data
+    depends_on:
+      - postgres
+    networks:
+      - onedata-network
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: onedata-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheusdata:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - onedata-network
+
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: onedata-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - onedata-network
+
+  # Apache Superset (BI)
+  superset:
+    image: apache/superset:latest
+    container_name: onedata-superset
+    ports:
+      - "3106:8088"
+    environment:
+      - SUPERSET_SECRET_KEY=your-secret-key-here
+      - SUPERSET_LOAD_EXAMPLES=no
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - supersetdata:/app/superset_home
+    command: >
+      bash -c "
+        pip3 install -q psycopg2-binary &&
+        superset db upgrade &&
+        superset fab create-admin --username admin --password admin --firstname Admin --lastname User --email admin@example.com || true &&
+        superset init &&
+        exec superset run -h 0.0.0.0 -p 8088 --with-threads --reload
+      "
+    networks:
+      - onedata-network
+
+  # PgAdmin (PostgreSQL Management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: onedata-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@onedatastudio.io
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - onedata-network
+
+  # Redis Commander (Redis Management)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: onedata-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - onedata-network
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  miniodata:
+    driver: local
+  rabbitmqdata:
+    driver: local
+  model_cache:
+    driver: local
+  mlflowdata:
+    driver: local
+  jupyterdata:
+    driver: local
+  labelstudiodata:
+    driver: local
+  prometheusdata:
+    driver: local
+  grafanadata:
+    driver: local
+  supersetdata:
+    driver: local
+  pgadmindata:
+    driver: local
+
+networks:
+  onedata-network:
+    driver: bridge
