@@ -18,6 +18,8 @@ except ImportError:
     LDAPException = Exception
     LDAPBindError = Exception
     LDAPSocketOpenError = Exception
+    # Type stub for when ldap3 is not available
+    Connection = Any  # type: ignore
 
 from sqlalchemy.orm import Session
 

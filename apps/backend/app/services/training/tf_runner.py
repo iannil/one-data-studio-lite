@@ -531,11 +531,13 @@ class TPUTrainingRunner:
             return ((base_batch_size + 7) // 8) * 8 * num_cores
         return base_batch_size
 
-    def get_tpu_training_callbacks(self) -> List[tf.keras.callbacks.Callback]:
+    def get_tpu_training_callbacks(self) -> List[Any]:
         """Get recommended callbacks for TPU training"""
+        if not TF_AVAILABLE:
+            return []
         return [
             tf.keras.callbacks.BackupAndRestore(
-                backup_dir="/artifs/backups",
+                backup_dir="/artifacts/backups",
             ),
         ]
 

@@ -8,7 +8,7 @@ logs, and status updates to connected clients.
 import logging
 import asyncio
 import json
-from typing import Dict, Set, Any, Optional, Callable
+from typing import Dict, Set, Any, Optional, Callable, List
 from datetime import datetime
 from dataclasses import dataclass, asdict
 from enum import Enum

@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import String, DateTime, Integer, Text, ForeignKey, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import String, DateTime, Integer, Text, ForeignKey, Enum as SQLEnum, Boolean, Float, JSON as JSONType, BigInteger
+from sqlalchemy.dialects.postgresql import UUID, JSON, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,8 +29,10 @@ class BuildRecord(Base):
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
+    build_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     image_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    image_tag: Mapped[str] = mapped_column(String(100), default="latest")
     image_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     build_config: Mapped[str] = mapped_column(Text, nullable=False)
     build_key: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
@@ -39,10 +41,38 @@ class BuildRecord(Base):
     )
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     build_time_ms: Mapped[int] = mapped_column(Integer, default=0)
-    size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    # Multi-architecture support
+    multi_arch: Mapped[bool] = mapped_column(Boolean, default=False)
+    target_platforms: Mapped[Optional[list]] = mapped_column(ARRAY(String), nullable=True)
+    platform_manifests: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # Build cache
+    use_cache: Mapped[bool] = mapped_column(Boolean, default=True)
+    cache_key: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    cache_hit: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    cache_hit_layers: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Dockerfile
+    dockerfile_path: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    dockerfile_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Git source
+    git_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    git_branch: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    git_commit: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Kubernetes pod info
+    pod_name: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    pod_namespace: Mapped[str] = mapped_column(String(100), default="build")
+
     user_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True
     )
+    tenant_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    project_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
@@ -55,7 +85,7 @@ class BuildRecord(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<BuildRecord {self.name}:{self.status}>"
+        return f"<BuildRecord {self.build_id}:{self.status}>"
 
 
 class BuildLayer(Base):
@@ -148,6 +178,86 @@ class ImageTag(Base):
 
     def __repr__(self) -> str:
         return f"<ImageTag {self.image_name}:{self.tag}>"
+
+
+class BuildCacheRecord(Base):
+    """Build cache record for layer caching"""
+    __tablename__ = "build_cache_records"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
+    cache_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+
+    # Cache key (based on Dockerfile hash and build args)
+    cache_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True, unique=True)
+
+    # Layer information
+    layer_digest: Mapped[str] = mapped_column(String(128), nullable=False)
+    layer_command: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Source build
+    source_build_id: Mapped[Optional[str]] = mapped_column(
+        String(100), ForeignKey("build_records.build_id"), nullable=True
+    )
+
+    # Metadata
+    platform: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    size_bytes: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+    # Usage statistics
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    # Expiration
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<BuildCacheRecord {self.cache_id}>"
+
+
+class BuildTemplate(Base):
+    """Build template for common configurations"""
+    __tablename__ = "build_templates"
+
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
+    template_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+
+    # Template information
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Template category
+    category: Mapped[str] = mapped_column(String(50), nullable=False)  # python, nodejs, java, custom, base
+
+    # Template configuration
+    dockerfile_template: Mapped[str] = mapped_column(Text, nullable=False)
+    default_build_args: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    supported_platforms: Mapped[Optional[list]] = mapped_column(ARRAY(String), nullable=True)
+
+    # Version info
+    language_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # Is this a system template?
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Ownership
+    owner_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Visibility
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<BuildTemplate {self.template_id}:{self.name}>"
 
 
 # Import JSON type

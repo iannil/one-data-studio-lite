@@ -250,8 +250,9 @@ class TextChunker:
     def _sentence_chunk(self, text: str) -> List[DocumentChunk]:
         """Sentence-based chunking"""
         # Simple sentence splitting (in production, use NLP library)
-        sentences = text.replace(". ", ". "★").replace("!", "!★").replace("?", "?★")
-        sentences = sentences.split("★")
+        delimiter = " __SENTENCE_DELIM__ "
+        sentences = text.replace(". ", "." + delimiter).replace("!", "!" + delimiter).replace("?", "?" + delimiter)
+        sentences = sentences.split(delimiter)
         sentences = [s.strip() for s in sentences if s.strip()]
 
         chunks = []

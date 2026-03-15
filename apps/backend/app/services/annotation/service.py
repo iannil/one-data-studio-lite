@@ -11,7 +11,7 @@ from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.annotation.auth import LabelStudioAuthConfig, LabelStudioTokenGenerator
-from app.services.ai.ai_service import AIService
+from app.services.ai_service import AIService
 from app.core.config import settings
 
 
@@ -96,7 +96,7 @@ class AutoAnnotationService:
     """
 
     def __init__(self, ai_service: AIService = None):
-        self.ai_service = ai_service or AIService()
+        self.ai_service = ai_service  # Optional: may be injected
         self.config = LabelStudioAuthConfig()
 
     async def pre_annotate_image(

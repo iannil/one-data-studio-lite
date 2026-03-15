@@ -21,12 +21,23 @@ logger = logging.getLogger(__name__)
 
 
 class GPUVendor(str, Enum):
-    """GPU vendor types"""
+    """GPU vendor types - including domestic (Chinese) chip vendors"""
+    # International
     NVIDIA = "nvidia"
-    HUAWEI = "huawei"
-    CAMBRICON = "cambricon"
-    ILUVATAR = "iluvatar"
-    MOORE_THREADS = "moore_threads"
+    AMD = "amd"
+    INTEL = "intel"
+
+    # Domestic (Chinese) GPU/NPU vendors
+    HUAWEI = "huawei"           # Huawei Ascend (NPU)
+    CAMBRICON = "cambricon"     # Cambricon (MLU)
+    ILUVATAR = "iluvatar"       # Iluvatar CoreX (BI)
+    MOORE_THREADS = "moore_threads"  # Moore Threads (Musa)
+    ENFLAME = "enflame"         # Enflame (Suanhou/DTU)
+    HYGON = "hygon"             # Hygon (DCU)
+    BIREN = "biren"             # Biren (BR)
+    METAX = "metax"             # MetaX (CIX)
+    VASTAI = "vastai"           # Vastai (Erda)
+    INNOSILICON = "innosilicon" # InnoSilicon (Fenghua)
 
 
 class GPUType(str, Enum):
@@ -36,24 +47,108 @@ class GPUType(str, Enum):
     A100_80G = "A100-80GB"
     H100 = "H100"
     H100_80G = "H100-80GB"
+    H200 = "H200"
     V100 = "V100"
     T4 = "T4"
     RTX_3090 = "RTX-3090"
     RTX_4090 = "RTX-4090"
     L4 = "L4"
     L40 = "L40"
-    # Huawei
+    L40S = "L40S"
+
+    # AMD
+    MI200 = "MI200"
+    MI250 = "MI250"
+    MI300 = "MI300"
+    MI300X = "MI300X"
+    RX7900 = "RX7900"
+
+    # Intel
+    MAX1100 = "MAX1100"
+    MAX1550 = "MAX1550"
+    GMMA = "GMMA"
+
+    # Huawei Ascend (NPU)
     ASCEND_910 = "Ascend-910"
+    ASCEND_910A = "Ascend-910A"
     ASCEND_910B = "Ascend-910B"
+    ASCEND_910C = "Ascend-910C"
     ASCEND_310 = "Ascend-310"
-    # Cambricon
+    ASCEND_310B = "Ascend-310B"
+    ASCEND_310P = "Ascend-310P"
+    ASCEND_920 = "Ascend-920"
+    ASCEND_A2 = "Ascend-A2"
+    ASCEND_S310 = "Ascend-S310"
+
+    # Cambricon (MLU)
+    MLU100 = "MLU100"
+    MLU270 = "MLU270"
+    MLU290 = "MLU290"
     MLU370 = "MLU370"
+    MLU370_X4 = "MLU370-X4"
     MLU370_X8 = "MLU370-X8"
+    MLU370_S4 = "MLU370-S4"
+    MLU370_S8 = "MLU370-S8"
     MLU590 = "MLU590"
-    # Iluvatar
+    MLU580 = "MLU580"
+    MLU590_T = "MLU590-T"
+    C100 = "C100"
+    C200 = "C200"
+    C500 = "C500"
+
+    # Iluvatar CoreX
+    BI100 = "BI100"
     BI150 = "BI150"
-    # Moore Threads
+    BI164 = "BI164"
+    BI300 = "BI300"
+    BI350 = "BI350"
+    TIANGAI = "Tiangai"
+
+    # Moore Threads (Musa)
+    S3000 = "S3000"
     S4000 = "S4000"
+    S5000 = "S5000"
+    S7000 = "S7000"
+    S8000 = "S8000"
+    MTT_S80 = "MTT-S80"
+    CHUNXIAO = "Chunxiao"
+
+    # Enflame (Suanhou/DTU)
+    DTU1 = "DTU1"
+    DTU2 = "DTU2"
+    DTU3 = "DTU3"
+    DTU4 = "DTU4"
+    G10 = "G10"
+    G11 = "G11"
+    G12 = "G12"
+    Q100 = "Q100"
+    S40 = "S40"
+
+    # Hygon (DCU)
+    DCU1 = "DCU1"
+    DCU2 = "DCU2"
+    Z100 = "Z100"
+    HYGON_C100 = "HYGON_C100"  # Hygon C100
+
+    # Biren (BR)
+    BR100 = "BR100"
+    BR104 = "BR104"
+    BR104L = "BR104L"
+    BR140 = "BR140"
+    BR210 = "BR210"
+
+    # MetaX (CIX)
+    CIX = "CIX"
+    CIX_E1 = "CIX-E1"
+
+    # Vastai (Erda)
+    ERDA1 = "Erda1"
+    ERDA2 = "Erda2"
+    VASTAI_V1 = "Vastai-V1"
+
+    # InnoSilicon (Fenghua)
+    FENGHUA1 = "Fenghua1"
+    FENGHUA2 = "Fenghua2"
 
 
 class MemoryUnit(str, Enum):
@@ -370,6 +465,231 @@ class CambriconMLUBackend(GPUBackend):
     vendor = GPUVendor.CAMBRICON
 
     async def enumerate_gpus(self) -> List[GPUResource]:
+        """Enumerate Cambricon MLU devices using cnmon"""
+        gpus = []
+        try:
+            result = subprocess.run(
+                ["cnmon", "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                # Parse cnmon output for MLU devices
+                pass
+        except FileNotFoundError:
+            logger.debug("cnmon not found")
+        except Exception as e:
+            logger.error(f"Error enumerating MLUs: {e}")
+        return gpus
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class EnflameDTUBackend(GPUBackend):
+    """Enflame DTU (Suanhou) backend"""
+
+    vendor = GPUVendor.ENFLAME
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        """Enumerate Enflame DTU devices"""
+        gpus = []
+        try:
+            result = subprocess.run(
+                ["dtu-smi", "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                # Parse dtu-smi output
+                pass
+        except FileNotFoundError:
+            logger.debug("dtu-smi not found")
+        except Exception as e:
+            logger.error(f"Error enumerating DTUs: {e}")
+        return gpus
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class HygonDCUBackend(GPUBackend):
+    """Hygon DCU backend"""
+
+    vendor = GPUVendor.HYGON
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        """Enumerate Hygon DCU devices using rocm-smi"""
+        gpus = []
+        try:
+            # Hygon DCU uses ROCm tools
+            result = subprocess.run(
+                ["rocm-smi", "--showallinfo"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                # Parse rocm-smi output for DCU devices
+                pass
+        except FileNotFoundError:
+            logger.debug("rocm-smi not found")
+        except Exception as e:
+            logger.error(f"Error enumerating DCUs: {e}")
+        return gpus
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class IluvatarBackend(GPUBackend):
+    """Iluvatar CoreX backend"""
+
+    vendor = GPUVendor.ILUVATAR
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        """Enumerate Iluvatar CoreX devices"""
+        gpus = []
+        try:
+            result = subprocess.run(
+                ["bi-smi", "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                # Parse bi-smi output
+                pass
+        except FileNotFoundError:
+            logger.debug("bi-smi not found")
+        except Exception as e:
+            logger.error(f"Error enumerating Iluvatar GPUs: {e}")
+        return gpus
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class MooreThreadsBackend(GPUBackend):
+    """Moore Threads (Musa) backend"""
+
+    vendor = GPUVendor.MOORE_THREADS
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        """Enumerate Moore Threads devices using musa-smi"""
+        gpus = []
+        try:
+            result = subprocess.run(
+                ["musa-smi", "info"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                # Parse musa-smi output
+                pass
+        except FileNotFoundError:
+            logger.debug("musa-smi not found")
+        except Exception as e:
+            logger.error(f"Error enumerating Moore Threads GPUs: {e}")
+        return gpus
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class BirenBackend(GPUBackend):
+    """Biren (BR) backend - Placeholder"""
+
+    vendor = GPUVendor.BIREN
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        return []
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class MetaxBackend(GPUBackend):
+    """MetaX (CIX) backend - Placeholder"""
+
+    vendor = GPUVendor.METAX
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        return []
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class VastaiBackend(GPUBackend):
+    """Vastai (Erda) backend - Placeholder"""
+
+    vendor = GPUVendor.VASTAI
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
+        return []
+
+    async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
+        return {}
+
+    async def allocate_gpu(self, gpu_id: str, allocation_id: str, spec: GPUSpec) -> bool:
+        return False
+
+    async def deallocate_gpu(self, allocation_id: str) -> bool:
+        return False
+
+
+class InnoSiliconBackend(GPUBackend):
+    """InnoSilicon (Fenghua) backend - Placeholder"""
+
+    vendor = GPUVendor.INNOSILICON
+
+    async def enumerate_gpus(self) -> List[GPUResource]:
         return []
 
     async def get_gpu_metrics(self, gpu_id: str) -> Dict[str, Any]:
@@ -388,9 +708,19 @@ class GPUScheduler:
     def __init__(self, db: Session):
         self.db = db
         self._backends: Dict[GPUVendor, GPUBackend] = {
+            # International
             GPUVendor.NVIDIA: NVIDIABackend(),
+            # Domestic (Chinese) GPU/NPU vendors
             GPUVendor.HUAWEI: HuaweiNPUBackend(),
             GPUVendor.CAMBRICON: CambriconMLUBackend(),
+            GPUVendor.ILUVATAR: IluvatarBackend(),
+            GPUVendor.MOORE_THREADS: MooreThreadsBackend(),
+            GPUVendor.ENFLAME: EnflameDTUBackend(),
+            GPUVendor.HYGON: HygonDCUBackend(),
+            GPUVendor.BIREN: BirenBackend(),
+            GPUVendor.METAX: MetaxBackend(),
+            GPUVendor.VASTAI: VastaiBackend(),
+            GPUVendor.INNOSILICON: InnoSiliconBackend(),
         }
         self._allocations: Dict[str, GPUAllocation] = {}
 

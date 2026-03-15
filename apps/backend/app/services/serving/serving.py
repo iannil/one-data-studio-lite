@@ -139,15 +139,13 @@ class ABTestConfig:
 
     experiment_id: str
     model_variants: List[Dict[str, Any]]  # Each variant has model_uri, predictor_config, traffic_percentage
+    success_metric: str  # e.g., "accuracy", "conversion_rate"
+
+    # Optional parameters with defaults
     duration: Optional[str] = None  # e.g., "7d", "24h"
     sample_size: Optional[int] = None
-
-    # Success metric
-    success_metric: str  # e.g., "accuracy", "conversion_rate"
     success_mode: str = "max"  # "max" or "min"
     min_sample_size: int = 100
-
-    # Traffic routing
     traffic_split_method: str = "fixed"  # "fixed", "epsilon_greedy", "thompson_sampling"
 
 
@@ -548,12 +546,13 @@ class ModelServingService:
             "spec": {
                 "predictors": [{
                     "componentSpec": {
-                    "spec": {
-                        "containers": [{
-                            "name": "predictor",
-                            "image": service.predictor_config.custom_predictor_image,
-                            "resources": service.predictor_config.resource_requirements,
-                        }],
+                        "spec": {
+                            "containers": [{
+                                "name": "predictor",
+                                "image": service.predictor_config.custom_predictor_image,
+                                "resources": service.predictor_config.resource_requirements,
+                            }],
+                        },
                     },
                 }],
             },

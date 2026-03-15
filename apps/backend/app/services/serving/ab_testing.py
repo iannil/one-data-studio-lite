@@ -190,14 +190,12 @@ class StatisticalTestResult:
     confidence_interval: Tuple[float, float]
     effect_size: float
     test_statistic: float
-    test_name: str = "z_test"
-
-    # Variant comparison
     control_metric: float
     treatment_metric: float
     relative_improvement: float
 
-    # Recommendation
+    # Optional fields with defaults
+    test_name: str = "z_test"
     should_promote: bool = False
     recommendation: str = ""
 

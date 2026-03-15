@@ -16,6 +16,7 @@ from app.services.workflow.dag_engine import DAGConfig
 from app.services.workflow.task_types import TaskType, TaskRegistry
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
+template_router = APIRouter(prefix="/templates", tags=["workflow-templates"])
 
 
 # Request/Response Schemas

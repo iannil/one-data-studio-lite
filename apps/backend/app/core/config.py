@@ -74,6 +74,48 @@ class Settings(BaseSettings):
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
     MLFLOW_S3_ENDPOINT_URL: str = "http://localhost:9000"
 
+    # LLM
+    LLM_INFERENCE_URL: str = "http://localhost:8000"
+    LLM_API_KEY: str = ""
+    LLM_DEFAULT_MODEL: str = "gpt-4-turbo-preview"
+    LLM_MAX_TOKENS: int = 4096
+    LLM_TEMPERATURE: float = 0.7
+
+    # Vector Database
+    VECTOR_DB_TYPE: str = "chromadb"  # chromadb, faiss, pgvector, memory
+    VECTOR_DB_HOST: str = "localhost"
+    VECTOR_DB_PORT: int = 8000
+    VECTOR_DB_INDEX: str = "default"
+    CHROMADB_PERSIST_DIR: str = "./data/chromadb"
+
+    # Embedding
+    EMBEDDING_MODEL: str = "text-embedding-ada-002"
+    EMBEDDING_DIMENSION: int = 1536
+    EMBEDDING_PROVIDER: str = "openai"  # openai, cohere, huggingface, bge
+
+    # Knowledge Base
+    KNOWLEDGE_CHUNK_SIZE: int = 1000
+    KNOWLEDGE_CHUNK_OVERLAP: int = 200
+    KNOWLEDGE_TOP_K: int = 5
+
+    # Serverless
+    SERVERLESS_RUNTIME: str = "python"
+    SERVERLESS_TIMEOUT: int = 300
+    SERVERLESS_MEMORY: int = 512
+
+    # Edge Computing
+    EDGE_REGISTRY_URL: str = "http://localhost:9000"
+    EDGE_HEARTBEAT_INTERVAL: int = 30
+
+    # Storage
+    STORAGE_DEFAULT_BACKEND: str = "minio"
+    STORAGE_S3_ENDPOINT: str = "http://localhost:9000"
+    STORAGE_S3_ACCESS_KEY: str = "minioadmin"
+    STORAGE_S3_SECRET_KEY: str = "minioadmin"
+    STORAGE_S3_BUCKET: str = "smart-data"
+    STORAGE_OSS_ENDPOINT: str = ""
+    STORAGE_NFS_ROOT: str = "/data/nfs"
+
 
 @lru_cache
 def get_settings() -> Settings:

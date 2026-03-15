@@ -19,7 +19,7 @@ import shutil
 
 from sqlalchemy.orm import Session
 
-from app.models.notebook import Notebook, NotebookStatus
+from app.models.notebook import Notebook
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import json
 
-from app.services.ai.ai_service import AIService
+from app.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 

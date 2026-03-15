@@ -18,6 +18,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class SSOIdentity(Base, TimestampMixin):
     """SSO/OAuth2 linked identity"""
     __tablename__ = "sso_identities"
@@ -36,15 +45,6 @@ class SSOIdentity(Base, TimestampMixin):
 
     # Relationships
     user: Mapped["User"] = relationship("User")
-
-
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
 
 
 class User(Base, TimestampMixin):

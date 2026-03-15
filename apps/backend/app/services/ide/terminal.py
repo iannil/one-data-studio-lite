@@ -7,7 +7,7 @@ Manages terminal sessions for online IDE instances.
 import logging
 import asyncio
 import uuid
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum

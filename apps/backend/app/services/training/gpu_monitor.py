@@ -9,7 +9,7 @@ import logging
 import asyncio
 import subprocess
 import re
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime, timedelta
 from dataclasses import dataclass, replace
 from collections import defaultdict
@@ -176,7 +176,7 @@ class GPUMonitor:
 
     async def start_monitoring(
         self,
-        callback: callable[[List[GPUMetrics]], None],
+        callback: Callable[[List[GPUMetrics]], None],
     ) -> None:
         """
         Start continuous GPU monitoring
@@ -255,7 +255,6 @@ class TrainingGPUMonitor:
                         "utilization_status": metric.utilization_status,
                     }
                 })
-                )
 
                 # Check for alerts
                 await self._check_alerts(metric, timestamp)

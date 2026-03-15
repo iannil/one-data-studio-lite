@@ -77,7 +77,7 @@ class TrainingJobCreateRequest(BaseModel):
     data_config: Dict[str, Any] = Field(default_factory=dict, description="Data configuration")
 
     # Model configuration
-    model_config: Dict[str, Any] = Field(default_factory=dict, description="Model configuration")
+    model_params: Dict[str, Any] = Field(default_factory=dict, description="Model configuration")
 
     # Distributed settings
     num_nodes: int = Field(1, ge=1, le=100, description="Number of training nodes")

@@ -52,6 +52,9 @@ from .alert_rule import (
     get_alert_engine,
 )
 
+from .efk import LogAggregator, get_log_aggregator
+from .jaeger import TraceExporter, get_trace_exporter
+
 __all__ = [
     # Metrics Exporter
     "PrometheusMiddleware",
@@ -97,4 +100,10 @@ __all__ = [
     "Alert",
     "AlertRuleEngine",
     "get_alert_engine",
+    # EFK
+    "LogAggregator",
+    "get_log_aggregator",
+    # Jaeger
+    "TraceExporter",
+    "get_trace_exporter",
 ]

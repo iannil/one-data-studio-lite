@@ -163,7 +163,7 @@ class PaymentMethod(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=lambda: datetime.utcnow()
@@ -212,7 +212,7 @@ class Invoice(Base):
     memo: Mapped[Optional[str]] = mapped_column(Text)
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=lambda: datetime.utcnow()
@@ -246,7 +246,7 @@ class InvoiceLineItem(Base):
     period_end: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=lambda: datetime.utcnow()
@@ -296,7 +296,7 @@ class Payment(Base):
     refunded_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
 
 class UsageRecord(Base):
@@ -329,7 +329,7 @@ class UsageRecord(Base):
     source_id: Mapped[Optional[str]] = mapped_column(String(255))  # Reference to source entity
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
 
 class Credit(Base):
@@ -393,7 +393,7 @@ class BillingAlert(Base):
     status: Mapped[str] = mapped_column(String(50), default="active")  # active, acknowledged, resolved
 
     # Metadata
-    metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    record_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=lambda: datetime.utcnow()

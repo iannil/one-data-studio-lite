@@ -61,7 +61,7 @@ class Notebook(Base):
         return f"<Notebook(id={self.id}, name='{self.name}', user_id={self.user_id}, state='{self.state}')>"
 
 
-class NotebookSession(BaseModel):
+class NotebookSession(Base):
     """
     Notebook session model
 

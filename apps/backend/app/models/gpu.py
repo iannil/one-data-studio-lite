@@ -77,7 +77,7 @@ class GPUAllocationRecord(Base):
     status: Mapped[str] = mapped_column(String(20), default="active")  # active, expired, returned
 
     # Metadata
-    metadata: Mapped[dict] = mapped_column(JSON, nullable=True)
+    record_metadata: Mapped[dict] = mapped_column(JSON, nullable=True)
 
     def __repr__(self) -> str:
         return f"<GPUAllocationRecord {self.allocation_id}:{self.status}>"

@@ -248,10 +248,12 @@ WARNING: This file is auto-generated. Manual changes may be overwritten.
         if dag.description:
             dag_params.append(f"description='{dag.description}'")
 
+        # Build DAG definition (can't use \n in f-string expression)
+        params_str = ',\n    '.join(dag_params)
         dag_def = f"""{default_args}
 
 with DAG(
-    {',\n    '.join(dag_params)}
+    {params_str}
 ) as dag:"""
 
         return dag_def

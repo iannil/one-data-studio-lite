@@ -31,6 +31,14 @@ from app.api.v1.monitoring import router as monitoring_router
 from app.api.v1.ide import router as ide_router
 from app.api.v1.feature_store import router as feature_store_router
 from app.api.v1.automl import router as automl_router
+from app.api.v1.tensorboard import router as tensorboard_router
+from app.api.v1.dataset import router as dataset_router
+from app.api.v1.finetune import router as finetune_router
+from app.api.v1.storage import router as storage_router
+from app.api.v1.knowledge import router as knowledge_router
+from app.api.v1.serverless import router as serverless_router
+from app.api.v1.edge import router as edge_router
+from app.api.v1.data_collection import router as data_collection_router
 
 api_router = APIRouter()
 
@@ -133,3 +141,28 @@ api_router.include_router(feature_store_router)
 
 # AutoML
 api_router.include_router(automl_router)
+
+# TensorBoard
+api_router.include_router(tensorboard_router, prefix="/tensorboard", tags=["TensorBoard"])
+
+# Dataset
+api_router.include_router(dataset_router, prefix="/datasets", tags=["Datasets"])
+
+# Fine-tuning
+api_router.include_router(finetune_router, prefix="/finetune", tags=["Fine-tuning"])
+
+# Storage
+api_router.include_router(storage_router, prefix="/storage", tags=["Storage"])
+
+# Phase 3: Advanced Features
+# Knowledge Base & RAG
+api_router.include_router(knowledge_router, prefix="/knowledge", tags=["Knowledge Base"])
+
+# Serverless Functions
+api_router.include_router(serverless_router, prefix="/serverless", tags=["Serverless"])
+
+# Edge Computing
+api_router.include_router(edge_router, prefix="/edge", tags=["Edge Computing"])
+
+# Data Collection
+api_router.include_router(data_collection_router, prefix="/data-collection", tags=["Data Collection"])

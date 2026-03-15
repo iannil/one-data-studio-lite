@@ -64,6 +64,88 @@ from app.models.report import (
     ReportStatus,
     ChartType,
 )
+from app.models.tensorboard import (
+    TensorBoardInstance,
+    TensorBoardAccessLog,
+    TensorBoardConfig,
+)
+from app.models.dataset import (
+    Dataset,
+    DatasetVersion,
+    DatasetTag,
+    DatasetSplit,
+    DatasetPreview,
+    DatasetAccessLog as DatasetAccessLogModel,
+    DatasetStatistics,
+)
+from app.models.finetune import (
+    FinetunePipeline,
+    FinetuneStage,
+    FinetuneCheckpoint,
+    FinetuneMetric,
+    FinetuneTemplate,
+)
+from app.models.storage import (
+    StorageConfig,
+    StorageFile,
+    StorageSignedUrl,
+    StorageTransfer,
+    StorageQuota,
+)
+from app.models.build import (
+    BuildRecord,
+    BuildLayer,
+    BuildCacheRecord,
+    BuildTemplate,
+)
+from app.models.monitoring import (
+    PrometheusMetric,
+    PrometheusRule,
+    LogIndex,
+    TraceConfig,
+    Dashboard,
+)
+from app.models.sso import (
+    SSOConfig,
+    SSOSession,
+    UserGroupMapping,
+)
+from app.models.knowledge import (
+    KnowledgeBase,
+    KnowledgeDocument,
+    DocumentChunk,
+    VectorIndex,
+    RetrievalResult,
+    RAGSession,
+    RAGMessage,
+)
+from app.models.data_collection import (
+    CollectionTask,
+    CollectionExecution,
+    DataSourceConnector as CollectionConnector,
+    QualityValidationResult,
+    DataStream,
+    WebhookConfig,
+)
+from app.models.serverless import (
+    ServerlessFunction,
+    FunctionTrigger,
+    FunctionExecution,
+    FunctionLog,
+    Runtime,
+    FunctionLayer,
+    FunctionAlias,
+    APIEndpoint,
+)
+from app.models.edge import (
+    EdgeNode,
+    EdgeModel,
+    EdgeDeployment,
+    EdgeJob,
+    EdgeDevice,
+    EdgeMetrics,
+    EdgeInferenceResult,
+)
 
 __all__ = [
     # User
@@ -127,4 +209,75 @@ __all__ = [
     "ReportSchedule",
     "ReportStatus",
     "ChartType",
+    # TensorBoard
+    "TensorBoardInstance",
+    "TensorBoardAccessLog",
+    "TensorBoardConfig",
+    # Dataset
+    "Dataset",
+    "DatasetVersion",
+    "DatasetTag",
+    "DatasetSplit",
+    "DatasetPreview",
+    "DatasetAccessLogModel",
+    "DatasetStatistics",
+    # Fine-tuning
+    "FinetunePipeline",
+    "FinetuneStage",
+    "FinetuneCheckpoint",
+    "FinetuneMetric",
+    "FinetuneTemplate",
+    # Storage
+    "StorageConfig",
+    "StorageFile",
+    "StorageSignedUrl",
+    "StorageTransfer",
+    "StorageQuota",
+    # Build
+    "BuildRecord",
+    "BuildLayer",
+    "BuildCacheRecord",
+    "BuildTemplate",
+    # Monitoring
+    "PrometheusMetric",
+    "PrometheusRule",
+    "LogIndex",
+    "TraceConfig",
+    "Dashboard",
+    # SSO
+    "SSOConfig",
+    "SSOSession",
+    "UserGroupMapping",
+    # Knowledge
+    "KnowledgeBase",
+    "KnowledgeDocument",
+    "DocumentChunk",
+    "VectorIndex",
+    "RetrievalResult",
+    "RAGSession",
+    "RAGMessage",
+    # Data Collection
+    "CollectionTask",
+    "CollectionExecution",
+    "CollectionConnector",
+    "QualityValidationResult",
+    "DataStream",
+    "WebhookConfig",
+    # Serverless
+    "ServerlessFunction",
+    "FunctionTrigger",
+    "FunctionExecution",
+    "FunctionLog",
+    "Runtime",
+    "FunctionLayer",
+    "FunctionAlias",
+    "APIEndpoint",
+    # Edge
+    "EdgeNode",
+    "EdgeModel",
+    "EdgeDeployment",
+    "EdgeJob",
+    "EdgeDevice",
+    "EdgeMetrics",
+    "EdgeInferenceResult",
 ]

@@ -44,6 +44,7 @@ class AppStatus(str, Enum):
 
 class DeploymentStatus(str, Enum):
     """Deployment status"""
+    DRAFT = "draft"
     PENDING = "pending"
     BUILDING = "building"
     DEPLOYING = "deploying"

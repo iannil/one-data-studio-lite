@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.api.deps import get_current_user
 from app.models.user import User
 from app.services.monitoring import (
     get_metrics_exporter,
@@ -55,7 +55,7 @@ class AlertRuleCreateSchema(BaseModel):
     severity: AlertSeverity
     enabled: bool = True
     conditions: List[AlertConditionSchema]
-    condition_operator: str = Field("AND", regex="^(AND|OR)$")
+    condition_operator: str = Field("AND", pattern="^(AND|OR)$")
     notification_channels: List[NotificationChannel] = Field(default_factory=list)
     notification_recipients: List[str] = Field(default_factory=list)
     evaluation_interval_seconds: int = Field(60, ge=10, le=3600)

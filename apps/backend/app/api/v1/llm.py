@@ -380,7 +380,7 @@ async def create_completion(
     model: str = Query(..., description="Model to use"),
     prompt: str = Query(..., description="Prompt text"),
     max_tokens: int = Query(512, ge=1, le=4096, description="Max tokens"),
-    temperature: float = Query(0.7, ge=0, ge=2, description="Temperature"),
+    temperature: float = Query(0.7, ge=0, le=2, description="Temperature"),
     stream: bool = Query(False, description="Stream response"),
     current_user: User = Depends(get_current_user),
 ) -> dict:
