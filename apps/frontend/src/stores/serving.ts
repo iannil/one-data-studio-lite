@@ -87,6 +87,20 @@ interface ServingState {
   resumeCanaryDeployment: (deployment_id: string) => Promise<void>;
   setCanaryTraffic: (deployment_id: string, traffic_percentage: number) => Promise<void>;
   deleteCanaryDeployment: (deployment_id: string) => Promise<void>;
+
+  // Deploy from Training
+  deployTrainedModel: (jobId: string, config: {
+    name: string;
+    description?: string;
+    platform?: ServingPlatform;
+    predictor_type: PredictorType;
+    runtime_version?: string;
+    device?: string;
+    replicas?: number;
+    autoscaling_enabled?: boolean;
+    min_replicas?: number;
+    max_replicas?: number;
+  }) => Promise<InferenceService>;
 }
 
 export const useServingStore = create<ServingState>()(
@@ -550,6 +564,62 @@ export const useServingStore = create<ServingState>()(
           throw new Error(error.response?.data?.detail || 'Failed to delete canary deployment');
         }
       },
+
+      // Deploy from training job
+      deployTrainedModel: async (jobId: string, config: {
+        name: string;
+        description?: string;
+        platform?: ServingPlatform;
+        predictor_type: PredictorType;
+        runtime_version?: string;
+        device?: string;
+        replicas?: number;
+        autoscaling_enabled?: boolean;
+        min_replicas?: number;
+        max_replicas?: number;
+      }) => {
+        try {
+          // Get job details to find model path
+          const jobResponse = await api.get(`/training/jobs/${jobId}`);
+          const job = jobResponse.data;
+
+          // Determine model URI from job checkpoint path
+          const modelUri = job.config?.checkpoint_path || `/models/${jobId}`;
+
+          const response = await api.post('/serving/services', {
+            name: config.name,
+            namespace: 'default',
+            description: config.description || `Model from training job ${jobId}`,
+            platform: config.platform || ServingPlatform.KSERVE,
+            mode: DeploymentMode.RAW,
+            predictor_config: {
+              predictor_type: config.predictor_type,
+              model_uri: modelUri,
+              runtime_version: config.runtime_version,
+              device: config.device || 'cpu',
+              replicas: config.replicas || 1,
+            },
+            autoscaling_enabled: config.autoscaling_enabled || false,
+            min_replicas: config.min_replicas || 1,
+            max_replicas: config.max_replicas || 3,
+            enable_logging: true,
+            metadata: {
+              source_job_id: jobId,
+              source_job_name: job.name,
+            },
+          });
+
+          const newService = response.data as InferenceService;
+
+          set((state) => ({
+            services: [...state.services, newService],
+          }));
+
+          return newService;
+        } catch (error: any) {
+          throw new Error(error.response?.data?.detail || 'Failed to deploy model');
+        }
+      },
     }),
     {
       name: 'serving-storage',
@@ -616,3 +686,7 @@ export const useCanaryStats = () => {
     failed: deployments.filter((d) => d.phase === CanaryPhase.FAILED).length,
   };
 };
+
+// Deploy from training
+export const useDeployTrainedModel = () => useServingStore((state) => state.deployTrainedModel);
+

@@ -454,3 +454,335 @@ async def get_column_downstream(
 
     service = LineageService(db)
     return await service.get_column_downstream(column_name, table_name, depth)
+
+
+# ============================================================================
+# Visualization Endpoints
+# ============================================================================
+
+
+@router.get("/visualization/node/{node_id}")
+async def get_node_visualization(
+    node_id: str,
+    direction: str = "both",
+    depth: int = 3,
+    format: str = "react_flow",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get visualization for a specific node.
+
+    Args:
+        node_id: The node ID to visualize
+        direction: "upstream", "downstream", or "both"
+        depth: Maximum depth to traverse
+        format: "react_flow" or "d3"
+
+    Returns:
+        Graph visualization in requested format
+    """
+    from app.services.lineage.visualization_service import (
+        get_lineage_visualizer,
+        GraphLayout,
+    )
+
+    visualizer = get_lineage_visualizer(db)
+    node_uuid = uuid.UUID(node_id)
+
+    # Get upstream and/or downstream
+    service = LineageService(db)
+    if direction == "upstream":
+        graph = await service.get_upstream(node_uuid, depth)
+    elif direction == "downstream":
+        graph = await service.get_downstream(node_uuid, depth)
+    else:
+        # Get both and merge
+        upstream = await service.get_upstream(node_uuid, depth)
+        downstream = await service.get_downstream(node_uuid, depth)
+
+        # Merge nodes and edges
+        all_nodes = {n["id"]: n for n in upstream["nodes"]}
+        for n in downstream["nodes"]:
+            all_nodes[n["id"]] = n
+
+        all_edges = upstream["edges"] + [e for e in downstream["edges"]]
+
+        graph = {
+            "nodes": list(all_nodes.values()),
+            "edges": all_edges,
+        }
+
+    # Create visualization
+    layout = GraphLayout.HIERARCHICAL if direction != "both" else GraphLayout.FORCE_DIRECTED
+    visualization = await visualizer.create_visualization(
+        nodes=[],
+        edges=[],
+        layout=layout,
+        root_node_id=node_id,
+    )
+
+    # Override with actual data
+    visualization.nodes = [
+        {
+            "id": n["id"],
+            "label": n.get("name", ""),
+            "type": n.get("type", ""),
+            "color": visualizer.NODE_COLORS.get(n.get("type", "")),
+        }
+        for n in graph.get("nodes", [])
+    ]
+    visualization.edges = [
+        {
+            "id": e["id"],
+            "source": e.get("source", ""),
+            "target": e.get("target", ""),
+            "label": e.get("description"),
+            "type": e.get("type", ""),
+            "color": visualizer.EDGE_COLORS.get(e.get("type", "")),
+        }
+        for e in graph.get("edges", [])
+    ]
+
+    # Return in requested format
+    if format == "react_flow":
+        return visualization.to_react_flow_format()
+    elif format == "d3":
+        return visualization.to_d3_format()
+    else:
+        return visualization.to_dict()
+
+
+@router.get("/visualization/global")
+async def get_global_visualization(
+    node_types: str | None = None,
+    limit: int = 100,
+    layout: str = "force_directed",
+    format: str = "react_flow",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get global lineage graph visualization.
+
+    Args:
+        node_types: Comma-separated node types to filter
+        limit: Maximum nodes to return
+        layout: Graph layout algorithm
+        format: Output format
+
+    Returns:
+        Complete graph visualization
+    """
+    from app.services.lineage.visualization_service import (
+        get_lineage_visualizer,
+        GraphLayout,
+    )
+
+    visualizer = get_lineage_visualizer(db)
+    service = LineageService(db)
+
+    # Get graph data
+    graph = await service.get_global_graph(
+        node_types=node_types.split(",") if node_types else None,
+        limit=limit,
+    )
+
+    # Create visualization
+    layout_enum = GraphLayout(layout)
+    visualization = await visualizer.create_visualization(
+        nodes=[],
+        edges=[],
+        layout=layout_enum,
+    )
+
+    # Add actual data
+    visualization.nodes = [
+        {
+            "id": n["id"],
+            "label": n.get("name", ""),
+            "type": n.get("type", ""),
+            "color": visualizer.NODE_COLORS.get(n.get("type", "")),
+        }
+        for n in graph.get("nodes", [])
+    ]
+    visualization.edges = [
+        {
+            "id": e["id"],
+            "source": e.get("source", ""),
+            "target": e.get("target", ""),
+            "label": e.get("description"),
+            "type": e.get("type", ""),
+            "color": visualizer.EDGE_COLORS.get(e.get("type", "")),
+        }
+        for e in graph.get("edges", [])
+    ]
+
+    # Return in requested format
+    if format == "react_flow":
+        return visualization.to_react_flow_format()
+    elif format == "d3":
+        return visualization.to_d3_format()
+    else:
+        return visualization.to_dict()
+
+
+# ============================================================================
+# Path Analysis Endpoints
+# ============================================================================
+
+
+@router.get("/paths/analyze/{source_id}/{target_id}")
+async def analyze_paths(
+    source_id: str,
+    target_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Analyze all paths between two nodes.
+
+    Args:
+        source_id: Source node ID
+        target_id: Target node ID
+
+    Returns:
+        Path analysis results including shortest path and all paths
+    """
+    from app.services.lineage.visualization_service import get_path_analyzer
+
+    analyzer = get_path_analyzer(db)
+
+    result = await analyzer.analyze_paths(
+        source_id=source_id,
+        target_id=target_id,
+    )
+
+    return {
+        "source_id": result.source_id,
+        "target_id": result.target_id,
+        "paths": result.paths,
+        "shortest_path": result.shortest_path,
+        "shortest_length": result.shortest_length,
+        "all_paths_count": result.all_paths_count,
+    }
+
+
+@router.get("/paths/shortest/{source_id}/{target_id}")
+async def get_shortest_path(
+    source_id: str,
+    target_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get shortest path between two nodes.
+
+    Args:
+        source_id: Source node ID
+        target_id: Target node ID
+
+    Returns:
+        Shortest path as list of node IDs
+    """
+    from app.services.lineage.visualization_service import get_path_analyzer
+
+    analyzer = get_path_analyzer(db)
+
+    path = await analyzer.find_shortest_path(source_id, target_id)
+
+    if not path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No path found between nodes",
+        )
+
+    return {
+        "source_id": source_id,
+        "target_id": target_id,
+        "path": path,
+        "length": len(path),
+    }
+
+
+# ============================================================================
+# Impact Analysis Endpoints
+# ============================================================================
+
+
+@router.post("/impact/analyze/column")
+async def analyze_column_impact(
+    table_name: str,
+    column_name: str,
+    include_transformation: bool = True,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Analyze impact of a column change.
+
+    Args:
+        table_name: Source table name
+        column_name: Source column name
+        include_transformation: Include transformation details
+
+    Returns:
+        Impact analysis results
+    """
+    from app.services.lineage.visualization_service import get_impact_analyzer
+
+    analyzer = get_impact_analyzer(db)
+
+    impact = await analyzer.analyze_column_impact(
+        table_name=table_name,
+        column_name=column_name,
+        include_transformation=include_transformation,
+    )
+
+    return impact
+
+
+@router.post("/impact/analyze/table")
+async def analyze_table_impact(
+    table_name: str,
+    depth: int = 5,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Analyze impact of a table change.
+
+    Args:
+        table_name: Source table name
+        depth: Maximum depth to traverse
+
+    Returns:
+        Impact analysis results
+    """
+    from app.services.lineage.visualization_service import get_impact_analyzer
+
+    analyzer = get_impact_analyzer(db)
+
+    impact = await analyzer.analyze_table_impact(
+        table_name=table_name,
+        depth=depth,
+    )
+
+    return impact
+
+
+@router.post("/impact/summary")
+async def get_impact_summary(
+    asset_ids: List[str] = [],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Get impact summary for multiple assets.
+
+    Args:
+        asset_ids: List of asset IDs to analyze
+
+    Returns:
+        Aggregated impact summary
+    """
+    from app.services.lineage.visualization_service import get_impact_analyzer
+
+    analyzer = get_impact_analyzer(db)
+
+    summary = await analyzer.get_impact_summary(asset_ids)
+
+    return summary

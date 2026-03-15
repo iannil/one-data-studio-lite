@@ -43,6 +43,7 @@ import {
   ReloadOutlined,
   FilterOutlined,
   RocketOutlined,
+  CloudServerOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,6 +52,8 @@ import {
   useTrainingLoading,
   useTrainingError,
 } from '@/stores/training';
+import { useDeployTrainedModel } from '@/stores/serving';
+import { PredictorType, ServingPlatform } from '@/types/serving';
 import type {
   TrainingJob,
   TrainingStatus,
@@ -83,15 +86,24 @@ const TrainingListPage: React.FC = () => {
   const stats = useTrainingStats();
   const isLoading = useTrainingLoading();
   const trainingError = useTrainingError();
+  const deployTrainedModel = useDeployTrainedModel();
 
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [backendFilter, setBackendFilter] = useState<string>('all');
   const [logsModalOpen, setLogsModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
+  const [deployModalOpen, setDeployModalOpen] = useState(false);
+  const [selectedJobForDeploy, setSelectedJobForDeploy] = useState<TrainingJob | null>(null);
   const [selectedJobForLogs, setSelectedJobForLogs] = useState<TrainingJob | null>(null);
   const [selectedJobMetrics, setSelectedJobMetrics] = useState<Record<string, any>>({});
   const [jobLogs, setJobLogs] = useState('');
+
+  // Deploy model form state
+  const [deployServiceName, setDeployServiceName] = useState('');
+  const [deployPredictorType, setDeployPredictorType] = useState<PredictorType>(PredictorType.PYTORCH);
+  const [deployDevice, setDeployDevice] = useState('cpu');
+  const [deployReplicas, setDeployReplicas] = useState(1);
 
   useEffect(() => {
     fetchJobs().catch((err) => {
@@ -174,6 +186,35 @@ const TrainingListPage: React.FC = () => {
     },
     [deleteJob, fetchJobs]
   );
+
+  // Handle deploy as service
+  const handleDeploy = useCallback(
+    async (job: TrainingJob) => {
+      setSelectedJobForDeploy(job);
+      setDeployServiceName(`${job.name.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-service`);
+      setDeployModalOpen(true);
+    },
+    []
+  );
+
+  const confirmDeploy = useCallback(async () => {
+    if (!selectedJobForDeploy) return;
+
+    try {
+      const service = await deployTrainedModel(selectedJobForDeploy.job_id, {
+        name: deployServiceName,
+        description: `Inference service for model trained by job ${selectedJobForDeploy.job_id}`,
+        predictor_type: deployPredictorType,
+        device: deployDevice,
+        replicas: deployReplicas,
+      });
+
+      message.success(`Model deployed as service: ${service.name}`);
+      setDeployModalOpen(false);
+    } catch (err: any) {
+      message.error(err.message || 'Failed to deploy model');
+    }
+  }, [selectedJobForDeploy, deployServiceName, deployPredictorType, deployDevice, deployReplicas, deployTrainedModel]);
 
   // Status badge
   const getStatusBadge = (status: TrainingStatus) => {
@@ -304,7 +345,7 @@ const TrainingListPage: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 180,
+      width: 220,
       fixed: 'right',
       render: (_, record: TrainingJob) => (
         <Space size="small">
@@ -321,6 +362,14 @@ const TrainingListPage: React.FC = () => {
               icon={<DownloadOutlined />}
               onClick={() => handleViewMetrics(record)}
               disabled={record.status !== 'running' && record.status !== 'completed'}
+            />
+          </Tooltip>
+          <Tooltip title="Deploy as Service">
+            <Button
+              type="text"
+              icon={<CloudServerOutlined />}
+              onClick={() => handleDeploy(record)}
+              disabled={record.status !== 'completed'}
             />
           </Tooltip>
           {record.is_running && (
@@ -599,6 +648,77 @@ const TrainingListPage: React.FC = () => {
             No metrics available
           </div>
         )}
+      </Modal>
+
+      {/* Deploy as Service Modal */}
+      <Modal
+        title={
+          <Space>
+            <CloudServerOutlined />
+            Deploy Model as Service
+            {selectedJobForDeploy && <Tag color="blue">{selectedJobForDeploy.name}</Tag>}
+          </Space>
+        }
+        open={deployModalOpen}
+        onCancel={() => setDeployModalOpen(false)}
+        onOk={confirmDeploy}
+        okText="Deploy"
+        width={600}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <div>
+            <label style={{ display: 'block', marginBottom: 8 }}>Service Name:</label>
+            <Input
+              placeholder="my-model-service"
+              value={deployServiceName}
+              onChange={(e) => setDeployServiceName(e.target.value)}
+            />
+          </div>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <label style={{ display: 'block', marginBottom: 8 }}>Predictor Type:</label>
+              <Select
+                value={deployPredictorType}
+                onChange={setDeployPredictorType}
+                style={{ width: '100%' }}
+              >
+                <Select.Option value={PredictorType.PYTORCH}>PyTorch</Select.Option>
+                <Select.Option value={PredictorType.TENSORFLOW}>TensorFlow</Select.Option>
+                <Select.Option value={PredictorType.SKLEARN}>Scikit-learn</Select.Option>
+                <Select.Option value={PredictorType.XGBOOST}>XGBoost</Select.Option>
+                <Select.Option value={PredictorType.ONNX}>ONNX</Select.Option>
+                <Select.Option value={PredictorType.HUGGINGFACE}>HuggingFace</Select.Option>
+              </Select>
+            </Col>
+            <Col span={12}>
+              <label style={{ display: 'block', marginBottom: 8 }}>Device:</label>
+              <Select
+                value={deployDevice}
+                onChange={setDeployDevice}
+                style={{ width: '100%' }}
+              >
+                <Select.Option value="cpu">CPU</Select.Option>
+                <Select.Option value="gpu">GPU</Select.Option>
+              </Select>
+            </Col>
+          </Row>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 8 }}>Replicas:</label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              value={deployReplicas}
+              onChange={(e) => setDeployReplicas(parseInt(e.target.value) || 1)}
+            />
+          </div>
+
+          <div style={{ fontSize: '12px', color: '#999' }}>
+            The model from <strong>{selectedJobForDeploy?.config?.checkpoint_path || '/models/' + selectedJobForDeploy?.job_id}</strong> will be deployed as an inference service.
+          </div>
+        </Space>
       </Modal>
     </div>
   );

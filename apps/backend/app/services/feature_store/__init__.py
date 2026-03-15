@@ -26,6 +26,21 @@ from .serving import (
     get_feature_serving_service,
 )
 
+from .computation_service import (
+    ServingMode,
+    TimeTravelMode,
+    OnlineFeatureStore,
+    OfflineFeatureStore,
+    FeatureVersioning,
+    FeatureComputationService,
+    FeatureRequest as ComputationRequest,
+    FeatureResponse as ComputationResponse,
+    BatchFeatureRequest,
+    BatchFeatureResponse,
+    FeatureTransformation,
+    get_feature_computation_service,
+)
+
 __all__ = [
     # Feature Service
     "FeatureStoreType",
@@ -45,4 +60,17 @@ __all__ = [
     "OfflineFeatureServing",
     "FeatureServingService",
     "get_feature_serving_service",
+    # Computation Service
+    "ServingMode",
+    "TimeTravelMode",
+    "OnlineFeatureStore",
+    "OfflineFeatureStore",
+    "FeatureVersioning",
+    "FeatureComputationService",
+    "ComputationRequest",
+    "ComputationResponse",
+    "BatchFeatureRequest",
+    "BatchFeatureResponse",
+    "FeatureTransformation",
+    "get_feature_computation_service",
 ]

@@ -1,532 +1,870 @@
 """
 AIHub API Endpoints
 
-REST API for the AI model marketplace, fine-tuning, and deployment.
+Provides REST API for algorithm marketplace and model applications.
 """
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, Field
+import logging
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 
-from app.api.deps import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.deps import get_current_user
 from app.models.user import User
-from app.services.aihub import (
-    list_models,
-    get_model,
-    get_categories,
-    get_frameworks,
-    get_model_stats,
-    ModelCategory,
-    ModelFramework,
-    finetune_service,
-    aihub_deployer,
-    FinetuneMethod,
-    FinetuneStatus,
-    DeploymentStatus,
+from app.services.aihub.algorithm_marketplace import (
+    get_algorithm_marketplace,
+    AlgorithmMarketplace,
+    AlgorithmCategory,
+    AlgorithmFramework,
+    AlgorithmLicense,
+    Algorithm,
+    AlgorithmSubscription,
+    AlgorithmDeploymentConfig,
+)
+from app.services.aihub.app_marketplace import (
+    get_app_marketplace,
+    AppMarketplace,
+    AppCategory,
+    AppTemplate,
+    ModelApp,
+    AppDeployment,
 )
 
-router = APIRouter(prefix="/aihub", tags=["aihub"])
+logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/aihub", tags=["AIHub"])
+
+
+# ============================================================================
 # Request/Response Models
+# ============================================================================
 
 
-class ModelListItem(BaseModel):
-    """Model item in list response"""
-
+class AlgorithmResponse(BaseModel):
+    """Algorithm response"""
     id: str
     name: str
+    display_name: str
+    description: str
     category: str
     framework: str
-    description: Optional[str]
-    tags: Optional[List[str]]
-    parameter_size: Optional[str]
-    provider: Optional[str]
-    capabilities: Optional[dict]
-
-
-class ModelDetail(BaseModel):
-    """Full model details"""
-
-    id: str
-    name: str
-    category: str
-    framework: str
-    source: str
     license: str
-    description: Optional[str]
-    tags: Optional[List[str]]
-    tasks: Optional[List[str]]
-    languages: Optional[List[str]]
-    parameter_size: Optional[str]
-    gpu_memory_mb: Optional[int]
-    cpu_cores: Optional[int]
-    ram_mb: Optional[int]
-    capabilities: Optional[dict]
-    deploy_template: Optional[str]
-    default_inference_image: Optional[str]
-    provider: Optional[str]
+    author: Dict[str, Any]
+    tags: List[str]
+    latest_version: str
+    is_public: bool
+    is_verified: bool
+    downloads: int
+    rating: float
+    created_at: datetime
+
+
+class AlgorithmDetailResponse(AlgorithmResponse):
+    """Algorithm detail response"""
+    repository_url: Optional[str]
+    documentation_url: Optional[str]
     paper_url: Optional[str]
-    demo_url: Optional[str]
+    versions: List[Dict[str, Any]]
+    metrics: List[Dict[str, Any]]
+    hyperparameters: List[Dict[str, Any]]
+    input_schema: Optional[Dict[str, Any]]
+    output_schema: Optional[Dict[str, Any]]
 
 
-class DeploymentCreateRequest(BaseModel):
-    """Request to create deployment"""
-
-    model_id: str = Field(..., description="AIHub model ID")
-    name: str = Field(..., min_length=1, max_length=64, description="Deployment name")
-    replicas: int = Field(1, ge=1, le=10, description="Number of replicas")
-    gpu_enabled: bool = Field(True, description="Enable GPU")
-    gpu_type: Optional[str] = Field(None, description="GPU type (e.g., A100, V100, T4)")
-    gpu_count: int = Field(1, ge=1, le=8, description="Number of GPUs per replica")
-    autoscaling_enabled: bool = Field(True, description="Enable autoscaling")
-    autoscaling_min: int = Field(1, ge=1, description="Min replicas for autoscaling")
-    autoscaling_max: int = Field(5, le=10, description="Max replicas for autoscaling")
+class AlgorithmSubscribeRequest(BaseModel):
+    """Subscribe to algorithm request"""
+    algorithm_id: str
+    version: Optional[str] = None
+    auto_update: bool = True
 
 
-class FinetuneCreateRequest(BaseModel):
-    """Request to create fine-tuning job"""
-
-    base_model: str = Field(..., description="AIHub model ID to fine-tune")
-    dataset_id: str = Field(..., description="Training dataset ID")
-    method: str = Field(FinetuneMethod.LORA, description="Fine-tuning method")
-    epochs: int = Field(3, ge=1, le=100, description="Number of training epochs")
-    batch_size: int = Field(16, ge=1, le=256, description="Training batch size")
-    learning_rate: float = Field(2e-4, ge=0, le=0.01, description="Learning rate")
-    use_template: bool = Field(True, description="Use recommended template config")
-    custom_config: Optional[dict] = Field(None, description="Custom config overrides")
+class AlgorithmDeployRequest(BaseModel):
+    """Deploy algorithm request"""
+    algorithm_id: str
+    version: str = "latest"
+    instance_type: str = "cpu"
+    replicas: int = 1
+    resources: Dict[str, str] = {}
+    environment_vars: Dict[str, str] = {}
 
 
-class FinetuneCostRequest(BaseModel):
-    """Request for cost estimation"""
+class TemplateResponse(BaseModel):
+    """App template response"""
+    id: str
+    name: str
+    display_name: str
+    description: str
+    category: str
+    icon_url: Optional[str]
+    author: str
+    version: str
+    model_id: Optional[str]
+    tags: List[str]
+    featured: bool
+    verified: bool
+    rating: float
+    created_at: datetime
 
-    model_id: str = Field(..., description="AIHub model ID")
-    method: str = Field(FinetuneMethod.LORA, description="Fine-tuning method")
-    epochs: int = Field(3, ge=1, le=100, description="Number of epochs")
-    batch_size: int = Field(16, ge=1, le=256, description="Batch size")
+
+class TemplateDetailResponse(TemplateResponse):
+    """App template detail response"""
+    resources: List[Dict[str, Any]]
+    ports: List[Dict[str, Any]]
+    config_schema: Optional[Dict[str, Any]]
+    default_config: Optional[Dict[str, Any]]
 
 
-# Model Market Endpoints
+class AppCreateRequest(BaseModel):
+    """Create app request"""
+    template_id: str
+    name: str
+    description: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
 
 
-@router.get("/models", response_model=List[ModelListItem])
-async def list_aihub_models(
-    category: Optional[str] = Query(None, description="Filter by category"),
-    framework: Optional[str] = Query(None, description="Filter by framework"),
-    task: Optional[str] = Query(None, description="Filter by task"),
-    search: Optional[str] = Query(None, description="Search in name/description/tags"),
-    limit: int = Query(100, ge=1, le=500, description="Max results"),
+class AppResponse(BaseModel):
+    """App response"""
+    app_id: str
+    template_id: str
+    name: str
+    description: Optional[str]
+    user_id: str
+    status: str
+    replicas: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class AppDeployRequest(BaseModel):
+    """Deploy app request"""
+    name: Optional[str] = None
+    namespace: str = "default"
+    replicas: Optional[int] = None
+
+
+class DeploymentResponse(BaseModel):
+    """Deployment response"""
+    deployment_id: str
+    app_id: str
+    name: str
+    namespace: str
+    status: str
+    replicas: int
+    endpoint: Optional[str]
+    created_at: datetime
+    started_at: Optional[datetime]
+
+
+# ============================================================================
+# Algorithm Marketplace Endpoints
+# ============================================================================
+
+
+@router.get("/algorithms", response_model=List[AlgorithmResponse])
+async def list_algorithms(
+    category: Optional[AlgorithmCategory] = None,
+    framework: Optional[AlgorithmFramework] = None,
+    search: Optional[str] = None,
+    verified_only: bool = Query(False),
+    limit: int = Query(100, ge=1, le=1000),
     current_user: User = Depends(get_current_user),
-) -> List[dict]:
-    """
-    List models in AIHub marketplace.
+    db: Session = Depends(get_db),
+):
+    """List algorithms from marketplace"""
+    marketplace = get_algorithm_marketplace(db)
 
-    Supports filtering by category, framework, task, and text search.
-    """
-    cat = ModelCategory(category) if category else None
-    fw = ModelFramework(framework) if framework else None
-
-    models = list_models(
-        category=cat,
-        framework=fw,
-        task=task,
+    algorithms = await marketplace.list_algorithms(
+        category=category,
+        framework=framework,
         search=search,
+        verified_only=verified_only,
         limit=limit,
     )
 
     return [
-        {
-            "id": m.id,
-            "name": m.name,
-            "category": m.category.value,
-            "framework": m.framework.value,
-            "description": m.description,
-            "tags": m.tags,
-            "parameter_size": m.parameter_size,
-            "provider": m.provider,
-            "capabilities": {
-                "cuda_supported": m.capabilities.cuda_supported if m.capabilities else False,
-                "cpu_inference": m.capabilities.cpu_inference if m.capabilities else False,
-                "quantization_available": m.capabilities.quantization_available if m.capabilities else False,
-                "streaming": m.capabilities.streaming if m.capabilities else False,
-            }
-        }
-        for m in models
+        AlgorithmResponse(
+            id=algo.id,
+            name=algo.name,
+            display_name=algo.display_name,
+            description=algo.description,
+            category=algo.category.value,
+            framework=algo.framework.value,
+            license=algo.license.value,
+            author={
+                "name": algo.author.name,
+                "organization": algo.author.organization,
+                "website": algo.author.website,
+            },
+            tags=algo.tags,
+            latest_version=algo.latest_version,
+            is_public=algo.is_public,
+            is_verified=algo.is_verified,
+            downloads=algo.downloads,
+            rating=algo.rating,
+            created_at=algo.created_at,
+        )
+        for algo in algorithms
     ]
 
 
-@router.get("/models/{model_id}", response_model=ModelDetail)
-async def get_aihub_model(
-    model_id: str,
+@router.get("/algorithms/{algorithm_id}", response_model=AlgorithmDetailResponse)
+async def get_algorithm(
+    algorithm_id: str,
     current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get detailed information about a specific model."""
-    model = get_model(model_id)
-    if not model:
+    db: Session = Depends(get_db),
+):
+    """Get algorithm details"""
+    marketplace = get_algorithm_marketplace(db)
+
+    algorithm = await marketplace.get_algorithm(algorithm_id)
+    if not algorithm:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model {model_id} not found"
+            detail="Algorithm not found"
+        )
+
+    return AlgorithmDetailResponse(
+        id=algorithm.id,
+        name=algorithm.name,
+        display_name=algorithm.display_name,
+        description=algorithm.description,
+        category=algorithm.category.value,
+        framework=algorithm.framework.value,
+        license=algorithm.license.value,
+        author={
+            "name": algorithm.author.name,
+            "organization": algorithm.author.organization,
+            "website": algorithm.author.website,
+        },
+        tags=algorithm.tags,
+        latest_version=algorithm.latest_version,
+        is_public=algorithm.is_public,
+        is_verified=algorithm.is_verified,
+        downloads=algorithm.downloads,
+        rating=algorithm.rating,
+        repository_url=algorithm.repository_url,
+        documentation_url=algorithm.documentation_url,
+        paper_url=algorithm.paper_url,
+        versions=[
+            {
+                "version": v.version,
+                "created_at": v.created_at,
+                "changelog": v.changelog,
+                "is_deprecated": v.is_deprecated,
+                "tags": v.tags,
+            }
+            for v in algorithm.versions
+        ],
+        metrics=[
+            {
+                "name": m.name,
+                "value": m.value,
+                "dataset": m.dataset,
+                "unit": m.unit,
+            }
+            for m in algorithm.metrics
+        ],
+        hyperparameters=[
+            {
+                "name": hp.name,
+                "type": hp.type,
+                "default_value": hp.default_value,
+                "min_value": hp.min_value,
+                "max_value": hp.max_value,
+                "choices": hp.choices,
+                "description": hp.description,
+            }
+            for hp in algorithm.hyperparameters
+        ],
+        input_schema=algorithm.input_schema,
+        output_schema=algorithm.output_schema,
+        created_at=algorithm.created_at,
+    )
+
+
+@router.post("/algorithms/subscribe")
+async def subscribe_algorithm(
+    request: AlgorithmSubscribeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Subscribe to an algorithm"""
+    marketplace = get_algorithm_marketplace(db)
+
+    subscription = await marketplace.subscribe_algorithm(
+        algorithm_id=request.algorithm_id,
+        user_id=str(current_user.id),
+        version=request.version,
+        auto_update=request.auto_update,
+    )
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Algorithm not found"
         )
 
     return {
-        "id": model.id,
-        "name": model.name,
-        "category": model.category.value,
-        "framework": model.framework.value,
-        "source": model.source,
-        "license": model.license.value,
-        "description": model.description,
-        "tags": model.tags,
-        "tasks": model.tasks,
-        "languages": model.languages,
-        "parameter_size": model.parameter_size,
-        "gpu_memory_mb": model.gpu_memory_mb,
-        "cpu_cores": model.cpu_cores,
-        "ram_mb": model.ram_mb,
-        "capabilities": {
-            "cuda_supported": model.capabilities.cuda_supported if model.capabilities else False,
-            "cpu_inference": model.capabilities.cpu_inference if model.capabilities else False,
-            "quantization_available": model.capabilities.quantization_available if model.capabilities else False,
-            "distributed_training": model.capabilities.distributed_training if model.capabilities else False,
-            "streaming": model.capabilities.streaming if model.capabilities else False,
-            "function_calling": model.capabilities.function_calling if model.capabilities else False,
-            "vision": model.capabilities.vision if model.capabilities else False,
-            "code": model.capabilities.code if model.capabilities else False,
-        }
-        if model.capabilities else None,
-        "deploy_template": model.deploy_template,
-        "default_inference_image": model.default_inference_image,
-        "provider": model.provider,
-        "paper_url": model.paper_url,
-        "demo_url": model.demo_url,
+        "subscription_id": subscription.subscription_id,
+        "algorithm_id": subscription.algorithm_id,
+        "subscribed_at": subscription.subscribed_at,
+        "version": subscription.version,
     }
 
 
-@router.get("/categories")
-async def list_model_categories(
+@router.get("/algorithms/subscriptions")
+async def list_subscriptions(
     current_user: User = Depends(get_current_user),
-) -> List[dict]:
-    """Get all model categories."""
-    return [{"value": c.value, "label": c.value.replace("_", " ").title()} for c in get_categories()]
+    db: Session = Depends(get_db),
+):
+    """List user's algorithm subscriptions"""
+    marketplace = get_algorithm_marketplace(db)
+
+    subscriptions = await marketplace.list_subscriptions(str(current_user.id))
+
+    return {
+        "subscriptions": [
+            {
+                "subscription_id": s.subscription_id,
+                "algorithm_id": s.algorithm_id,
+                "version": s.version,
+                "subscribed_at": s.subscribed_at,
+                "auto_update": s.auto_update,
+            }
+            for s in subscriptions
+        ]
+    }
 
 
-@router.get("/frameworks")
-async def list_model_frameworks(
+@router.delete("/algorithms/subscriptions/{subscription_id}")
+async def unsubscribe_algorithm(
+    subscription_id: str,
     current_user: User = Depends(get_current_user),
-) -> List[str]:
-    """Get all model frameworks."""
-    return [f.value for f in get_frameworks()]
+    db: Session = Depends(get_db),
+):
+    """Unsubscribe from an algorithm"""
+    marketplace = get_algorithm_marketplace(db)
 
+    success = await marketplace.unsubscribe_algorithm(subscription_id)
 
-@router.get("/stats")
-async def get_marketplace_stats(
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get AIHub marketplace statistics."""
-    return get_model_stats()
-
-
-@router.get("/models/{model_id}/template")
-async def get_deployment_template(
-    model_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get recommended deployment template for a model."""
-    template = aihub_deployer.get_deployment_template(model_id)
-    if not template:
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model {model_id} not found"
+            detail="Subscription not found"
         )
-    return template
+
+    return {"success": True, "message": "Unsubscribed"}
 
 
-# Deployment Endpoints
-
-
-@router.post("/deployments")
-async def create_model_deployment(
-    request: DeploymentCreateRequest,
+@router.post("/algorithms/deploy")
+async def deploy_algorithm(
+    request: AlgorithmDeployRequest,
     current_user: User = Depends(get_current_user),
-) -> dict:
-    """
-    Create a new model deployment.
+    db: Session = Depends(get_db),
+):
+    """Deploy an algorithm"""
+    marketplace = get_algorithm_marketplace(db)
 
-    Deploys the specified model with the given configuration.
-    """
-    config = {
-        "replicas": request.replicas,
-        "gpu_enabled": request.gpu_enabled,
-        "gpu_type": request.gpu_type,
-        "gpu_count": request.gpu_count,
-        "autoscaling": {
-            "enabled": request.autoscaling_enabled,
-            "min_replicas": request.autoscaling_min,
-            "max_replicas": request.autoscaling_max,
-        }
-    }
+    config = AlgorithmDeploymentConfig(
+        algorithm_id=request.algorithm_id,
+        version=request.version,
+        instance_type=request.instance_type,
+        replicas=request.replicas,
+        resources=request.resources,
+        environment_vars=request.environment_vars,
+    )
 
-    deployment = await aihub_deployer.create_deployment(
-        model_id=request.model_id,
-        name=request.name,
+    deployment = await marketplace.deploy_algorithm(
+        algorithm_id=request.algorithm_id,
+        user_id=str(current_user.id),
         config=config,
-        user_id=current_user.id,
     )
 
-    return deployment.to_dict()
-
-
-@router.get("/deployments")
-async def list_deployments(
-    model_id: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
-) -> List[dict]:
-    """List deployments for the current user."""
-    deployments = await aihub_deployer.list_deployments(
-        user_id=current_user.id,
-        model_id=model_id,
-        status=DeploymentStatus(status) if status else None,
-    )
-    return [d.to_dict() for d in deployments]
-
-
-@router.get("/deployments/{deployment_id}")
-async def get_deployment(
-    deployment_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get deployment details."""
-    deployment = await aihub_deployer.get_deployment(deployment_id)
     if not deployment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Deployment {deployment_id} not found"
+            detail="Algorithm not found"
         )
-    return deployment.to_dict()
+
+    return {
+        "deployment_id": deployment.deployment_id,
+        "algorithm_id": deployment.algorithm_id,
+        "status": deployment.status,
+        "created_at": deployment.created_at,
+    }
+
+
+@router.get("/algorithms/deployments")
+async def list_algorithm_deployments(
+    algorithm_id: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List algorithm deployments"""
+    marketplace = get_algorithm_marketplace(db)
+
+    deployments = await marketplace.list_deployments(
+        user_id=str(current_user.id),
+        algorithm_id=algorithm_id,
+        status=status,
+    )
+
+    return {
+        "deployments": [
+            {
+                "deployment_id": d.deployment_id,
+                "algorithm_id": d.algorithm_id,
+                "status": d.status,
+                "created_at": d.created_at,
+                "endpoint": d.endpoint,
+            }
+            for d in deployments
+        ]
+    }
+
+
+@router.get("/algorithms/categories")
+async def get_algorithm_categories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get algorithm categories"""
+    marketplace = get_algorithm_marketplace(db)
+
+    categories = await marketplace.get_categories()
+
+    return {"categories": categories}
+
+
+@router.get("/algorithms/search")
+async def search_algorithms(
+    query: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Search algorithms by use case"""
+    marketplace = get_algorithm_marketplace(db)
+
+    algorithms = await marketplace.search_by_use_case(query, limit=limit)
+
+    return {
+        "query": query,
+        "results": [
+            {
+                "id": algo.id,
+                "name": algo.name,
+                "display_name": algo.display_name,
+                "description": algo.description,
+                "category": algo.category.value,
+                "framework": algo.framework.value,
+            }
+            for algo in algorithms
+        ]
+    }
+
+
+# ============================================================================
+# App Marketplace Endpoints
+# ============================================================================
+
+
+@router.get("/templates", response_model=List[TemplateResponse])
+async def list_templates(
+    category: Optional[AppCategory] = None,
+    search: Optional[str] = None,
+    featured_only: bool = Query(False),
+    verified_only: bool = Query(True),
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List app templates"""
+    marketplace = get_app_marketplace(db)
+
+    templates = await marketplace.list_templates(
+        category=category,
+        search=search,
+        featured_only=featured_only,
+        verified_only=verified_only,
+        limit=limit,
+    )
+
+    return [
+        TemplateResponse(
+            id=t.id,
+            name=t.name,
+            display_name=t.display_name,
+            description=t.description,
+            category=t.category.value,
+            icon_url=t.icon_url,
+            author=t.author,
+            version=t.version,
+            model_id=t.model_id,
+            tags=t.tags,
+            featured=t.featured,
+            verified=t.verified,
+            rating=t.rating,
+            created_at=t.created_at,
+        )
+        for t in templates
+    ]
+
+
+@router.get("/templates/featured")
+async def get_featured_templates(
+    limit: int = Query(6, ge=1, le=12),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get featured app templates"""
+    marketplace = get_app_marketplace(db)
+
+    templates = await marketplace.get_featured_templates(limit=limit)
+
+    return {
+        "templates": [
+            {
+                "id": t.id,
+                "name": t.name,
+                "display_name": t.display_name,
+                "description": t.description,
+                "category": t.category.value,
+                "icon_url": t.icon_url,
+                "rating": t.rating,
+                "downloads": t.downloads,
+            }
+            for t in templates
+        ]
+    }
+
+
+@router.get("/templates/{template_id}", response_model=TemplateDetailResponse)
+async def get_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get template details"""
+    marketplace = get_app_marketplace(db)
+
+    template = await marketplace.get_template(template_id)
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found"
+        )
+
+    return TemplateDetailResponse(
+        id=template.id,
+        name=template.name,
+        display_name=template.display_name,
+        description=template.description,
+        category=template.category.value,
+        icon_url=template.icon_url,
+        author=template.author,
+        version=template.version,
+        model_id=template.model_id,
+        tags=template.tags,
+        featured=template.featured,
+        verified=template.verified,
+        rating=template.rating,
+        created_at=template.created_at,
+        resources=[
+            {
+                "type": r.resource_type,
+                "request": r.request,
+                "limit": r.limit,
+            }
+            for r in template.resources
+        ],
+        ports=[
+            {
+                "port": p.port,
+                "protocol": p.protocol,
+                "service": p.service,
+            }
+            for p in template.ports
+        ],
+        config_schema=template.config_schema,
+        default_config=template.default_config,
+    )
+
+
+@router.post("/apps", response_model=AppResponse)
+async def create_app(
+    request: AppCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create app from template"""
+    marketplace = get_app_marketplace(db)
+
+    app = await marketplace.create_app(
+        template_id=request.template_id,
+        name=request.name,
+        user_id=str(current_user.id),
+        config=request.config,
+        description=request.description,
+    )
+
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found"
+        )
+
+    return AppResponse(
+        app_id=app.app_id,
+        template_id=app.template_id,
+        name=app.name,
+        description=app.description,
+        user_id=app.user_id,
+        status=app.status.value,
+        replicas=app.replicas,
+        created_at=app.created_at,
+        updated_at=app.updated_at,
+    )
+
+
+@router.get("/apps", response_model=List[AppResponse])
+async def list_apps(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List user's apps"""
+    marketplace = get_app_marketplace(db)
+
+    apps = await marketplace.list_apps(user_id=str(current_user.id))
+
+    return [
+        AppResponse(
+            app_id=a.app_id,
+            template_id=a.template_id,
+            name=a.name,
+            description=a.description,
+            user_id=a.user_id,
+            status=a.status.value,
+            replicas=a.replicas,
+            created_at=a.created_at,
+            updated_at=a.updated_at,
+        )
+        for a in apps
+    ]
+
+
+@router.get("/apps/{app_id}", response_model=AppResponse)
+async def get_app(
+    app_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get app details"""
+    marketplace = get_app_marketplace(db)
+
+    app = await marketplace.get_app(app_id)
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="App not found"
+        )
+
+    return AppResponse(
+        app_id=app.app_id,
+        template_id=app.template_id,
+        name=app.name,
+        description=app.description,
+        user_id=app.user_id,
+        status=app.status.value,
+        replicas=app.replicas,
+        created_at=app.created_at,
+        updated_at=app.updated_at,
+    )
+
+
+@router.put("/apps/{app_id}")
+async def update_app(
+    app_id: str,
+    config: Optional[Dict[str, Any]] = Body(None),
+    replicas: Optional[int] = Body(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update app configuration"""
+    marketplace = get_app_marketplace(db)
+
+    app = await marketplace.update_app(
+        app_id=app_id,
+        config=config,
+        replicas=replicas,
+    )
+
+    if not app:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="App not found"
+        )
+
+    return {"success": True, "message": "App updated"}
+
+
+@router.delete("/apps/{app_id}")
+async def delete_app(
+    app_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an app"""
+    marketplace = get_app_marketplace(db)
+
+    success = await marketplace.delete_app(app_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="App not found"
+        )
+
+    return {"success": True, "message": "App deleted"}
+
+
+@router.post("/apps/{app_id}/deploy", response_model=DeploymentResponse)
+async def deploy_app(
+    app_id: str,
+    request: AppDeployRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Deploy an app"""
+    marketplace = get_app_marketplace(db)
+
+    deployment = await marketplace.deploy_app(
+        app_id=app_id,
+        name=request.name,
+        namespace=request.namespace,
+        replicas=request.replicas,
+    )
+
+    if not deployment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="App not found"
+        )
+
+    return DeploymentResponse(
+        deployment_id=deployment.deployment_id,
+        app_id=deployment.app_id,
+        name=deployment.name,
+        namespace=deployment.namespace,
+        status=deployment.status.value,
+        replicas=deployment.replicas,
+        endpoint=deployment.endpoint,
+        created_at=deployment.created_at,
+        started_at=deployment.started_at,
+    )
+
+
+@router.get("/apps/{app_id}/deployments")
+async def list_app_deployments(
+    app_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List app deployments"""
+    marketplace = get_app_marketplace(db)
+
+    deployments = await marketplace.list_deployments(app_id=app_id)
+
+    return {
+        "deployments": [
+            {
+                "deployment_id": d.deployment_id,
+                "app_id": d.app_id,
+                "name": d.name,
+                "namespace": d.namespace,
+                "status": d.status.value,
+                "replicas": d.replicas,
+                "endpoint": d.endpoint,
+                "created_at": d.created_at,
+                "started_at": d.started_at,
+            }
+            for d in deployments
+        ]
+    }
 
 
 @router.post("/deployments/{deployment_id}/stop")
 async def stop_deployment(
     deployment_id: str,
     current_user: User = Depends(get_current_user),
-) -> dict:
-    """Stop a running deployment."""
-    success = await aihub_deployer.stop_deployment(deployment_id)
+    db: Session = Depends(get_db),
+):
+    """Stop a deployment"""
+    marketplace = get_app_marketplace(db)
+
+    success = await marketplace.stop_deployment(deployment_id)
+
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stop deployment {deployment_id}"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deployment not found"
         )
-    return {"stopped": True, "deployment_id": deployment_id}
 
-
-@router.post("/deployments/{deployment_id}/start")
-async def start_deployment(
-    deployment_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Start a stopped deployment."""
-    success = await aihub_deployer.start_deployment(deployment_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to start deployment {deployment_id}"
-        )
-    return {"started": True, "deployment_id": deployment_id}
-
-
-@router.delete("/deployments/{deployment_id}")
-async def delete_deployment(
-    deployment_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Delete a deployment."""
-    success = await aihub_deployer.delete_deployment(deployment_id, current_user.id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to delete deployment {deployment_id}"
-        )
-    return {"deleted": True, "deployment_id": deployment_id}
+    return {"success": True, "message": "Deployment stopped"}
 
 
 @router.post("/deployments/{deployment_id}/scale")
 async def scale_deployment(
     deployment_id: str,
-    replicas: int = Query(..., ge=1, le=10),
+    replicas: int = Body(..., embed=True),
     current_user: User = Depends(get_current_user),
-) -> dict:
-    """Scale a deployment to specified replica count."""
-    deployment = await aihub_deployer.scale_deployment(deployment_id, replicas)
-    if not deployment:
+    db: Session = Depends(get_db),
+):
+    """Scale a deployment"""
+    marketplace = get_app_marketplace(db)
+
+    success = await marketplace.scale_deployment(deployment_id, replicas)
+
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Deployment {deployment_id} not found"
+            detail="Deployment not found"
         )
-    return deployment.to_dict()
+
+    return {"success": True, "message": f"Scaled to {replicas} replicas"}
 
 
 @router.get("/deployments/{deployment_id}/logs")
 async def get_deployment_logs(
     deployment_id: str,
-    lines: int = Query(100, ge=10, le=1000),
+    tail_lines: int = Query(100, ge=1, le=10000),
     current_user: User = Depends(get_current_user),
-) -> List[str]:
-    """Get deployment logs."""
-    return await aihub_deployer.get_deployment_logs(deployment_id, lines)
+    db: Session = Depends(get_db),
+):
+    """Get deployment logs"""
+    marketplace = get_app_marketplace(db)
 
+    logs = await marketplace.get_deployment_logs(deployment_id, tail_lines)
 
-@router.get("/deployments/{deployment_id}/metrics")
-async def get_deployment_metrics(
-    deployment_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get deployment metrics."""
-    return await aihub_deployer.get_deployment_metrics(deployment_id)
-
-
-@router.post("/deployments/{deployment_id}/predict")
-async def predict(
-    deployment_id: str,
-    inputs: dict,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Make a prediction using a deployed model."""
-    return await aihub_deployer.predict(deployment_id, inputs)
-
-
-# Fine-tuning Endpoints
-
-
-@router.get("/models/{model_id}/finetune-templates")
-async def get_finetune_templates(
-    model_id: str,
-    current_user: User = Depends(get_current_user),
-) -> List[dict]:
-    """Get recommended fine-tuning templates for a model."""
-    templates = finetune_service.get_finetune_templates(model_id)
-    if not templates:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No templates found for model {model_id}"
-        )
-    return templates
-
-
-@router.post("/finetune/cost-estimate")
-async def estimate_finetune_cost(
-    request: FinetuneCostRequest,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Estimate cost and time for fine-tuning."""
-    config = {
-        "method": request.method,
-        "epochs": request.epochs,
-        "batch_size": request.batch_size,
-    }
-    return await finetune_service.estimate_finetune_cost(request.model_id, config)
-
-
-@router.post("/finetune/jobs")
-async def create_finetune_job(
-    request: FinetuneCreateRequest,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Create a new fine-tuning job."""
-    # Build config
-    config = {
-        "method": request.method,
-        "epochs": request.epochs,
-        "batch_size": request.batch_size,
-        "learning_rate": request.learning_rate,
+    return {
+        "deployment_id": deployment_id,
+        "logs": logs,
     }
 
-    # Use template if requested
-    if request.use_template:
-        templates = finetune_service.get_finetune_templates(request.base_model)
-        if templates:
-            template_config = templates[0].get("config", {})
-            config.update(template_config)
 
-    # Apply custom overrides
-    if request.custom_config:
-        config.update(request.custom_config)
-
-    job = await finetune_service.create_finetune_job(
-        base_model=request.base_model,
-        dataset_id=request.dataset_id,
-        config=config,
-        user_id=current_user.id,
-    )
-
-    return job.to_dict()
-
-
-@router.get("/finetune/jobs")
-async def list_finetune_jobs(
-    base_model: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
+@router.get("/categories")
+async def get_app_categories(
     current_user: User = Depends(get_current_user),
-) -> List[dict]:
-    """List fine-tuning jobs for the current user."""
-    jobs = await finetune_service.list_finetune_jobs(
-        user_id=current_user.id,
-        base_model=base_model,
-        status=FinetuneStatus(status) if status else None,
-    )
-    return [j.to_dict() for j in jobs]
+    db: Session = Depends(get_db),
+):
+    """Get app categories"""
+    marketplace = get_app_marketplace(db)
 
+    categories = await marketplace.get_categories()
 
-@router.get("/finetune/jobs/{job_id}")
-async def get_finetune_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Get fine-tuning job details."""
-    job = await finetune_service.get_finetune_job(job_id)
-    if not job:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Job {job_id} not found"
-        )
-    return job.to_dict()
-
-
-@router.post("/finetune/jobs/{job_id}/start")
-async def start_finetune_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Start a fine-tuning job."""
-    job = await finetune_service.start_finetune_job(job_id)
-    return job.to_dict()
-
-
-@router.post("/finetune/jobs/{job_id}/cancel")
-async def cancel_finetune_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Cancel a fine-tuning job."""
-    success = await finetune_service.cancel_finetune_job(job_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to cancel job {job_id}"
-        )
-    return {"cancelled": True, "job_id": job_id}
-
-
-@router.delete("/finetune/jobs/{job_id}")
-async def delete_finetune_job(
-    job_id: str,
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """Delete a fine-tuning job."""
-    success = await finetune_service.delete_finetune_job(job_id, current_user.id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to delete job {job_id}"
-        )
-    return {"deleted": True, "job_id": job_id}
+    return {"categories": categories}

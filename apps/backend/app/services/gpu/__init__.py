@@ -1,48 +1,49 @@
 """
-GPU Resource Management Service Package
+GPU Scheduling Service Package
 
-Provides GPU pooling, virtual GPU allocation, and scheduling capabilities.
+Provides GPU resource management including:
+- GPU allocation and deallocation
+- vGPU (virtual GPU) support
+- Multiple GPU type support (NVIDIA, Huawei NPU, Cambricon MLU)
+- GPU monitoring and metrics
+- Resource pool integration
 """
 
-from .vgpu_allocator import (
-    GPUAllocationStrategy,
-    GPUAllocationRequest,
+from app.services.gpu.gpu_scheduler import (
+    GPUBackend,
+    NVIDIABackend,
+    HuaweiNPUBackend,
+    CambriconMLUBackend,
+    GPUSpec,
     GPUAllocation,
-    VirtualGPU,
-    PhysicalGPU,
-    GPUType,
-    VGPUAllocator,
-    get_vgpu_allocator,
+    GPUResource,
+    vGPUSpec,
+    GPUScheduler,
+    get_gpu_scheduler,
 )
 
-from .gpu_scheduler import (
-    SchedulingPolicy,
-    TaskPriority,
-    GPUTask,
-    SchedulingDecision,
-    QueuedTask,
-    GPUScheduler,
-    GPUPoolManager,
-    get_gpu_pool_manager,
+from app.services.gpu.gpu_monitoring import (
+    GPUMetric,
+    GPUStatistics,
+    GPUMonitor,
+    get_gpu_monitor,
 )
 
 __all__ = [
-    # VGPU Allocator
-    "GPUAllocationStrategy",
-    "GPUAllocationRequest",
-    "GPUAllocation",
-    "VirtualGPU",
-    "PhysicalGPU",
-    "GPUType",
-    "VGPUAllocator",
-    "get_vgpu_allocator",
     # GPU Scheduler
-    "SchedulingPolicy",
-    "TaskPriority",
-    "GPUTask",
-    "SchedulingDecision",
-    "QueuedTask",
+    "GPUBackend",
+    "NVIDIABackend",
+    "HuaweiNPUBackend",
+    "CambriconMLUBackend",
+    "GPUSpec",
+    "GPUAllocation",
+    "GPUResource",
+    "vGPUSpec",
     "GPUScheduler",
-    "GPUPoolManager",
-    "get_gpu_pool_manager",
+    "get_gpu_scheduler",
+    # GPU Monitoring
+    "GPUMetric",
+    "GPUStatistics",
+    "GPUMonitor",
+    "get_gpu_monitor",
 ]

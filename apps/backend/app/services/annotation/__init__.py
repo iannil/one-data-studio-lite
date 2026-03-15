@@ -1,7 +1,8 @@
 """
 Annotation Services Package
 
-Provides integration with Label Studio for data annotation.
+Provides integration with Label Studio for data annotation,
+quality control, and multimedia annotation capabilities.
 """
 
 from app.services.annotation.auth import (
@@ -18,6 +19,28 @@ from app.services.annotation.service import (
     AnnotationMetricsService,
     LabelStudioProjectConfig,
 )
+from app.services.annotation.quality_control import (
+    ReviewStatus,
+    QualityMetricType,
+    ReviewTask,
+    QualityReport,
+    ConsensusResult,
+    InterAnnotatorAgreement,
+    ConsensusBuilder,
+    AnnotationQualityControl,
+    get_quality_control_service,
+)
+from app.services.annotation.multimedia import (
+    AudioAnnotationType,
+    VideoAnnotationType,
+    AudioSegment,
+    VideoFrame,
+    VideoObject,
+    AudioAnnotationService,
+    VideoAnnotationService,
+    MultimediaAnnotationService,
+    get_multimedia_annotation_service,
+)
 
 __all__ = [
     # Auth
@@ -32,4 +55,24 @@ __all__ = [
     "AutoAnnotationService",
     "AnnotationMetricsService",
     "LabelStudioProjectConfig",
+    # Quality Control
+    "ReviewStatus",
+    "QualityMetricType",
+    "ReviewTask",
+    "QualityReport",
+    "ConsensusResult",
+    "InterAnnotatorAgreement",
+    "ConsensusBuilder",
+    "AnnotationQualityControl",
+    "get_quality_control_service",
+    # Multimedia
+    "AudioAnnotationType",
+    "VideoAnnotationType",
+    "AudioSegment",
+    "VideoFrame",
+    "VideoObject",
+    "AudioAnnotationService",
+    "VideoAnnotationService",
+    "MultimediaAnnotationService",
+    "get_multimedia_annotation_service",
 ]

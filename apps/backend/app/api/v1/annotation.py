@@ -8,8 +8,10 @@ and auto-annotation features.
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.database import get_db
 from app.models.user import User
 from app.services.annotation import (
     AnnotationService,
@@ -438,3 +440,270 @@ async def get_labeling_config_templates() -> dict:
         "ner": LabelStudioProjectConfig.NER_CONFIG,
         "multimodal": LabelStudioProjectConfig.MULTIMODAL_CONFIG,
     }
+
+
+# ============================================================================
+# Quality Control Endpoints
+# ============================================================================
+
+
+class ReviewSubmitRequest(BaseModel):
+    """Request to submit a review"""
+    task_id: str
+    status: str  # approved, rejected, revised
+    comments: Optional[str] = None
+    revised_annotation: Optional[dict] = None
+
+
+class ConsensusRequest(BaseModel):
+    """Request to build consensus"""
+    task_id: str
+    annotations: List[dict]
+    annotator_ids: List[str]
+    method: str = "majority_vote"  # majority_vote, weighted_vote, best_confidence
+
+
+@router.post("/quality/review-tasks/{task_id}/assign")
+async def assign_review_task(
+    task_id: str,
+    reviewer_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Assign a reviewer to a task"""
+    from app.services.annotation import get_quality_control_service
+
+    qc_service = get_quality_control_service(db)
+    success = qc_service.assign_reviewer(task_id, reviewer_id)
+
+    return {
+        "success": success,
+        "task_id": task_id,
+        "reviewer_id": reviewer_id,
+    }
+
+
+@router.post("/quality/review-tasks/{task_id}/submit")
+async def submit_review(
+    task_id: str,
+    request: ReviewSubmitRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Submit review for a task"""
+    from app.services.annotation import (
+        get_quality_control_service,
+        ReviewStatus,
+    )
+
+    qc_service = get_quality_control_service(db)
+
+    success = qc_service.submit_review(
+        task_id=task_id,
+        reviewer_id=str(current_user.id),
+        status=ReviewStatus(request.status),
+        comments=request.comments,
+        revised_annotation=request.revised_annotation,
+    )
+
+    return {
+        "success": success,
+        "task_id": task_id,
+    }
+
+
+@router.get("/quality/review-tasks/pending")
+async def get_pending_reviews(
+    project_id: str,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list:
+    """Get pending review tasks for a project"""
+    from app.services.annotation import get_quality_control_service
+
+    qc_service = get_quality_control_service(db)
+    tasks = qc_service.get_pending_reviews(
+        project_id=project_id,
+        reviewer_id=str(current_user.id),
+        limit=limit,
+    )
+
+    return [
+        {
+            "task_id": t.task_id,
+            "project_id": t.project_id,
+            "annotator_id": t.annotator_id,
+            "submitted_at": t.submitted_at.isoformat(),
+            "status": t.review_status.value,
+        }
+        for t in tasks
+    ]
+
+
+@router.post("/quality/consensus")
+async def build_consensus(
+    request: ConsensusRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Build consensus from multiple annotations"""
+    from app.services.annotation import get_quality_control_service
+
+    qc_service = get_quality_control_service(db)
+
+    result = qc_service.build_consensus(
+        task_id=request.task_id,
+        annotations=request.annotations,
+        annotator_ids=request.annotator_ids,
+        method=request.method,
+    )
+
+    return {
+        "task_id": result.task_id,
+        "consensus": result.consensus_annotation,
+        "agreement_score": result.agreement_score,
+        "annotator_count": result.annotator_count,
+    }
+
+
+@router.get("/quality/projects/{project_id}/report")
+async def get_quality_report(
+    project_id: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get quality report for a project"""
+    from app.services.annotation import get_quality_control_service
+    from datetime import datetime
+
+    qc_service = get_quality_control_service(db)
+
+    start = datetime.fromisoformat(start_date) if start_date else None
+    end = datetime.fromisoformat(end_date) if end_date else None
+
+    report = qc_service.generate_quality_report(
+        project_id=project_id,
+        start_date=start,
+        end_date=end,
+    )
+
+    return report
+
+
+@router.get("/quality/projects/{project_id}/agreement")
+async def get_agreement_metrics(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Calculate inter-annotator agreement for a project"""
+    from app.services.annotation import get_quality_control_service
+
+    qc_service = get_quality_control_service(db)
+    report = qc_service.calculate_agreement(project_id)
+
+    return {
+        "project_id": report.project_id,
+        "metric_type": report.metric_type.value,
+        "value": report.value,
+        "details": report.details,
+    }
+
+
+# ============================================================================
+# Audio Annotation Endpoints
+# ============================================================================
+
+
+class AudioAnnotationRequest(BaseModel):
+    """Request for audio annotation"""
+    audio_url: str
+    annotation_type: str  # classification, transcription, diarization, sound_event, emotion
+    labels: Optional[List[str]] = None
+    language: Optional[str] = None
+    num_speakers: Optional[int] = None
+    timestamps: bool = True
+    model: str = "whisper-1"
+
+
+@router.post("/audio/pre-annotate")
+async def pre_annotate_audio(
+    request: AudioAnnotationRequest,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Generate pre-annotation for audio"""
+    from app.services.annotation import (
+        get_multimedia_annotation_service,
+        AudioAnnotationType,
+    )
+
+    service = get_multimedia_annotation_service()
+
+    try:
+        annotation_type = AudioAnnotationType(request.annotation_type)
+        result = await service.pre_annotate_audio(
+            audio_url=request.audio_url,
+            annotation_type=annotation_type,
+            labels=request.labels,
+            language=request.language,
+            num_speakers=request.num_speakers,
+            timestamps=request.timestamps,
+            model=request.model,
+        )
+        return result
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid annotation type: {request.annotation_type}"
+        )
+
+
+# ============================================================================
+# Video Annotation Endpoints
+# ============================================================================
+
+
+class VideoAnnotationRequest(BaseModel):
+    """Request for video annotation"""
+    video_url: str
+    annotation_type: str  # classification, object_detection, action_recognition, tracking, captioning
+    labels: Optional[List[str]] = None
+    frame_sampling: int = 10
+    action_labels: Optional[List[str]] = None
+    initial_detections: Optional[List[dict]] = None
+    model: str = "gpt-4-vision-preview"
+
+
+@router.post("/video/pre-annotate")
+async def pre_annotate_video(
+    request: VideoAnnotationRequest,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Generate pre-annotation for video"""
+    from app.services.annotation import (
+        get_multimedia_annotation_service,
+        VideoAnnotationType,
+    )
+
+    service = get_multimedia_annotation_service()
+
+    try:
+        annotation_type = VideoAnnotationType(request.annotation_type)
+        result = await service.pre_annotate_video(
+            video_url=request.video_url,
+            annotation_type=annotation_type,
+            labels=request.labels,
+            frame_sampling=request.frame_sampling,
+            action_labels=request.action_labels,
+            initial_detections=request.initial_detections,
+            model=request.model,
+        )
+        return result
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid annotation type: {request.annotation_type}"
+        )

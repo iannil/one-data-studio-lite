@@ -183,9 +183,45 @@ Enhanced with hyperparameter optimization endpoints:
 ## Remaining Work
 
 ### Short Term
-1. Add model serving integration for trained models
+All Phase 3 short-term tasks completed!
 
 ### Recently Completed (2026-03-15)
+
+1. ✅ **Real-time Training Metrics Streaming (WebSocket)**
+   - Created `apps/backend/app/services/training/websocket.py`
+   - `ConnectionManager` for managing WebSocket connections
+   - `MetricsBroadcaster` for broadcasting metrics
+   - WebSocket endpoints: `/ws/jobs/{job_id}/metrics`, `/ws/jobs/{job_id}/logs`, `/ws/gpu/metrics`
+   - Event types: `METRICS_UPDATE`, `LOG_ENTRY`, `STATUS_UPDATE`, `GPU_UPDATE`, `PROGRESS_UPDATE`
+
+2. ✅ **GPU Resource Monitoring**
+   - Created `apps/backend/app/services/training/gpu_monitor.py`
+   - `GPUMonitor` class with nvidia-smi integration (mock fallback)
+   - `TrainingGPUMonitor` for job-specific monitoring
+   - `MultiJobGPUMonitor` for multi-job tracking
+   - API endpoints: `/training/gpu/metrics`, `/training/jobs/{id}/gpu/*`
+   - Frontend `GPUMonitorPanel` component with real-time visualization
+   - WebSocket support for live GPU metrics streaming
+
+3. ✅ **TensorFlow Training Runner** (`tf_runner.py`)
+   - Already implemented with all strategies (Mirrored, Multi-Worker, TPU, Parameter Server)
+   - TFJob manifest generation for Kubernetes
+
+4. ✅ **Model Serving Integration**
+   - Added `deployTrainedModel` method to `apps/frontend/src/stores/serving.ts`
+   - Training job list now has "Deploy as Service" button for completed jobs
+   - Deploy modal with service configuration (name, predictor type, device, replicas)
+   - Integration creates inference service from trained model artifacts
+   - Backend API endpoints already comprehensive:
+     - `POST /serving/services` - Create inference service
+     - `GET /serving/services` - List services
+     - `PUT /serving/services/{name}` - Update service
+     - `DELETE /serving/services/{name}` - Delete service
+     - `POST /serving/services/{name}/scale` - Scale replicas
+     - `GET /serving/services/{name}/metrics` - Get metrics
+     - `GET /serving/services/{name}/traffic` - Get/update traffic distribution
+     - A/B testing endpoints: `/serving/ab-tests/*`
+     - Canary deployment endpoints: `/serving/canaries/*`
 1. ✅ **Real-time Training Metrics Streaming (WebSocket)**
    - Created `apps/backend/app/services/training/websocket.py`
    - `ConnectionManager` for managing WebSocket connections

@@ -793,7 +793,7 @@ async def retrieve_features(
     }
 
 
-@router.get("/feature-store/health")
+@router.get("/health")
 async def feature_store_health(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -831,4 +831,368 @@ async def feature_store_health(
             "total": service_count,
             "deployed": len(service.list_feature_services(deployment_status="deployed", limit=1000)),
         },
+    }
+
+
+# ============================================================================
+# Online/Offline Computation Endpoints
+# ============================================================================
+
+
+class OnlineFeatureRequest(BaseModel):
+    """Request model for online feature retrieval"""
+    entity_keys: Dict[str, Any] = Field(..., description="Entity key-value pairs")
+    feature_names: List[str] = Field(..., description="Feature names to retrieve")
+    feature_view_name: Optional[str] = None
+    request_timestamp: Optional[str] = None
+
+
+class OnlineFeatureResponse(BaseModel):
+    """Response model for online feature retrieval"""
+    features: Dict[str, Any]
+    metadata: Dict[str, Any] = {}
+    errors: List[str] = []
+    served_from: str = "unknown"
+    response_time_ms: float = 0.0
+
+
+class BatchFeatureRequest(BaseModel):
+    """Request model for batch feature retrieval"""
+    entity_keys: List[Dict[str, Any]] = Field(..., description="Multiple entity key-value pairs")
+    feature_names: List[str] = Field(..., description="Feature names to retrieve")
+    feature_view_name: Optional[str] = None
+    request_timestamp: Optional[str] = None
+
+
+class BatchFeatureResponse(BaseModel):
+    """Response model for batch feature retrieval"""
+    rows: List[Dict[str, Any]]
+    metadata: Dict[str, Any] = {}
+    errors: List[str] = []
+    served_from: str = "unknown"
+    response_time_ms: float = 0.0
+
+
+class FeatureWriteRequest(BaseModel):
+    """Request model for writing features"""
+    entity_keys: Dict[str, Any]
+    features: Dict[str, Any]
+    feature_group_id: str
+    event_timestamp: Optional[str] = None
+    online_ttl: Optional[int] = None
+
+
+class TimeTravelRequest(BaseModel):
+    """Request model for time travel queries"""
+    entity_keys: Dict[str, Any]
+    feature_names: List[str]
+    point_in_time: str  # ISO format timestamp
+
+
+class FeatureTransformationRequest(BaseModel):
+    """Request model for feature transformation"""
+    transformation_type: str  # sql, python
+    expression: Optional[str] = None
+    column: Optional[str] = None
+    config: Dict[str, Any] = {}
+    input_features: List[str] = []
+    output_feature: Optional[str] = None
+
+
+@router.post("/features/online", response_model=OnlineFeatureResponse)
+async def get_online_features(
+    request: OnlineFeatureRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get features from online store (low-latency)"""
+    from app.services.feature_store.computation_service import (
+        get_feature_computation_service,
+        FeatureRequest,
+        TimeTravelMode,
+    )
+
+    computation_service = get_feature_computation_service(db)
+
+    feature_request = FeatureRequest(
+        entity_keys=request.entity_keys,
+        feature_names=request.feature_names,
+        feature_view_name=request.feature_view_name,
+        request_timestamp=datetime.fromisoformat(request.request_timestamp) if request.request_timestamp else datetime.utcnow(),
+        time_travel_mode=TimeTravelMode.CURRENT,
+    )
+
+    response = computation_service.get_online_features(feature_request)
+
+    return OnlineFeatureResponse(
+        features=response.features,
+        metadata=response.metadata,
+        errors=response.errors,
+        served_from=response.served_from,
+        response_time_ms=response.response_time_ms,
+    )
+
+
+@router.post("/features/batch", response_model=BatchFeatureResponse)
+async def get_batch_features(
+    request: BatchFeatureRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get features for multiple entities (batch)"""
+    from app.services.feature_store.computation_service import (
+        get_feature_computation_service,
+        BatchFeatureRequest as BatchReq,
+        TimeTravelMode,
+    )
+
+    computation_service = get_feature_computation_service(db)
+
+    batch_request = BatchReq(
+        entity_keys=request.entity_keys,
+        feature_names=request.feature_names,
+        feature_view_name=request.feature_view_name,
+        request_timestamp=datetime.fromisoformat(request.request_timestamp) if request.request_timestamp else datetime.utcnow(),
+        time_travel_mode=TimeTravelMode.CURRENT,
+    )
+
+    response = computation_service.get_batch_features(batch_request)
+
+    return BatchFeatureResponse(
+        rows=response.rows,
+        metadata=response.metadata,
+        errors=response.errors,
+        served_from=response.served_from,
+        response_time_ms=response.response_time_ms,
+    )
+
+
+@router.post("/features/write")
+async def write_features(
+    request: FeatureWriteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Write features to both online and offline stores"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    event_timestamp = None
+    if request.event_timestamp:
+        event_timestamp = datetime.fromisoformat(request.event_timestamp)
+
+    success = computation_service.write_features(
+        entity_key=request.entity_keys,
+        features=request.features,
+        feature_group_id=request.feature_group_id,
+        event_timestamp=event_timestamp,
+        online_ttl=request.online_ttl,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to write features"
+        )
+
+    return {
+        "success": True,
+        "message": f"Wrote {len(request.features)} features",
+    }
+
+
+@router.post("/features/time-travel", response_model=OnlineFeatureResponse)
+async def get_features_point_in_time(
+    request: TimeTravelRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get feature values as of a specific point in time (time travel)"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    point_in_time = datetime.fromisoformat(request.point_in_time)
+
+    features = computation_service.get_features_point_in_time(
+        entity_key=request.entity_keys,
+        feature_names=request.feature_names,
+        point_in_time=point_in_time,
+    )
+
+    return OnlineFeatureResponse(
+        features=features,
+        served_from="offline_store",
+        metadata={
+            "point_in_time": point_in_time.isoformat(),
+        },
+    )
+
+
+@router.post("/features/compute")
+async def compute_transformed_features(
+    feature_view_id: str,
+    entity_keys: List[Dict[str, Any]],
+    transformations: List[FeatureTransformationRequest],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Compute features with transformations"""
+    from app.services.feature_store.computation_service import (
+        get_feature_computation_service,
+        FeatureTransformation,
+    )
+
+    computation_service = get_feature_computation_service(db)
+
+    # Convert transformation requests
+    transform_list = []
+    for t in transformations:
+        transform_list.append(
+            FeatureTransformation(
+                name=f"{t.transformation_type}_transform",
+                transformation_type=t.transformation_type,
+                definition={
+                    "expression": t.expression,
+                    "column": t.column,
+                    **t.config,
+                },
+                input_features=t.input_features,
+                output_features=[t.output_feature] if t.output_feature else [],
+            )
+        )
+
+    df = computation_service.compute_transformed_features(
+        feature_view_id=feature_view_id,
+        entity_keys=entity_keys,
+        transformations=transform_list,
+    )
+
+    if df.empty:
+        return {
+            "rows": [],
+            "metadata": {"message": "No computed features returned"},
+        }
+
+    return {
+        "rows": df.to_dict(orient="records"),
+        "metadata": {
+            "row_count": len(df),
+            "columns": list(df.columns),
+        },
+    }
+
+
+# ============================================================================
+# Cache Management Endpoints
+# ============================================================================
+
+
+@router.post("/features/cache/invalidate")
+async def invalidate_feature_cache(
+    entity_keys: Dict[str, Any],
+    feature_names: Optional[List[str]] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Invalidate cached features for an entity"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    success = computation_service.invalidate_cache(
+        entity_key=entity_keys,
+        feature_names=feature_names,
+    )
+
+    return {
+        "success": success,
+        "message": "Cache invalidated" if success else "Failed to invalidate cache",
+    }
+
+
+@router.post("/features/cache/warm")
+async def warm_feature_cache(
+    entity_keys: List[Dict[str, Any]],
+    feature_names: List[str],
+    feature_view_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Warm the online store cache with pre-computed features"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    count = computation_service.warm_cache(
+        entity_keys=entity_keys,
+        feature_names=feature_names,
+        feature_view_id=feature_view_id,
+    )
+
+    return {
+        "success": True,
+        "cached_count": count,
+        "message": f"Warmed cache for {count} entities",
+    }
+
+
+# ============================================================================
+# Snapshot Endpoints
+# ============================================================================
+
+
+@router.post("/snapshots")
+async def create_feature_snapshot(
+    feature_view_id: str,
+    snapshot_time: str,
+    description: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a feature snapshot at a specific time"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    timestamp = datetime.fromisoformat(snapshot_time)
+    snapshot_id = computation_service.create_snapshot(
+        feature_view_id=feature_view_id,
+        snapshot_time=timestamp,
+        description=description,
+    )
+
+    return {
+        "success": True,
+        "snapshot_id": snapshot_id,
+        "message": f"Created snapshot {snapshot_id}",
+    }
+
+
+@router.get("/snapshots")
+async def list_feature_snapshots(
+    feature_view_id: str,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List available snapshots for a feature view"""
+    from app.services.feature_store.computation_service import get_feature_computation_service
+
+    computation_service = get_feature_computation_service(db)
+
+    start = datetime.fromisoformat(start_time) if start_time else None
+    end = datetime.fromisoformat(end_time) if end_time else None
+
+    snapshots = computation_service.list_snapshots(
+        feature_view_id=feature_view_id,
+        start_time=start,
+        end_time=end,
+    )
+
+    return {
+        "snapshots": snapshots,
+        "count": len(snapshots),
     }
